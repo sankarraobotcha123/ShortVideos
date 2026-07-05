@@ -23,10 +23,12 @@ import {
   generateSourceSafetyReview,
   generateThumbnailGuide,
   generateTrustReview,
+  generateLearningOutput,
   generateVideoDraft,
   thumbnailGuideDownloadUrl,
   sourceSafetyDownloadUrl,
   trustReviewDownloadUrl,
+  learningOutputDownloadUrl,
   updateBatch,
   uploadVisualAsset,
   updateCalendarEntry,
@@ -795,6 +797,7 @@ function PackageDetail({ id }) {
   const [thumbnailGenerating, setThumbnailGenerating] = useState(false)
   const [sourceSafetyGenerating, setSourceSafetyGenerating] = useState(false)
   const [trustReviewGenerating, setTrustReviewGenerating] = useState(false)
+  const [learningOutputGenerating, setLearningOutputGenerating] = useState(false)
   const [editingTrustReview, setEditingTrustReview] = useState(null)
   const [trustReviewSaving, setTrustReviewSaving] = useState(false)
   const [analytics, setAnalytics] = useState({
@@ -985,6 +988,24 @@ function PackageDetail({ id }) {
 
   function updateEditingTrustReview(name, value) {
     setEditingTrustReview((current) => ({ ...current, [name]: value }))
+  }
+
+  async function createLearningOutput() {
+    setMessage('')
+    setError('')
+    setLearningOutputGenerating(true)
+    try {
+      const result = await generateLearningOutput(id)
+      setData((current) => ({
+        ...current,
+        learning_outputs: [result.learning_output, ...(current.learning_outputs || [])]
+      }))
+      setMessage('Learning outputs generated: notes, flashcards, quiz, and worksheet.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLearningOutputGenerating(false)
+    }
   }
 
 
@@ -1184,6 +1205,43 @@ function PackageDetail({ id }) {
                 <button className="secondary" onClick={() => setEditingTrustReview(null)}>Close editor</button>
               </div>
             </div>
+          </div>
+        )}
+      </div>
+
+      <div className="card stack">
+        <div className="card-header">
+          <div>
+            <h2>Learning outputs</h2>
+            <p className="muted">Generate reusable revision notes, flashcards, quiz questions, and a worksheet from this Short package.</p>
+          </div>
+          <button onClick={createLearningOutput} disabled={learningOutputGenerating}>
+            {learningOutputGenerating ? 'Generating...' : 'Generate learning outputs'}
+          </button>
+        </div>
+        {!data.learning_outputs || data.learning_outputs.length === 0 ? (
+          <p className="muted">No learning output pack yet. Generate this after the script and trust review look good.</p>
+        ) : (
+          <div className="learning-output-list">
+            {data.learning_outputs.map((output, index) => (
+              <div className="learning-output-entry" key={output.id}>
+                <div>
+                  <strong>{output.file_name}</strong>
+                  <p>{output.status} • {output.output_mode}</p>
+                  {index === 0 && <p className="muted">Latest pack is included in the export ZIP as revision_notes.md, flashcards.json, quiz_questions.json, and worksheet.md.</p>}
+                </div>
+                <div className="row-meta">
+                  <StatusBadge status={output.status} />
+                  <a className="button-link small" href={learningOutputDownloadUrl(id, output.id)}>Download pack</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {data.learning_outputs && data.learning_outputs.length > 0 && (
+          <div className="detail-grid">
+            <TextCard title="Latest revision notes" value={data.learning_outputs[0].revision_notes_markdown} />
+            <TextCard title="Latest worksheet" value={data.learning_outputs[0].worksheet_markdown} />
           </div>
         )}
       </div>

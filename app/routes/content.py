@@ -19,6 +19,7 @@ from app.services.video_draft_service import generate_video_draft
 from app.services.thumbnail_service import generate_thumbnail_guide
 from app.services.source_safety_service import generate_source_safety_review
 from app.services.trust_score_service import build_trust_review, rebuild_trust_review_from_manual_scores
+from app.services.learning_output_service import generate_learning_output
 from app.services.asset_library_service import save_uploaded_asset, normalize_tags, rank_assets_for_scene
 
 router = APIRouter()
@@ -357,6 +358,7 @@ def export_content(package_id: int):
         thumbnail_guides = conn.execute("SELECT * FROM thumbnail_guides WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         source_safety_reviews = conn.execute("SELECT * FROM source_safety_reviews WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         trust_reviews = conn.execute("SELECT * FROM teacher_trust_reviews WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+        learning_outputs = conn.execute("SELECT * FROM learning_outputs WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
@@ -369,6 +371,7 @@ def export_content(package_id: int):
         [dict(item) for item in thumbnail_guides],
         [dict(item) for item in source_safety_reviews],
         [dict(item) for item in trust_reviews],
+        [dict(item) for item in learning_outputs],
     )
     return FileResponse(zip_path, filename=Path(zip_path).name, media_type="application/zip")
 
@@ -540,6 +543,10 @@ def api_package(package_id: int) -> dict[str, Any]:
             "SELECT * FROM teacher_trust_reviews WHERE package_id = ? ORDER BY id DESC",
             (package_id,),
         ).fetchall()
+        learning_outputs = conn.execute(
+            "SELECT * FROM learning_outputs WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
@@ -553,6 +560,7 @@ def api_package(package_id: int) -> dict[str, Any]:
         "thumbnail_guides": [dict(item) for item in thumbnail_guides],
         "source_safety_reviews": [dict(item) for item in source_safety_reviews],
         "trust_reviews": [dict(item) for item in trust_reviews],
+        "learning_outputs": [dict(item) for item in learning_outputs],
         "visual_assets": [dict(item) for item in visual_assets],
         "suggested_visual_assets": _suggest_assets_for_package(dict(row), [dict(item) for item in visual_assets]),
     }
@@ -1387,6 +1395,66 @@ def download_trust_review(package_id: int, review_id: int):
     path = Path(row["file_path"])
     if not path.exists():
         raise HTTPException(status_code=404, detail="Teacher trust review file not found on disk")
+    return FileResponse(path, filename=row["file_name"], media_type=row["mime_type"] or "text/markdown")
+
+
+@router.post("/api/content/{package_id}/learning-output", status_code=201)
+def api_generate_learning_output(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Package not found")
+        payload = generate_learning_output(dict(row))
+        cursor = conn.execute(
+            """
+            INSERT INTO learning_outputs (
+                package_id, status, output_mode, revision_notes_markdown,
+                flashcards_json, quiz_json, worksheet_markdown,
+                file_path, file_name, mime_type, provider_notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                package_id,
+                payload["status"],
+                payload["output_mode"],
+                payload["revision_notes_markdown"],
+                payload["flashcards_json"],
+                payload["quiz_json"],
+                payload["worksheet_markdown"],
+                payload["file_path"],
+                payload["file_name"],
+                payload["mime_type"],
+                payload.get("provider_notes", ""),
+            ),
+        )
+        output_id = int(cursor.lastrowid)
+        learning_output = conn.execute("SELECT * FROM learning_outputs WHERE id = ?", (output_id,)).fetchone()
+    return {"learning_output": dict(learning_output)}
+
+
+@router.get("/api/content/{package_id}/learning-outputs")
+def api_list_learning_outputs(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        _assert_package_exists(conn, package_id)
+        rows = conn.execute(
+            "SELECT * FROM learning_outputs WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
+    return {"learning_outputs": [dict(row) for row in rows]}
+
+
+@router.get("/content/{package_id}/learning-output/{output_id}/download")
+def download_learning_output(package_id: int, output_id: int):
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM learning_outputs WHERE id = ? AND package_id = ?",
+            (output_id, package_id),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Learning output not found")
+    path = Path(row["file_path"])
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Learning output file not found on disk")
     return FileResponse(path, filename=row["file_name"], media_type=row["mime_type"] or "text/markdown")
 
 

@@ -216,3 +216,13 @@ export function fetchAiSettings() {
 export function exportUrl(id) {
   return `${API_BASE_URL}/content/${id}/export`
 }
+
+export function generateLearningOutput(id) {
+  return request(`/api/content/${id}/learning-output`, {
+    method: 'POST'
+  })
+}
+
+export function learningOutputDownloadUrl(packageId, outputId) {
+  return `${API_BASE_URL}/content/${packageId}/learning-output/${outputId}/download`
+}

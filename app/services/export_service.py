@@ -24,6 +24,7 @@ def export_package(
     thumbnail_guides: Sequence[Mapping] | None = None,
     source_safety_reviews: Sequence[Mapping] | None = None,
     trust_reviews: Sequence[Mapping] | None = None,
+    learning_outputs: Sequence[Mapping] | None = None,
 ) -> Path:
     settings.export_dir.mkdir(parents=True, exist_ok=True)
     package_id = row["id"]
@@ -40,6 +41,7 @@ def export_package(
     thumbnail_guides = list(thumbnail_guides or [])
     source_safety_reviews = list(source_safety_reviews or [])
     trust_reviews = list(trust_reviews or [])
+    learning_outputs = list(learning_outputs or [])
 
     asset_summary = "No reusable visual assets saved yet. Upload assets in the Visual Assets page to reuse icons/diagrams in MP4 drafts."
     if visual_assets:
@@ -101,6 +103,14 @@ def export_package(
             f"approval_required={'Yes' if latest_trust_review.get('approval_required') else 'No'}"
         )
 
+    learning_output_summary = "No notes/quiz/flashcards/worksheet pack generated yet. Use Generate learning outputs after review."
+    latest_learning_output = learning_outputs[0] if learning_outputs else None
+    if latest_learning_output:
+        learning_output_summary = (
+            f"Latest learning output: {latest_learning_output.get('file_name')} | "
+            f"{latest_learning_output.get('output_mode', 'notes_quiz_flashcards_worksheet')}"
+        )
+
     markdown = f"""# Content Package: {row['topic']}
 
 ## Input
@@ -157,6 +167,10 @@ def export_package(
 ## Teacher Trust Score Review
 
 {trust_review_summary}
+
+## Learning Outputs
+
+{learning_output_summary}
 
 ## Title Options
 
@@ -275,6 +289,21 @@ def export_package(
         (package_dir / "teacher_trust_checklist.json").write_text(str(latest_trust_review.get("checklist_json") or "[]"), encoding="utf-8")
     (package_dir / "teacher_trust_reviews.json").write_text(json.dumps(trust_review_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    learning_output_manifest = []
+    for output in learning_outputs:
+        source = Path(output.get("file_path") or "")
+        learning_output_manifest.append(dict(output))
+        if source.exists() and source.is_file():
+            target_name = f"learning_output_{output.get('id', 'output')}_{source.name}"
+            target = package_dir / target_name
+            target.write_bytes(source.read_bytes())
+    if latest_learning_output:
+        (package_dir / "revision_notes.md").write_text(str(latest_learning_output.get("revision_notes_markdown") or ""), encoding="utf-8")
+        (package_dir / "flashcards.json").write_text(str(latest_learning_output.get("flashcards_json") or "[]"), encoding="utf-8")
+        (package_dir / "quiz_questions.json").write_text(str(latest_learning_output.get("quiz_json") or "[]"), encoding="utf-8")
+        (package_dir / "worksheet.md").write_text(str(latest_learning_output.get("worksheet_markdown") or ""), encoding="utf-8")
+    (package_dir / "learning_outputs.json").write_text(json.dumps(learning_output_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
     payload = dict(row)
     payload["audio_assets"] = audio_manifest
     payload["assembly_plans"] = assembly_manifest
@@ -283,6 +312,7 @@ def export_package(
     payload["thumbnail_guides"] = thumbnail_manifest
     payload["source_safety_reviews"] = source_safety_manifest
     payload["teacher_trust_reviews"] = trust_review_manifest
+    payload["learning_outputs"] = learning_output_manifest
     (package_dir / "package.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
     zip_path = settings.export_dir / f"package-{package_id}-{slug}.zip"

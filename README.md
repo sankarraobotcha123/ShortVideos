@@ -1,11 +1,11 @@
-# Edu Content Platform MVP v11
+# Edu Content Platform MVP v12
 
 Shorts-first educational content creator assistant.
 
-This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds an editable **Teacher Trust Score review workflow** on top of source safety, thumbnail helper, reusable visual assets, audio fallback, assembly planning, and MP4 draft generation. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, stronger TTS providers, or advanced video generation without changing the business workflow.
+This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds **notes, quiz, flashcards, and worksheet outputs** on top of the Teacher Trust Score review, source safety, thumbnail helper, reusable visual assets, audio fallback, assembly planning, and MP4 draft generation. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, stronger TTS providers, or advanced video generation without changing the business workflow.
 
 ```text
-Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Reusable Visual Assets → Thumbnail Helper → Source Safety Review → Teacher Trust Review → Vertical MP4 Draft → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics
+Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Reusable Visual Assets → Thumbnail Helper → Source Safety Review → Teacher Trust Review → Learning Outputs → Vertical MP4 Draft → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics
 ```
 
 ---
@@ -36,6 +36,7 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
   - Recalculates final trust score and recommendation
   - Updates the package trust score after review
   - Downloads/exports `teacher_trust_review.md`
+- Notes, quiz, flashcards, and worksheet output generator
 - Simple vertical MP4 draft generator
 - Human review/edit API
 - Manual analytics API
@@ -57,6 +58,7 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 - Thumbnail helper section on package detail
 - Source safety/originality review section on package detail
 - Teacher Trust Score review section on package detail
+- Learning outputs section on package detail
 - Narration audio generation section
 - CapCut/manual assembly plan section
 - Vertical MP4 draft generation section
@@ -77,7 +79,7 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 ## Folder structure
 
 ```text
-edu-content-platform-mvp-v11/
+edu-content-platform-mvp-v12/
 ├── app/                    # FastAPI backend
 │   ├── core/
 │   ├── db/
@@ -92,6 +94,7 @@ edu-content-platform-mvp-v11/
 │   │   ├── source_safety_service.py
 │   │   ├── thumbnail_service.py
 │   │   ├── trust_score_service.py
+│   │   ├── learning_output_service.py
 │   │   └── video_draft_service.py
 │   ├── static/             # Legacy Jinja static files
 │   └── templates/          # Legacy Jinja pages
@@ -106,6 +109,7 @@ edu-content-platform-mvp-v11/
 │   ├── source_safety/
 │   ├── thumbnails/
 │   ├── trust_reviews/
+│   ├── learning_outputs/
 │   └── video_drafts/
 ├── tests/
 ├── scripts/
@@ -114,6 +118,28 @@ edu-content-platform-mvp-v11/
 ├── .env.example
 └── .gitignore
 ```
+
+
+---
+
+## Learning outputs workflow
+
+After creating and reviewing a Short package:
+
+1. Open the package detail page.
+2. Generate source safety and teacher trust review.
+3. Click **Generate learning outputs**.
+4. The system creates reusable learning materials:
+
+```text
+revision_notes.md
+flashcards.json
+quiz_questions.json
+worksheet.md
+learning_outputs.json
+```
+
+Use these outputs later for downloadable notes, paid practice packs, worksheets, mini-courses, or long-form lessons.
 
 ---
 
@@ -212,12 +238,17 @@ USE_PYTTSX3_TTS=false
 
 ---
 
-## How to test the full v11 workflow
+## How to test the full v12 workflow
 
 1. Start backend.
 2. Start frontend.
 3. Open `http://127.0.0.1:5173`.
 4. Open **Visual assets** and upload a reusable diagram/icon.
+5. Create/open a package.
+6. Generate source safety review.
+7. Generate teacher trust review.
+8. Generate learning outputs.
+9. Export ZIP and check revision notes, flashcards, quiz questions, and worksheet files.
 5. Create a package for `Why are leaves green?`.
 6. Open the package detail page.
 7. Review/edit the script.
@@ -279,4 +310,37 @@ Frontend production build:
 
 ```text
 passed
+```
+
+
+---
+
+## Git commit for v12
+
+```bash
+git status
+git add .
+git status
+git commit -m "Add notes quiz flashcard and worksheet outputs"
+git push
+```
+
+Before committing, make sure generated files are not staged:
+
+```text
+.env
+.venv/
+frontend/node_modules/
+frontend/dist/
+storage/app.db
+storage/exports/
+storage/audio/
+storage/video_drafts/
+storage/asset_library/
+storage/thumbnails/
+storage/source_safety/
+storage/trust_reviews/
+storage/learning_outputs/
+__pycache__/
+.pytest_cache/
 ```

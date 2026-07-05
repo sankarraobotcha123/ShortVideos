@@ -209,6 +209,24 @@ CREATE TABLE IF NOT EXISTS teacher_trust_reviews (
     FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
 );
 
+
+CREATE TABLE IF NOT EXISTS learning_outputs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'generated',
+    output_mode TEXT NOT NULL DEFAULT 'notes_quiz_flashcards_worksheet',
+    revision_notes_markdown TEXT NOT NULL DEFAULT '',
+    flashcards_json TEXT NOT NULL DEFAULT '[]',
+    quiz_json TEXT NOT NULL DEFAULT '[]',
+    worksheet_markdown TEXT NOT NULL DEFAULT '',
+    file_path TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL DEFAULT 'text/markdown',
+    provider_notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -465,6 +483,28 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
             mime_type TEXT NOT NULL DEFAULT 'text/markdown',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS learning_outputs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'generated',
+            output_mode TEXT NOT NULL DEFAULT 'notes_quiz_flashcards_worksheet',
+            revision_notes_markdown TEXT NOT NULL DEFAULT '',
+            flashcards_json TEXT NOT NULL DEFAULT '[]',
+            quiz_json TEXT NOT NULL DEFAULT '[]',
+            worksheet_markdown TEXT NOT NULL DEFAULT '',
+            file_path TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            mime_type TEXT NOT NULL DEFAULT 'text/markdown',
+            provider_notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
         )
         """

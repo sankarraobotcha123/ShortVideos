@@ -482,3 +482,52 @@ def test_teacher_trust_review_workflow_and_export(tmp_path):
     exported = client.get(f"/content/{package_id}/export")
     assert exported.status_code == 200
     assert exported.headers["content-type"] == "application/zip"
+
+
+def test_learning_output_workflow_and_export(tmp_path):
+    settings.database_path = tmp_path / "learning-output-test.db"
+    settings.export_dir = tmp_path / "exports"
+    settings.learning_output_dir = tmp_path / "learning_outputs"
+    init_db()
+
+    client = TestClient(app)
+    payload = {
+        "board_source": "Self-written",
+        "class_level": "Class 7",
+        "subject": "Science",
+        "topic": "Why are leaves green?",
+        "audience": "School students",
+        "language": "English",
+        "duration_seconds": 60,
+        "output_type": "Short",
+        "tone": "Curious",
+        "source_notes": "Leaves contain chlorophyll. Chlorophyll absorbs sunlight. Chlorophyll reflects green light.",
+        "source_name": "Self notes",
+        "source_license_type": "Original",
+        "page_or_section_reference": "Self-written concept note",
+        "transformation_notes": "Original analogy, example, and visual flow added.",
+    }
+    created = client.post("/api/content/generate", json=payload)
+    assert created.status_code == 201
+    package_id = created.json()["package"]["id"]
+
+    output = client.post(f"/api/content/{package_id}/learning-output")
+    assert output.status_code == 201
+    item = output.json()["learning_output"]
+    assert item["status"] == "generated"
+    assert item["file_name"].endswith(".md")
+    assert "Revision Notes" in item["revision_notes_markdown"]
+    assert "Worksheet" in item["worksheet_markdown"]
+    assert "flashcards" not in item  # API stores flashcards_json, not nested object
+
+    detail = client.get(f"/api/content/{package_id}")
+    assert detail.status_code == 200
+    assert len(detail.json()["learning_outputs"]) == 1
+
+    download = client.get(f"/content/{package_id}/learning-output/{item['id']}/download")
+    assert download.status_code == 200
+    assert b"Learning Output Pack" in download.content
+
+    exported = client.get(f"/content/{package_id}/export")
+    assert exported.status_code == 200
+    assert exported.headers["content-type"] == "application/zip"

@@ -42,6 +42,7 @@ class Settings:
     thumbnail_dir: Path = Path(os.getenv("THUMBNAIL_DIR", "storage/thumbnails"))
     source_safety_dir: Path = Path(os.getenv("SOURCE_SAFETY_DIR", "storage/source_safety"))
     trust_review_dir: Path = Path(os.getenv("TRUST_REVIEW_DIR", "storage/trust_reviews"))
+    learning_output_dir: Path = Path(os.getenv("LEARNING_OUTPUT_DIR", "storage/learning_outputs"))
 
     # AI provider chain. The system tries each provider in order and falls back
     # safely to the built-in template provider.
@@ -73,7 +74,7 @@ class Settings:
     tts_voice_id: str = os.getenv("TTS_VOICE_ID", "default")
     tts_rate: int = int(os.getenv("TTS_RATE", "165"))
 
-    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "11")
+    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "12")
 
     cors_origins: list[str] = [
         item.strip()
