@@ -348,6 +348,43 @@ CREATE TABLE IF NOT EXISTS content_ideas (
     FOREIGN KEY(converted_package_id) REFERENCES content_packages(id) ON DELETE SET NULL
 );
 
+
+
+CREATE TABLE IF NOT EXISTS content_series (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    niche TEXT NOT NULL DEFAULT 'Class 6-8 Science curiosity Shorts',
+    target_audience TEXT NOT NULL DEFAULT 'School students and curious learners',
+    subject TEXT NOT NULL DEFAULT 'Science',
+    class_level TEXT NOT NULL DEFAULT 'Class 7',
+    language TEXT NOT NULL DEFAULT 'English',
+    series_goal TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'planning',
+    planned_count INTEGER NOT NULL DEFAULT 10,
+    episode_style TEXT DEFAULT '',
+    cta_strategy TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS content_series_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    series_id INTEGER NOT NULL,
+    idea_id INTEGER,
+    package_id INTEGER,
+    order_index INTEGER NOT NULL DEFAULT 1,
+    episode_title TEXT NOT NULL DEFAULT '',
+    hook_angle TEXT DEFAULT '',
+    target_status TEXT NOT NULL DEFAULT 'planned',
+    notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(series_id) REFERENCES content_series(id) ON DELETE CASCADE,
+    FOREIGN KEY(idea_id) REFERENCES content_ideas(id) ON DELETE SET NULL,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -759,6 +796,51 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(batch_id) REFERENCES content_batches(id) ON DELETE SET NULL,
             FOREIGN KEY(converted_package_id) REFERENCES content_packages(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS content_series (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            niche TEXT NOT NULL DEFAULT 'Class 6-8 Science curiosity Shorts',
+            target_audience TEXT NOT NULL DEFAULT 'School students and curious learners',
+            subject TEXT NOT NULL DEFAULT 'Science',
+            class_level TEXT NOT NULL DEFAULT 'Class 7',
+            language TEXT NOT NULL DEFAULT 'English',
+            series_goal TEXT DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'planning',
+            planned_count INTEGER NOT NULL DEFAULT 10,
+            episode_style TEXT DEFAULT '',
+            cta_strategy TEXT DEFAULT '',
+            notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS content_series_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            series_id INTEGER NOT NULL,
+            idea_id INTEGER,
+            package_id INTEGER,
+            order_index INTEGER NOT NULL DEFAULT 1,
+            episode_title TEXT NOT NULL DEFAULT '',
+            hook_angle TEXT DEFAULT '',
+            target_status TEXT NOT NULL DEFAULT 'planned',
+            notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(series_id) REFERENCES content_series(id) ON DELETE CASCADE,
+            FOREIGN KEY(idea_id) REFERENCES content_ideas(id) ON DELETE SET NULL,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE SET NULL
         )
         """
     )

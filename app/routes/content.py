@@ -50,6 +50,19 @@ from app.services.idea_backlog_service import (
     mark_idea_converted,
     update_content_idea,
 )
+from app.services.series_planner_service import (
+    EPISODE_STATUSES,
+    SERIES_STATUSES,
+    build_content_series_markdown,
+    build_single_series_markdown,
+    create_content_series,
+    create_series_item,
+    get_content_series,
+    list_content_series,
+    list_series_items,
+    update_content_series,
+    update_series_item,
+)
 from app.services.publishing_approval_service import (
     create_publishing_approval,
     get_publishing_approval,
@@ -605,6 +618,39 @@ class ContentIdeaConvertRequest(BaseModel):
     prompt_template_id: int | None = None
 
 
+class ContentSeriesCreateRequest(BaseModel):
+    title: str = Field(..., min_length=1)
+    niche: str = "Class 6-8 Science curiosity Shorts"
+    target_audience: str = "School students and curious learners"
+    subject: str = "Science"
+    class_level: str = "Class 7"
+    language: str = "English"
+    series_goal: str = "Build a linked series that makes viewers want the next Short."
+    status: str = "planning"
+    planned_count: int = Field(10, ge=1, le=100)
+    episode_style: str = "Curiosity → explanation → challenge"
+    cta_strategy: str = "End every Short with a reason to watch the next episode."
+    notes: str = ""
+
+
+class ContentSeriesUpdateRequest(ContentSeriesCreateRequest):
+    pass
+
+
+class SeriesItemCreateRequest(BaseModel):
+    idea_id: int | None = None
+    package_id: int | None = None
+    order_index: int = Field(1, ge=1, le=500)
+    episode_title: str = ""
+    hook_angle: str = ""
+    target_status: str = "planned"
+    notes: str = ""
+
+
+class SeriesItemUpdateRequest(SeriesItemCreateRequest):
+    pass
+
+
 class PromptPreviewRequest(BaseModel):
     board_source: str = "NCERT / Self-written"
     class_level: str = "Class 7"
@@ -892,6 +938,132 @@ def download_content_ideas(_: dict[str, Any] = Depends(require_permission("conte
         markdown,
         media_type="text/markdown",
         headers={"Content-Disposition": "attachment; filename=content_idea_backlog.md"},
+    )
+
+
+@router.get("/api/content-series")
+def api_content_series(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
+    with db_session() as conn:
+        payload = list_content_series(conn)
+    return {"content_series": payload, "series_statuses": SERIES_STATUSES, "episode_statuses": EPISODE_STATUSES}
+
+
+@router.post("/api/content-series", status_code=201)
+def api_create_content_series(payload: ContentSeriesCreateRequest, _: dict[str, Any] = Depends(require_permission("content:create"))) -> dict[str, Any]:
+    with db_session() as conn:
+        try:
+            series = create_content_series(conn, payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        series_payload = list_content_series(conn)
+    return {"series": series, "content_series": series_payload}
+
+
+@router.get("/api/content-series/{series_id}")
+def api_content_series_detail(series_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
+    with db_session() as conn:
+        series = get_content_series(conn, series_id)
+        if series is None:
+            raise HTTPException(status_code=404, detail="Content series not found")
+        items = list_series_items(conn, series_id)
+        ideas = list_content_ideas(conn)
+        packages = conn.execute(
+            """
+            SELECT id, topic, subject, class_level, review_status, trust_score, created_at
+            FROM content_packages
+            ORDER BY id DESC
+            """
+        ).fetchall()
+    return {
+        "series": series,
+        "items": items,
+        "idea_options": ideas.get("ideas", []),
+        "package_options": [dict(row) for row in packages],
+        "series_statuses": SERIES_STATUSES,
+        "episode_statuses": EPISODE_STATUSES,
+    }
+
+
+@router.patch("/api/content-series/{series_id}")
+def api_update_content_series(series_id: int, payload: ContentSeriesUpdateRequest, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
+    with db_session() as conn:
+        try:
+            series = update_content_series(conn, series_id, payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=404 if "not found" in str(exc).lower() else 400, detail=str(exc)) from exc
+        items = list_series_items(conn, series_id)
+    return {"series": series, "items": items}
+
+
+@router.delete("/api/content-series/{series_id}")
+def api_delete_content_series(series_id: int, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
+    with db_session() as conn:
+        series = get_content_series(conn, series_id)
+        if series is None:
+            raise HTTPException(status_code=404, detail="Content series not found")
+        conn.execute("DELETE FROM content_series WHERE id = ?", (series_id,))
+    return {"deleted": True, "series_id": series_id}
+
+
+@router.post("/api/content-series/{series_id}/items", status_code=201)
+def api_create_series_item(series_id: int, payload: SeriesItemCreateRequest, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
+    with db_session() as conn:
+        try:
+            item = create_series_item(conn, series_id, payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        series = get_content_series(conn, series_id)
+        items = list_series_items(conn, series_id)
+    return {"series_item": item, "series": series, "items": items}
+
+
+@router.patch("/api/content-series/{series_id}/items/{item_id}")
+def api_update_series_item(series_id: int, item_id: int, payload: SeriesItemUpdateRequest, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
+    with db_session() as conn:
+        try:
+            item = update_series_item(conn, series_id, item_id, payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=404 if "not found" in str(exc).lower() else 400, detail=str(exc)) from exc
+        series = get_content_series(conn, series_id)
+        items = list_series_items(conn, series_id)
+    return {"series_item": item, "series": series, "items": items}
+
+
+@router.delete("/api/content-series/{series_id}/items/{item_id}")
+def api_delete_series_item(series_id: int, item_id: int, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
+    with db_session() as conn:
+        item = conn.execute("SELECT id FROM content_series_items WHERE id = ? AND series_id = ?", (item_id, series_id)).fetchone()
+        if item is None:
+            raise HTTPException(status_code=404, detail="Series item not found")
+        conn.execute("DELETE FROM content_series_items WHERE id = ? AND series_id = ?", (item_id, series_id))
+        items = list_series_items(conn, series_id)
+    return {"deleted": True, "item_id": item_id, "items": items}
+
+
+@router.get("/content-series/download")
+def download_content_series(_: dict[str, Any] = Depends(require_permission("content:view"))):
+    with db_session() as conn:
+        payload = list_content_series(conn)
+    markdown = build_content_series_markdown(payload)
+    return PlainTextResponse(
+        markdown,
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=content_series_planner.md"},
+    )
+
+
+@router.get("/content-series/{series_id}/download")
+def download_single_content_series(series_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))):
+    with db_session() as conn:
+        series = get_content_series(conn, series_id)
+        if series is None:
+            raise HTTPException(status_code=404, detail="Content series not found")
+        items = list_series_items(conn, series_id)
+    markdown = build_single_series_markdown(series, items)
+    return PlainTextResponse(
+        markdown,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f"attachment; filename=content_series_{series_id}.md"},
     )
 
 

@@ -475,3 +475,55 @@ export function convertContentIdea(id, payload) {
 export function contentIdeasDownloadUrl() {
   return `${API_BASE_URL}/content-ideas/download`
 }
+
+export function fetchContentSeries() {
+  return request('/api/content-series')
+}
+
+export function createContentSeries(payload) {
+  return request('/api/content-series', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function fetchContentSeriesDetail(id) {
+  return request(`/api/content-series/${id}`)
+}
+
+export function updateContentSeries(id, payload) {
+  return request(`/api/content-series/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function deleteContentSeries(id) {
+  return request(`/api/content-series/${id}`, {
+    method: 'DELETE'
+  })
+}
+
+export function createSeriesItem(seriesId, payload) {
+  return request(`/api/content-series/${seriesId}/items`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateSeriesItem(seriesId, itemId, payload) {
+  return request(`/api/content-series/${seriesId}/items/${itemId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function deleteSeriesItem(seriesId, itemId) {
+  return request(`/api/content-series/${seriesId}/items/${itemId}`, {
+    method: 'DELETE'
+  })
+}
+
+export function contentSeriesDownloadUrl(id = '') {
+  return id ? `${API_BASE_URL}/content-series/${id}/download` : `${API_BASE_URL}/content-series/download`
+}

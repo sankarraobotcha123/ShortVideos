@@ -5,6 +5,8 @@ import {
   contentIdeasDownloadUrl,
   convertContentIdea,
   createContentIdea,
+  createContentSeries,
+  createSeriesItem,
   cleanupAuthSessions,
   clearAuthToken,
   createAuthUser,
@@ -29,6 +31,8 @@ import {
   fetchPackage,
   fetchPackages,
   fetchContentIdeas,
+  fetchContentSeries,
+  fetchContentSeriesDetail,
   fetchCurrentUser,
   fetchProviderLogs,
   fetchProductionBoard,
@@ -55,18 +59,23 @@ import {
   learningOutputDownloadUrl,
   createPromptTemplate,
   deleteContentIdea,
+  deleteContentSeries,
   deletePromptTemplate,
+  deleteSeriesItem,
   fetchPromptTemplates,
   previewPromptTemplate,
   publishingApprovalDownloadUrl,
   releaseChecklistDownloadUrl,
   setupGuideDownloadUrl,
   productionBoardDownloadUrl,
+  contentSeriesDownloadUrl,
   seedDemoData,
   seedPromptTemplates,
   updatePromptTemplate,
   updateAuthUser,
   updateContentIdea,
+  updateContentSeries,
+  updateSeriesItem,
   updateBatch,
   uploadVisualAsset,
   updateCalendarEntry,
@@ -167,6 +176,31 @@ const initialContentIdea = {
   monetization_potential_score: 6
 }
 
+const initialContentSeries = {
+  title: 'Why does nature work like this?',
+  niche: 'Class 6-8 Science curiosity Shorts',
+  target_audience: 'School students and curious learners',
+  subject: 'Science',
+  class_level: 'Class 7',
+  language: 'English',
+  series_goal: 'Create a connected set of curiosity Shorts that makes students watch the next episode.',
+  status: 'planning',
+  planned_count: 10,
+  episode_style: 'Curiosity hook → simple explanation → next-video question',
+  cta_strategy: 'End each Short with a question that naturally leads to the next episode.',
+  notes: 'Use this to group related Shorts instead of posting random one-off videos.'
+}
+
+const initialSeriesItem = {
+  idea_id: '',
+  package_id: '',
+  order_index: 1,
+  episode_title: 'Why are leaves green?',
+  hook_angle: 'Start with a simple thing students see every day and reveal the hidden science behind it.',
+  target_status: 'planned',
+  notes: 'Keep episode connected to the series goal.'
+}
+
 const initialPublishingApprovalDecision = {
   reviewer_decision: 'pending',
   reviewer_name: '',
@@ -191,6 +225,7 @@ const ACTION_LABELS = {
   'audio:generate': 'generate narration audio',
   'learning_outputs:generate': 'generate notes, quizzes, and worksheets',
   'ideas:manage': 'manage content ideas and topic scoring',
+  'series:manage': 'manage content series plans',
   'publish:approve': 'approve publishing gates'
 }
 
@@ -203,6 +238,8 @@ const ROUTE_ACCESS = {
   calendar: { permission: 'content:view' },
   productionBoard: { permission: 'content:view' },
   ideas: { permission: 'content:view' },
+  series: { permission: 'content:view' },
+  seriesDetail: { permission: 'content:view' },
   assets: { permission: 'content:view' },
   templates: { permission: 'templates:manage' },
   analytics: { permission: 'analytics:view' },
@@ -338,6 +375,7 @@ function App() {
           {navCan('content:view') && <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>}
           {navCan('content:view') && <a className={route.name === 'productionBoard' ? 'active' : ''} href="#/production-board">Production board</a>}
           {navCan('content:view') && <a className={route.name === 'ideas' ? 'active' : ''} href="#/ideas">Idea backlog</a>}
+          {navCan('content:view') && <a className={route.name === 'series' || route.name === 'seriesDetail' ? 'active' : ''} href="#/series">Series planner</a>}
           {navCan('content:view') && <a className={route.name === 'assets' ? 'active' : ''} href="#/assets">Visual assets</a>}
           {navCan('templates:manage') && <a className={route.name === 'templates' ? 'active' : ''} href="#/templates">Prompt templates</a>}
 
@@ -376,6 +414,8 @@ function App() {
           {route.name === 'calendar' && <CalendarPage />}
           {route.name === 'productionBoard' && <ProductionBoardPage />}
           {route.name === 'ideas' && <ContentIdeaBacklogPage />}
+          {route.name === 'series' && <ContentSeriesPlannerPage />}
+          {route.name === 'seriesDetail' && <ContentSeriesDetailPage id={route.id} />}
           {route.name === 'assets' && <VisualAssetsPage />}
           {route.name === 'templates' && <PromptTemplatesPage />}
           {route.name === 'analytics' && <AnalyticsInsightsPage />}
@@ -407,6 +447,8 @@ function parseRoute(hash) {
   if (parts[0] === 'calendar') return { name: 'calendar' }
   if (parts[0] === 'production-board') return { name: 'productionBoard' }
   if (parts[0] === 'ideas') return { name: 'ideas' }
+  if (parts[0] === 'series' && parts[1]) return { name: 'seriesDetail', id: parts[1] }
+  if (parts[0] === 'series') return { name: 'series' }
   if (parts[0] === 'assets') return { name: 'assets' }
   if (parts[0] === 'templates') return { name: 'templates' }
   if (parts[0] === 'analytics') return { name: 'analytics' }
@@ -2741,6 +2783,311 @@ function ContentIdeaBacklogPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+
+function ContentSeriesPlannerPage() {
+  const canCreate = useCan('content:create')
+  const canEdit = useCan('content:edit')
+  const [data, setData] = useState(null)
+  const [form, setForm] = useState(initialContentSeries)
+  const [editingId, setEditingId] = useState(null)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  function load() {
+    setError('')
+    fetchContentSeries().then(setData).catch((err) => setError(err.message))
+  }
+
+  useEffect(load, [])
+
+  function update(name, value) {
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    setMessage('')
+    try {
+      const payload = { ...form, planned_count: Number(form.planned_count || 10) }
+      if (editingId) {
+        await updateContentSeries(editingId, payload)
+        setMessage('Series updated.')
+      } else {
+        await createContentSeries(payload)
+        setMessage('Series plan created.')
+      }
+      setEditingId(null)
+      setForm(initialContentSeries)
+      load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function editSeries(series) {
+    setEditingId(series.id)
+    setForm({
+      title: series.title || '',
+      niche: series.niche || '',
+      target_audience: series.target_audience || '',
+      subject: series.subject || 'Science',
+      class_level: series.class_level || 'Class 7',
+      language: series.language || 'English',
+      series_goal: series.series_goal || '',
+      status: series.status || 'planning',
+      planned_count: series.planned_count || 10,
+      episode_style: series.episode_style || '',
+      cta_strategy: series.cta_strategy || '',
+      notes: series.notes || ''
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function removeSeries(id) {
+    if (!window.confirm('Delete this series plan and its episode rows?')) return
+    setError('')
+    setMessage('')
+    try {
+      await deleteContentSeries(id)
+      setMessage('Series deleted.')
+      load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (error && !data) return <ErrorCard title="Could not load content series" message={error} />
+  if (!data) return <Loading />
+
+  const payload = data.content_series || { series: [], summary: {} }
+  const series = payload.series || []
+  const summary = payload.summary || {}
+  const statuses = data.series_statuses || ['planning', 'active', 'completed', 'paused', 'archived']
+
+  return (
+    <section>
+      <Header
+        title="Content series planner"
+        subtitle="Plan connected Shorts as episodes, not random one-off videos. Use series to improve returning viewers and playlist flow."
+        action={<a className="button-link secondary" href={contentSeriesDownloadUrl()} target="_blank" rel="noreferrer">Download series report</a>}
+      />
+
+      <div className="stats-grid">
+        <StatCard label="Total series" value={summary.total_series || 0} />
+        <StatCard label="Active/planning" value={summary.active_or_planning || 0} />
+        <StatCard label="Total episodes" value={summary.total_episodes || 0} />
+        <StatCard label="Published episodes" value={summary.total_published || 0} />
+      </div>
+
+      {message && <div className="success-banner">{message}</div>}
+      {error && <div className="form-error">{error}</div>}
+
+      <form className="card form-grid" onSubmit={submit}>
+        <PermissionNotice permission={editingId ? 'content:edit' : 'content:create'} />
+        <Input label="Series title" value={form.title} onChange={(v) => update('title', v)} />
+        <Input label="Niche" value={form.niche} onChange={(v) => update('niche', v)} />
+        <Input label="Target audience" value={form.target_audience} onChange={(v) => update('target_audience', v)} />
+        <Input label="Subject" value={form.subject} onChange={(v) => update('subject', v)} />
+        <Input label="Class / Level" value={form.class_level} onChange={(v) => update('class_level', v)} />
+        <Input label="Language" value={form.language} onChange={(v) => update('language', v)} />
+        <Select label="Status" value={form.status} options={statuses} onChange={(v) => update('status', v)} />
+        <Input type="number" label="Planned episodes" value={form.planned_count} onChange={(v) => update('planned_count', v)} />
+        <TextArea label="Series goal" value={form.series_goal} onChange={(v) => update('series_goal', v)} rows={3} wide />
+        <TextArea label="Episode style" value={form.episode_style} onChange={(v) => update('episode_style', v)} rows={3} wide />
+        <TextArea label="CTA strategy" value={form.cta_strategy} onChange={(v) => update('cta_strategy', v)} rows={3} wide />
+        <TextArea label="Notes" value={form.notes} onChange={(v) => update('notes', v)} rows={3} wide />
+        <div className="form-actions wide">
+          <button type="button" className="secondary" onClick={() => { setEditingId(null); setForm(initialContentSeries) }}>Reset</button>
+          <GuardedButton permission={editingId ? 'content:edit' : 'content:create'} type="submit" disabled={busy}>{busy ? 'Saving...' : editingId ? 'Update series' : 'Create series'}</GuardedButton>
+        </div>
+      </form>
+
+      <div className="card">
+        <div className="card-header"><h2>Series plans</h2><span>{series.length} series</span></div>
+        {series.length === 0 ? <p className="muted">No series yet. Create one above.</p> : (
+          <div className="package-list">
+            {series.map((item) => (
+              <div className="package-row" key={item.id}>
+                <div>
+                  <h3>{item.title}</h3>
+                  <p>{item.subject} • {item.class_level} • {item.status}</p>
+                  <p>{item.series_goal || 'No series goal yet.'}</p>
+                  <p>{item.episode_count || 0}/{item.planned_count || 0} episodes planned • {item.published_count || 0} published</p>
+                </div>
+                <div className="row-meta wide-actions">
+                  <StatusBadge status={item.status || 'planning'} />
+                  <a className="button-link small" href={`#/series/${item.id}`}>Open</a>
+                  <GuardedButton permission="content:edit" className="secondary small" onClick={() => editSeries(item)}>Edit</GuardedButton>
+                  <GuardedButton permission="content:edit" className="secondary small" onClick={() => removeSeries(item.id)}>Delete</GuardedButton>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function ContentSeriesDetailPage({ id }) {
+  const [data, setData] = useState(null)
+  const [itemForm, setItemForm] = useState(initialSeriesItem)
+  const [editingItemId, setEditingItemId] = useState(null)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  function load() {
+    setError('')
+    fetchContentSeriesDetail(id).then(setData).catch((err) => setError(err.message))
+  }
+
+  useEffect(load, [id])
+
+  function updateItem(name, value) {
+    setItemForm((current) => ({ ...current, [name]: value }))
+  }
+
+  async function submitItem(event) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    setMessage('')
+    try {
+      const payload = {
+        ...itemForm,
+        idea_id: itemForm.idea_id ? Number(itemForm.idea_id) : null,
+        package_id: itemForm.package_id ? Number(itemForm.package_id) : null,
+        order_index: Number(itemForm.order_index || 1)
+      }
+      if (editingItemId) {
+        await updateSeriesItem(id, editingItemId, payload)
+        setMessage('Episode updated.')
+      } else {
+        await createSeriesItem(id, payload)
+        setMessage('Episode added to series.')
+      }
+      setEditingItemId(null)
+      setItemForm(initialSeriesItem)
+      load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function editItem(item) {
+    setEditingItemId(item.id)
+    setItemForm({
+      idea_id: item.idea_id ? String(item.idea_id) : '',
+      package_id: item.package_id ? String(item.package_id) : '',
+      order_index: item.order_index || 1,
+      episode_title: item.episode_title || '',
+      hook_angle: item.hook_angle || '',
+      target_status: item.target_status || 'planned',
+      notes: item.notes || ''
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function removeItem(itemId) {
+    if (!window.confirm('Remove this episode from the series?')) return
+    setError('')
+    setMessage('')
+    try {
+      await deleteSeriesItem(id, itemId)
+      setMessage('Episode removed.')
+      load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (error && !data) return <ErrorCard title="Could not load series" message={error} />
+  if (!data) return <Loading />
+
+  const series = data.series
+  const items = data.items || []
+  const ideaOptions = [{ value: '', label: 'No idea link' }, ...(data.idea_options || []).map((idea) => ({ value: String(idea.id), label: `#${idea.id} ${idea.title}` }))]
+  const packageOptions = [{ value: '', label: 'No package link' }, ...(data.package_options || []).map((pkg) => ({ value: String(pkg.id), label: `#${pkg.id} ${pkg.topic}` }))]
+  const episodeStatuses = data.episode_statuses || ['planned', 'idea_ready', 'package_created', 'scheduled', 'published', 'skipped']
+
+  return (
+    <section>
+      <Header
+        title={series.title}
+        subtitle={`${series.subject} • ${series.class_level} • ${series.status}. Plan episode order, linked ideas, and linked packages.`}
+        action={<a className="button-link secondary" href={contentSeriesDownloadUrl(series.id)} target="_blank" rel="noreferrer">Download this series</a>}
+      />
+
+      <div className="stats-grid">
+        <StatCard label="Episodes" value={series.episode_count || 0} />
+        <StatCard label="Planned count" value={series.planned_count || 0} />
+        <StatCard label="Packages linked" value={series.package_count || 0} />
+        <StatCard label="Published" value={series.published_count || 0} />
+      </div>
+
+      {message && <div className="success-banner">{message}</div>}
+      {error && <div className="form-error">{error}</div>}
+
+      <div className="card stack">
+        <h2>Series strategy</h2>
+        <InfoBlock title="Goal" value={series.series_goal || '-'} />
+        <InfoBlock title="Episode style" value={series.episode_style || '-'} />
+        <InfoBlock title="CTA strategy" value={series.cta_strategy || '-'} />
+      </div>
+
+      <form className="card form-grid" onSubmit={submitItem}>
+        <PermissionNotice permission="content:edit" />
+        <Input type="number" label="Episode order" value={itemForm.order_index} onChange={(v) => updateItem('order_index', v)} />
+        <Select label="Status" value={itemForm.target_status} options={episodeStatuses} onChange={(v) => updateItem('target_status', v)} />
+        <Select label="Linked idea" value={itemForm.idea_id} options={ideaOptions} onChange={(v) => updateItem('idea_id', v)} />
+        <Select label="Linked package" value={itemForm.package_id} options={packageOptions} onChange={(v) => updateItem('package_id', v)} />
+        <Input label="Episode title" value={itemForm.episode_title} onChange={(v) => updateItem('episode_title', v)} />
+        <TextArea label="Hook angle" value={itemForm.hook_angle} onChange={(v) => updateItem('hook_angle', v)} rows={3} wide />
+        <TextArea label="Episode notes" value={itemForm.notes} onChange={(v) => updateItem('notes', v)} rows={3} wide />
+        <div className="form-actions wide">
+          <button type="button" className="secondary" onClick={() => { setEditingItemId(null); setItemForm(initialSeriesItem) }}>Reset</button>
+          <GuardedButton permission="content:edit" type="submit" disabled={busy}>{busy ? 'Saving...' : editingItemId ? 'Update episode' : 'Add episode'}</GuardedButton>
+        </div>
+      </form>
+
+      <div className="card">
+        <div className="card-header"><h2>Series episodes</h2><span>{items.length} items</span></div>
+        {items.length === 0 ? <p className="muted">No episodes yet. Add the first episode above.</p> : (
+          <div className="package-list">
+            {items.map((item) => {
+              const linked = item.package_topic || item.idea_title || 'Not linked yet'
+              return (
+                <div className="package-row" key={item.id}>
+                  <div>
+                    <h3>Episode {item.order_index}: {item.episode_title || linked}</h3>
+                    <p>{item.target_status} • {linked}</p>
+                    <p>{item.hook_angle || 'No hook angle yet.'}</p>
+                    {item.package_id && <p><a href={`#/packages/${item.package_id}`}>Open linked package #{item.package_id}</a></p>}
+                  </div>
+                  <div className="row-meta wide-actions">
+                    <StatusBadge status={item.target_status || 'planned'} />
+                    {item.idea_score && <TrustBadge score={Math.round(Number(item.idea_score))} />}
+                    <GuardedButton permission="content:edit" className="secondary small" onClick={() => editItem(item)}>Edit</GuardedButton>
+                    <GuardedButton permission="content:edit" className="secondary small" onClick={() => removeItem(item.id)}>Remove</GuardedButton>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

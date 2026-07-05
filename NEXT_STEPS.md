@@ -1,60 +1,32 @@
-# NEXT STEPS — v25
+# Next Steps
 
-Current version: `0.25.0`
+Current version: `0.26.0`
 
-## Completed in this step
+## Completed in v26
 
-- Added Content Idea Backlog workflow.
-- Added weighted topic scoring for Shorts ideas.
-- Added idea statuses: backlog, shortlisted, ready, converted, archived.
-- Added idea types: curiosity, textbook doubt, exam friendly, myth vs fact, mistake correction, series.
-- Added conversion from a scored idea into a generated content package.
-- Added downloadable content idea backlog report.
-- Added demo seed support for ideas.
+- Added Content Series Planner workflow.
+- Added series strategy fields for niche, audience, goal, episode style, and CTA strategy.
+- Added ordered episode rows that can link to backlog ideas or generated content packages.
+- Added downloadable series planning reports.
+- Added React pages at `#/series` and `#/series/{id}`.
 
-## Test now
+## Recommended next step
 
-```bash
-python scripts/setup_project.py --check-only
-python -m pytest
-npm run frontend:build
-python scripts/pre_push_check.py
-```
+**Content calendar bulk scheduling workflow**
 
-Manual UI checks:
-
-```text
-1. Open http://127.0.0.1:5173/#/ideas.
-2. Add a new content idea.
-3. Confirm total score and priority appear.
-4. Edit score fields and confirm the recommendation changes.
-5. Convert an idea to a package.
-6. Open the generated package and confirm the topic matches the idea.
-7. Download the idea backlog report.
-8. Confirm sidebar and dashboard links open the backlog.
-```
-
-## Git commands
+Suggested commit message:
 
 ```bash
-git status
-python scripts/setup_project.py --check-only
-python -m pytest
-npm run frontend:build
-python scripts/pre_push_check.py
-git status
-git add .
-git status
-git commit -m "Add content idea backlog and topic scoring workflow"
-git push
+git commit -m "Add content calendar bulk scheduling workflow"
 ```
 
-## Next build recommendation
+## Remaining suggested major steps after v26
 
-Add a **Series Planner workflow** so you can group related Shorts into learning series and playlists before publishing.
+1. Content calendar bulk scheduling workflow
+2. Batch export and production handoff workflow
+3. Lightweight multilingual planning workflow
+4. Real provider adapter setup guide for Ollama/Transformers/hosted APIs
+5. YouTube manual publishing checklist + optional API integration preparation
+6. Deployment packaging and production configuration guide
+7. Final MVP bug-fix and UI polish pass
 
-Next commit message:
-
-```bash
-git commit -m "Add content series planner workflow"
-```

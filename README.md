@@ -1,8 +1,8 @@
-# Edu Content Platform MVP — v25
+# Edu Content Platform MVP — v26
 
 Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, and a content idea backlog with topic scoring.
 
-## What is new in v25
+## What is new in v26
 
 - Added **Content Idea Backlog + Topic Scoring workflow**.
 - Added new React page: `#/ideas`.
@@ -13,7 +13,7 @@ Shorts-first educational content creator with FastAPI backend, React/Vite fronte
 - Added weighted topic score and priority recommendation.
 - Added dashboard and sidebar links for the idea backlog.
 - Demo seed now creates sample ideas also.
-- Updated version to `0.25.0` and frontend asset version to `25`.
+- Updated version to `0.26.0` and frontend asset version to `26`.
 
 ## Default local login
 
@@ -95,7 +95,7 @@ python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Add content idea backlog and topic scoring workflow"
+git commit -m "Add content series planner workflow"
 git push
 ```
 

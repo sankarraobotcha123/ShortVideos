@@ -98,7 +98,7 @@ GIT_COMMANDS = [
     "git status",
     "git add .",
     "git status",
-    "git commit -m \"Add content idea backlog and topic scoring workflow\"",
+    "git commit -m \"Add content series planner workflow\"",
     "git push",
 ]
 
@@ -191,7 +191,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         recommendations.append("Review warnings. Some may be acceptable, but confirm before release.")
     recommendations.append("Do not commit generated media, local databases, virtual environments, node_modules, or .env files.")
     recommendations.append("Run backend tests and frontend build before pushing a release commit.")
-    recommendations.append("Use the exact commit message for this step: Add content idea backlog and topic scoring workflow")
+    recommendations.append("Use the exact commit message for this step: Add content series planner workflow")
 
     report_markdown = build_release_report_markdown(
         pass_count=pass_count,
@@ -206,7 +206,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
     )
 
     return {
-        "version": "0.25.0",
+        "version": "0.26.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "pass_count": pass_count,
