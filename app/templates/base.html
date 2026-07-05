@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or "Edu Content MVP" }}</title>
+  <link rel="stylesheet" href="/static/dist/app.css?v=2">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <a class="brand" href="/">Edu Content MVP</a>
+      <span class="tagline">Shorts-first creator assistant</span>
+    </div>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/settings/ai">AI Providers</a>
+      <a class="button small" href="/content/new">New Short Package</a>
+    </nav>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/dist/app.js?v=2" defer></script>
+</body>
+</html>

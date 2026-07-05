@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero compact">
+  <div>
+    <h1>AI Provider Fallback System</h1>
+    <p>The app tries providers in order and falls back safely to the built-in template generator. You can run the project without Ollama or Transformers.</p>
+  </div>
+  <a class="button" href="/content/new">Generate Package</a>
+</section>
+
+<section class="card wide">
+  <h2>Current Provider Status</h2>
+  <table>
+    <thead>
+      <tr><th>Provider</th><th>In Chain</th><th>Available</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for p in providers %}
+      <tr>
+        <td><strong>{{ p.name }}</strong></td>
+        <td>{{ "Yes" if p.in_chain else "No" }}</td>
+        <td><span class="status {{ 'status-ok' if p.available else 'status-warn' }}">{{ "Available" if p.available else "Not active" }}</span></td>
+        <td>{{ p.message }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="grid-two">
+  <div class="card">
+    <h2>Recommended Now</h2>
+    <p>Keep this setup while planning and creating first packages:</p>
+    <pre>AI_PROVIDER_CHAIN=ollama,transformers,template
+USE_OLLAMA=false
+USE_TRANSFORMERS=false</pre>
+    <p>This means the project always works using the template fallback.</p>
+  </div>
+  <div class="card">
+    <h2>Enable Later</h2>
+    <p>After installing Ollama locally:</p>
+    <pre>USE_OLLAMA=true
+OLLAMA_MODEL=llama3.1:8b</pre>
+    <p>After installing Transformers and Torch locally:</p>
+    <pre>USE_TRANSFORMERS=true
+TRANSFORMERS_MODEL=distilgpt2</pre>
+  </div>
+</section>
+{% endblock %}

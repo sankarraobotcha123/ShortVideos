@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card wide">
+  <h1>Generate a Shorts Content Package</h1>
+  <p class="muted">Keep the first version simple. Add source notes/facts so the generated script stays useful and reviewable. The AI provider chain is optional: template fallback works even without Ollama or Transformers.</p>
+
+  <p><a href="/settings/ai">Check AI provider status</a></p>
+
+  <form method="post" action="/content/generate" class="form-grid">
+    <label>Board/Source
+      <input name="board_source" value="NCERT / Self-written" required>
+    </label>
+
+    <label>Class/Level
+      <input name="class_level" value="Class 7" required>
+    </label>
+
+    <label>Subject
+      <input name="subject" value="Science" required>
+    </label>
+
+    <label>Topic/Concept
+      <input name="topic" value="Why are leaves green?" required>
+    </label>
+
+    <label>Audience
+      <input name="audience" value="School students" required>
+    </label>
+
+    <label>Language
+      <select name="language">
+        <option>English</option>
+        <option>Telugu</option>
+        <option>Hindi</option>
+      </select>
+    </label>
+
+    <label>Duration Seconds
+      <select name="duration_seconds">
+        <option value="30">30</option>
+        <option value="45">45</option>
+        <option value="60" selected>60</option>
+      </select>
+    </label>
+
+    <label>Output Type
+      <select name="output_type">
+        <option>Short</option>
+        <option>Notes</option>
+        <option>Quiz</option>
+        <option>Worksheet</option>
+      </select>
+    </label>
+
+    <label>Tone
+      <select name="tone">
+        <option>Curious</option>
+        <option>Simple</option>
+        <option>Exam-focused</option>
+        <option>Story-based</option>
+        <option>Mistake correction</option>
+      </select>
+    </label>
+
+    <label>Source Name
+      <input name="source_name" value="Self-written concept notes">
+    </label>
+
+    <label>Source License Type
+      <input name="source_license_type" value="Self-written / Original">
+    </label>
+
+    <label>Page or Section Reference
+      <input name="page_or_section_reference" placeholder="Example: Chapter 1, page 12">
+    </label>
+
+    <label class="full">Source Notes / Key Facts
+      <textarea name="source_notes" rows="5" required>Leaves contain chlorophyll. Chlorophyll absorbs sunlight and helps plants make food through photosynthesis. Chlorophyll reflects green light, so leaves look green.</textarea>
+    </label>
+
+    <label class="full">Transformation Notes
+      <textarea name="transformation_notes" rows="3">Converted source facts into a simple original explanation with analogy, visual scenes, and a student challenge.</textarea>
+    </label>
+
+    <label class="checkbox full">
+      <input type="checkbox" name="copied_text_used">
+      Copied textbook/source wording was used directly
+    </label>
+
+    <div class="full actions">
+      <button class="button" type="submit">Generate Package</button>
+      <a class="button ghost" href="/">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

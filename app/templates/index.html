@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h1>Creator Assistant MVP</h1>
+    <p>Generate script, storyboard, subtitles, title options, hashtags, quiz, review status, and analytics records for educational Shorts.</p>
+  </div>
+  <a class="button" href="/content/new">Generate New Package</a>
+</section>
+
+<section class="stats-grid">
+  <div class="card"><span>Total Packages</span><strong>{{ stats.total or 0 }}</strong></div>
+  <div class="card"><span>Approved</span><strong>{{ stats.approved or 0 }}</strong></div>
+  <div class="card"><span>Drafts</span><strong>{{ stats.draft or 0 }}</strong></div>
+  <div class="card"><span>Avg Trust</span><strong>{{ "%.0f"|format(stats.avg_trust or 0) }}</strong></div>
+</section>
+
+<section class="card">
+  <h2>Recent Content Packages</h2>
+  {% if packages %}
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Topic</th>
+        <th>Subject</th>
+        <th>Class</th>
+        <th>Trust</th>
+        <th>Status</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in packages %}
+      <tr>
+        <td>{{ p.id }}</td>
+        <td><a href="/content/{{ p.id }}">{{ p.topic }}</a></td>
+        <td>{{ p.subject }}</td>
+        <td>{{ p.class_level }}</td>
+        <td><span class="score">{{ p.trust_score }}</span></td>
+        <td><span class="status">{{ p.review_status }}</span></td>
+        <td>{{ p.created_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No packages yet. Start by creating your first Science curiosity Short.</p>
+  {% endif %}
+</section>
+{% endblock %}

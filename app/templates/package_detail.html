@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero compact">
+  <div>
+    <h1>{{ package.topic }}</h1>
+    <p>{{ package.class_level }} · {{ package.subject }} · {{ package.duration_seconds }} sec · {{ package.tone }}</p>
+  </div>
+  <div class="hero-actions">
+    <a class="button" href="/content/{{ package.id }}/export">Export ZIP</a>
+    <a class="button ghost" href="/content/new">New Package</a>
+  </div>
+</section>
+
+<section class="stats-grid">
+  <div class="card"><span>Teacher Trust Score</span><strong>{{ package.trust_score }}</strong></div>
+  <div class="card"><span>Status</span><strong>{{ package.review_status }}</strong></div>
+  <div class="card"><span>Language</span><strong>{{ package.language }}</strong></div>
+  <div class="card"><span>Output</span><strong>{{ package.output_type }}</strong></div>
+</section>
+
+
+<section class="card wide">
+  <h2>AI Provider Used</h2>
+  <div class="provider-grid">
+    <p><strong>Provider:</strong> {{ package.provider_used or 'template' }}</p>
+    <p><strong>Mode:</strong> {{ package.generation_mode or 'deterministic_template' }}</p>
+    <p><strong>Chain:</strong> {{ package.provider_chain or 'template' }}</p>
+  </div>
+  <p class="muted">{{ package.provider_notes or '' }}</p>
+  {% if package.provider_attempts_list %}
+  <details>
+    <summary>Provider attempt details</summary>
+    <table>
+      <thead><tr><th>Provider</th><th>Available</th><th>Success</th><th>Message</th></tr></thead>
+      <tbody>
+      {% for attempt in package.provider_attempts_list %}
+        <tr>
+          <td>{{ attempt.provider }}</td>
+          <td>{{ attempt.available }}</td>
+          <td>{{ attempt.success }}</td>
+          <td>{{ attempt.message }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+</section>
+
+<section class="grid-two">
+  <div class="card">
+    <h2>Hook</h2>
+    <p class="large-text">{{ package.hook }}</p>
+  </div>
+  <div class="card">
+    <h2>Quiz Question</h2>
+    <p>{{ package.quiz_question }}</p>
+  </div>
+</section>
+
+<section class="card wide">
+  <h2>Review / Edit Script</h2>
+  <form method="post" action="/content/{{ package.id }}/review">
+    <label>Review Status
+      <select name="review_status">
+        {% for status in ["draft", "approved", "edit_required", "rejected", "published"] %}
+        <option value="{{ status }}" {% if package.review_status == status %}selected{% endif %}>{{ status }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Script
+      <textarea name="script_text" rows="10">{{ package.script_text }}</textarea>
+    </label>
+    <label>Reviewer Notes
+      <textarea name="reviewer_notes" rows="3">{{ package.reviewer_notes or '' }}</textarea>
+    </label>
+    <button class="button" type="submit">Save Review</button>
+  </form>
+</section>
+
+<section class="grid-two">
+  <div class="card">
+    <h2>Title Options</h2>
+    <ul>
+      {% for t in package.title_options_list %}<li>{{ t }}</li>{% endfor %}
+    </ul>
+    <h3>Description</h3>
+    <p>{{ package.description }}</p>
+    <h3>Hashtags</h3>
+    <p>{% for h in package.hashtags_list %}<span class="pill">{{ h }}</span>{% endfor %}</p>
+  </div>
+  <div class="card">
+    <h2>Source Safety</h2>
+    <p><strong>Source:</strong> {{ package.source_name or 'Not provided' }}</p>
+    <p><strong>License:</strong> {{ package.source_license_type or 'Not provided' }}</p>
+    <p><strong>Reference:</strong> {{ package.page_or_section_reference or 'Not provided' }}</p>
+    <p><strong>Copied text used:</strong> {{ 'Yes' if package.copied_text_used else 'No' }}</p>
+    <p><strong>Transformation:</strong> {{ package.transformation_notes or 'Not provided' }}</p>
+  </div>
+</section>
+
+<section class="card wide">
+  <h2>Storyboard</h2>
+  <pre>{{ package.storyboard_markdown }}</pre>
+</section>
+
+<section class="grid-two">
+  <div class="card">
+    <h2>Subtitles</h2>
+    <pre>{{ package.subtitle_srt }}</pre>
+  </div>
+  <div class="card">
+    <h2>Visual Prompts</h2>
+    <pre>{{ package.visual_prompts_markdown }}</pre>
+  </div>
+</section>
+
+<section class="card wide">
+  <h2>Add Manual Analytics</h2>
+  <form method="post" action="/content/{{ package.id }}/analytics" class="form-grid analytics-form">
+    <label>Platform<input name="platform" value="YouTube Shorts"></label>
+    <label>Date<input name="entry_date" type="date" required></label>
+    <label>Views<input name="views" type="number" value="0"></label>
+    <label>Likes<input name="likes" type="number" value="0"></label>
+    <label>Comments<input name="comments" type="number" value="0"></label>
+    <label>Shares<input name="shares" type="number" value="0"></label>
+    <label>Avg View Duration<input name="avg_view_duration_seconds" type="number" step="0.1" value="0"></label>
+    <label>Retention %<input name="retention_pct" type="number" step="0.1" value="0"></label>
+    <label>CTR %<input name="ctr_pct" type="number" step="0.1" value="0"></label>
+    <label class="full">Notes<textarea name="notes" rows="2"></textarea></label>
+    <div class="full"><button class="button" type="submit">Save Analytics</button></div>
+  </form>
+</section>
+
+<section class="card wide">
+  <h2>Analytics History</h2>
+  {% if analytics %}
+  <table>
+    <thead><tr><th>Date</th><th>Platform</th><th>Views</th><th>Likes</th><th>Comments</th><th>Shares</th><th>Retention</th><th>Notes</th></tr></thead>
+    <tbody>
+      {% for a in analytics %}
+      <tr>
+        <td>{{ a.entry_date }}</td><td>{{ a.platform }}</td><td>{{ a.views }}</td><td>{{ a.likes }}</td><td>{{ a.comments }}</td><td>{{ a.shares }}</td><td>{{ a.retention_pct }}%</td><td>{{ a.notes }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No analytics entries yet. Add data after you publish the Short.</p>
+  {% endif %}
+</section>
+{% endblock %}

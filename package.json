@@ -1,0 +1,12 @@
+{
+  "name": "edu-content-platform-mvp",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Shorts-first educational content platform. FastAPI backend + React/Vite npm frontend.",
+  "scripts": {
+    "frontend:install": "npm --prefix frontend install",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "frontend:preview": "npm --prefix frontend run preview"
+  }
+}
