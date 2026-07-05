@@ -11,6 +11,29 @@ from app.core.config import settings
 SCHEMA_SQL = """
 PRAGMA foreign_keys = ON;
 
+
+CREATE TABLE IF NOT EXISTS user_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'content_admin',
+    active INTEGER NOT NULL DEFAULT 1,
+    last_login_at TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    revoked_at TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS content_batches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -328,6 +351,38 @@ def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, al
 
 def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
     """Add missing tables/columns for users who already created an MVP database."""
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'content_admin',
+            active INTEGER NOT NULL DEFAULT 1,
+            last_login_at TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS auth_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT NOT NULL UNIQUE,
+            expires_at TEXT NOT NULL,
+            revoked_at TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES user_accounts(id) ON DELETE CASCADE
+        )
+        """
+    )
+    from app.services.auth_service import bootstrap_default_admin
+    bootstrap_default_admin(conn)
+
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS content_batches (

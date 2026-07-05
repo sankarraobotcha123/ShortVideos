@@ -1,9 +1,35 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const AUTH_TOKEN_KEY = 'edu_content_auth_token'
+const AUTH_USER_KEY = 'edu_content_auth_user'
+
+export function getAuthToken() {
+  return window.localStorage.getItem(AUTH_TOKEN_KEY) || ''
+}
+
+export function getStoredAuthUser() {
+  try {
+    const raw = window.localStorage.getItem(AUTH_USER_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch (_) {
+    return null
+  }
+}
+
+export function clearAuthToken() {
+  window.localStorage.removeItem(AUTH_TOKEN_KEY)
+  window.localStorage.removeItem(AUTH_USER_KEY)
+}
+
+function authHeaders() {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders(),
       ...(options.headers || {})
     },
     ...options
@@ -22,6 +48,58 @@ async function request(path, options = {}) {
 
   if (response.status === 204) return null
   return response.json()
+}
+
+export async function loginUser(payload) {
+  const data = await request('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+  if (data.access_token) {
+    window.localStorage.setItem(AUTH_TOKEN_KEY, data.access_token)
+    window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user))
+  }
+  return data
+}
+
+export async function logoutUser() {
+  try {
+    return await request('/api/auth/logout', { method: 'POST' })
+  } finally {
+    clearAuthToken()
+  }
+}
+
+export async function fetchCurrentUser() {
+  const data = await request('/api/auth/me')
+  if (data.user) {
+    window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user))
+  } else {
+    window.localStorage.removeItem(AUTH_USER_KEY)
+  }
+  return data
+}
+
+export function fetchAuthStatus() {
+  return request('/api/auth/status')
+}
+
+export function fetchAuthUsers() {
+  return request('/api/auth/users')
+}
+
+export function createAuthUser(payload) {
+  return request('/api/auth/users', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateAuthUser(id, payload) {
+  return request(`/api/auth/users/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
 }
 
 export function fetchPackages() {
@@ -157,6 +235,7 @@ export function fetchVisualAssets() {
 export async function uploadVisualAsset(formData) {
   const response = await fetch(`${API_BASE_URL}/api/assets`, {
     method: 'POST',
+    headers: authHeaders(),
     body: formData
   })
   if (!response.ok) {

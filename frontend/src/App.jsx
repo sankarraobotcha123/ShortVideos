@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   addAnalytics,
+  clearAuthToken,
+  createAuthUser,
   audioDownloadUrl,
   assemblyDownloadUrl,
   assignPackageBatch,
@@ -8,6 +10,8 @@ import {
   createCalendarEntry,
   deleteCalendarEntry,
   deleteVisualAsset,
+  fetchAuthStatus,
+  fetchAuthUsers,
   exportUrl,
   fetchAiSettings,
   fetchAnalyticsInsights,
@@ -17,11 +21,13 @@ import {
   fetchCalendar,
   fetchPackage,
   fetchPackages,
+  fetchCurrentUser,
   fetchProviderLogs,
   fetchReleaseChecklist,
   fetchSetupGuide,
   fetchSystemReadiness,
   fetchVisualAssets,
+  getStoredAuthUser,
   generateAssembly,
   generateAudio,
   generateContent,
@@ -30,6 +36,8 @@ import {
   generateTrustReview,
   generateLearningOutput,
   generateVideoDraft,
+  loginUser,
+  logoutUser,
   thumbnailGuideDownloadUrl,
   sourceSafetyDownloadUrl,
   trustReviewDownloadUrl,
@@ -43,6 +51,7 @@ import {
   seedDemoData,
   seedPromptTemplates,
   updatePromptTemplate,
+  updateAuthUser,
   updateBatch,
   uploadVisualAsset,
   updateCalendarEntry,
@@ -125,6 +134,23 @@ function navigate(hash) {
 function App() {
   const hash = useHashRoute()
   const route = useMemo(() => parseRoute(hash), [hash])
+  const [authUser, setAuthUser] = useState(getStoredAuthUser())
+  const [authStatus, setAuthStatus] = useState(null)
+
+  useEffect(() => {
+    fetchAuthStatus().then(setAuthStatus).catch(() => setAuthStatus(null))
+    fetchCurrentUser().then((data) => setAuthUser(data.user || null)).catch(() => setAuthUser(null))
+  }, [])
+
+  async function handleLogout() {
+    try {
+      await logoutUser()
+    } catch (_) {
+      clearAuthToken()
+    }
+    setAuthUser(null)
+    navigate('#/login')
+  }
 
   return (
     <div className="app-shell">
@@ -148,11 +174,16 @@ function App() {
           <a className={route.name === 'demo' ? 'active' : ''} href="#/demo">MVP demo setup</a>
           <a className={route.name === 'release' ? 'active' : ''} href="#/release">Release checklist</a>
           <a className={route.name === 'setup' ? 'active' : ''} href="#/setup">Fresh clone setup</a>
+          {authUser?.role === 'super_admin' && <a className={route.name === 'users' ? 'active' : ''} href="#/users">Users & roles</a>}
+          <a className={route.name === 'login' ? 'active' : ''} href="#/login">{authUser ? 'Account' : 'Login'}</a>
           <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
           <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
           <a href="http://127.0.0.1:8000" target="_blank" rel="noreferrer">Legacy Jinja UI</a>
         </nav>
         <div className="side-note">
+          <strong>{authUser ? `Signed in: ${authUser.name}` : 'Local MVP mode'}</strong>
+          <span>{authUser ? `${authUser.role.replaceAll('_', ' ')}` : 'Login is available, but local auth enforcement can stay disabled while building.'}</span>
+          {authUser && <button className="secondary small full-width" onClick={handleLogout}>Logout</button>}
           <strong>Current rule</strong>
           <span>Plan 20-30 Shorts as batches. Publish consistently. Automate only after the workflow proves value.</span>
         </div>
@@ -172,6 +203,8 @@ function App() {
         {route.name === 'demo' && <DemoSetupPage />}
         {route.name === 'release' && <ReleaseChecklistPage />}
         {route.name === 'setup' && <FreshCloneSetupPage />}
+        {route.name === 'login' && <LoginPage authUser={authUser} authStatus={authStatus} onLogin={setAuthUser} onLogout={handleLogout} />}
+        {route.name === 'users' && <UserManagementPage currentUser={authUser} />}
         {route.name === 'settings' && <AiSettings />}
         {route.name === 'audioSettings' && <AudioSettings />}
       </main>
@@ -195,9 +228,174 @@ function parseRoute(hash) {
   if (parts[0] === 'demo') return { name: 'demo' }
   if (parts[0] === 'release') return { name: 'release' }
   if (parts[0] === 'setup') return { name: 'setup' }
+  if (parts[0] === 'login') return { name: 'login' }
+  if (parts[0] === 'users') return { name: 'users' }
   if (parts[0] === 'settings' && parts[1] === 'ai') return { name: 'settings' }
   if (parts[0] === 'settings' && parts[1] === 'audio') return { name: 'audioSettings' }
   return { name: 'dashboard' }
+}
+
+function LoginPage({ authUser, authStatus, onLogin, onLogout }) {
+  const [form, setForm] = useState({ email: authStatus?.default_admin_email || 'admin@example.com', password: 'ChangeMe123!' })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (authStatus?.default_admin_email && !authUser) {
+      setForm((current) => ({ ...current, email: authStatus.default_admin_email }))
+    }
+  }, [authStatus, authUser])
+
+  async function submit(event) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      const data = await loginUser(form)
+      onLogin(data.user)
+      navigate('#/')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (authUser) {
+    return (
+      <section>
+        <Header
+          title="Account"
+          subtitle="You are signed in to the local role-based MVP foundation. Use this to test reviewer/admin workflows before enabling strict auth."
+        />
+        <div className="card stack">
+          <InfoBlock title="Name" value={authUser.name} />
+          <InfoBlock title="Email" value={authUser.email} />
+          <InfoBlock title="Role" value={authUser.role.replaceAll('_', ' ')} />
+          <InfoList title="Permissions" values={authUser.permissions || []} inline />
+          <div className="button-row">
+            {authUser.role === 'super_admin' && <button onClick={() => navigate('#/users')}>Manage users</button>}
+            <button className="secondary" onClick={onLogout}>Logout</button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section>
+      <Header
+        title="Login"
+        subtitle="Default local admin is created when the database has no users. Change the default password in your local .env before using this outside local testing."
+      />
+      <form className="card form-grid" onSubmit={submit}>
+        <Input label="Email" value={form.email} onChange={(value) => setForm({ ...form, email: value })} />
+        <Input label="Password" type="password" value={form.password} onChange={(value) => setForm({ ...form, password: value })} />
+        {error && <p className="error-text wide">{error}</p>}
+        <div className="wide button-row">
+          <button disabled={busy}>{busy ? 'Logging in...' : 'Login'}</button>
+          <button type="button" className="secondary" onClick={() => setForm({ email: authStatus?.default_admin_email || 'admin@example.com', password: 'ChangeMe123!' })}>Use local admin sample</button>
+        </div>
+      </form>
+      <div className="card stack">
+        <h2>Auth foundation status</h2>
+        <InfoBlock title="Auth required" value={String(Boolean(authStatus?.auth_required))} />
+        <InfoBlock title="Default admin email" value={authStatus?.default_admin_email || 'admin@example.com'} />
+        <p className="muted">For now, AUTH_REQUIRED can stay false while you build. Later, set it true and wire permission dependencies into sensitive routes.</p>
+      </div>
+    </section>
+  )
+}
+
+function UserManagementPage({ currentUser }) {
+  const [data, setData] = useState(null)
+  const [form, setForm] = useState({ name: 'Content Reviewer', email: 'reviewer@example.com', password: 'ChangeMe123!', role: 'script_reviewer', active: true })
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  function load() {
+    fetchAuthUsers().then(setData).catch((err) => setError(err.message))
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  if (!currentUser) {
+    return <ErrorCard title="Login required" message="Please login as the local admin before opening user management." />
+  }
+  if (currentUser.role !== 'super_admin') {
+    return <ErrorCard title="Super admin required" message="Only the super admin can create or update users." />
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      await createAuthUser(form)
+      setForm({ name: '', email: '', password: '', role: 'content_admin', active: true })
+      load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function toggleUser(user) {
+    setError('')
+    try {
+      await updateAuthUser(user.id, { active: !user.active })
+      load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  return (
+    <section>
+      <Header title="Users & roles" subtitle="Create reviewers, editors, publishers, and admins for the Shorts workflow." />
+      <form className="card form-grid" onSubmit={submit}>
+        <Input label="Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+        <Input label="Email" value={form.email} onChange={(value) => setForm({ ...form, email: value })} />
+        <Input label="Temporary password" type="password" value={form.password} onChange={(value) => setForm({ ...form, password: value })} />
+        <Select label="Role" value={form.role} onChange={(value) => setForm({ ...form, role: value })} options={[
+          'super_admin',
+          'content_admin',
+          'script_reviewer',
+          'video_editor',
+          'publisher',
+          'viewer'
+        ]} />
+        {error && <p className="error-text wide">{error}</p>}
+        <div className="wide button-row"><button disabled={busy}>{busy ? 'Creating...' : 'Create user'}</button></div>
+      </form>
+
+      <div className="card">
+        <div className="card-header"><h2>Existing users</h2><button className="secondary small" onClick={load}>Refresh</button></div>
+        {!data ? <Loading /> : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th><th>Action</th></tr></thead>
+              <tbody>
+                {data.users.map((user) => (
+                  <tr key={user.id}>
+                    <td>{user.name}</td>
+                    <td>{user.email}</td>
+                    <td>{user.role}</td>
+                    <td>{user.active ? 'Active' : 'Inactive'}</td>
+                    <td>{user.last_login_at || '-'}</td>
+                    <td><button className="secondary small" onClick={() => toggleUser(user)}>{user.active ? 'Deactivate' : 'Activate'}</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
+  )
 }
 
 function Dashboard() {

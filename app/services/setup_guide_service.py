@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-COMMIT_MESSAGE = "Add fresh clone setup automation"
+COMMIT_MESSAGE = "Add role based login foundation"
 
 WINDOWS_SETUP_COMMANDS = [
     "git clone YOUR_GITHUB_REPO_URL short_videos",
@@ -52,6 +52,8 @@ REQUIRED_SETUP_FILES = [
     "requirements.txt",
     "package.json",
     "frontend/package.json",
+    "app/routes/auth.py",
+    "app/services/auth_service.py",
 ]
 
 SETUP_STEPS = [
@@ -162,7 +164,7 @@ def build_setup_guide(project_root: str | Path = ".") -> dict[str, Any]:
     )
 
     return {
-        "version": "0.18.0",
+        "version": "0.19.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "pass_count": pass_count,

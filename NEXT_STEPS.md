@@ -1,23 +1,45 @@
-# Next Steps — v18
+# Next Steps — v19
 
-Current version: `0.18.0`
+Current version: `0.19.0`
 
-## Completed in v18
+## Completed in v19
 
-Fresh-clone setup automation.
+Role-based login foundation.
 
 Added:
 
-- `scripts/setup_project.py`
-- `setup_windows.bat`
-- `setup_windows.ps1`
-- `docs/FRESH_CLONE_SETUP.md`
-- Setup guide service
-- `/api/setup/guide`
-- `/setup/guide/download`
-- React Fresh clone setup page at `#/setup`
-- Release checklist updated to include setup files
-- Version updated to `0.18.0`
+- `app/routes/auth.py`
+- `app/services/auth_service.py`
+- `user_accounts` database table
+- `auth_sessions` database table
+- Default local admin bootstrap
+- PBKDF2-SHA256 password hashing
+- Bearer token login sessions
+- Login/logout/me/status API routes
+- Super-admin user management API routes
+- React `#/login` page
+- React `#/users` page
+- Auth token storage and API headers in `frontend/src/api.js`
+- Auth settings in `.env.example`
+- Release/setup checks updated for auth files
+- Version updated to `0.19.0`
+
+## Test login
+
+Default local account after a new database is created:
+
+```text
+Email   : admin@example.com
+Password: ChangeMe123!
+```
+
+Open:
+
+```text
+http://127.0.0.1:5173/#/login
+```
+
+Change the password in your local `.env` before using the project beyond local testing.
 
 ## Git commands for this step
 
@@ -32,7 +54,7 @@ python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Add fresh clone setup automation"
+git commit -m "Add role based login foundation"
 git push
 ```
 
@@ -61,12 +83,12 @@ __pycache__/
 
 ## Next recommended build
 
-**Role-based login foundation**
+**Permission enforcement on sensitive creator actions**
 
 Suggested commit message:
 
 ```bash
-git commit -m "Add role based login foundation"
+git commit -m "Enforce role permissions on creator workflows"
 ```
 
-Why next: before you turn this into a more serious side-job tool, you should protect admin screens and prepare roles like Super Admin, Content Admin, Script Reviewer, Video Editor, and Publisher.
+Why next: login exists now. The next step should connect roles to sensitive actions like package creation, review approval, publishing calendar changes, asset uploads, prompt-template edits, and exports.

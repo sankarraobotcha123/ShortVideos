@@ -1075,3 +1075,38 @@ button.small,
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+.full-width {
+  width: 100%;
+}
+
+.error-text {
+  color: var(--danger);
+  font-weight: 800;
+  margin: 0;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: var(--muted);
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.db.session import init_db
+from app.routes.auth import router as auth_router
 from app.routes.content import router as content_router
 
 
@@ -44,4 +45,5 @@ def api_health_check() -> dict:
     }
 
 
+app.include_router(auth_router)
 app.include_router(content_router)
