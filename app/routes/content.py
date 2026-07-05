@@ -18,6 +18,7 @@ from app.services.assembly_service import generate_assembly_plan
 from app.services.video_draft_service import generate_video_draft
 from app.services.thumbnail_service import generate_thumbnail_guide
 from app.services.source_safety_service import generate_source_safety_review
+from app.services.trust_score_service import build_trust_review, rebuild_trust_review_from_manual_scores
 from app.services.asset_library_service import save_uploaded_asset, normalize_tags, rank_assets_for_scene
 
 router = APIRouter()
@@ -355,6 +356,7 @@ def export_content(package_id: int):
         video_drafts = conn.execute("SELECT * FROM video_drafts WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         thumbnail_guides = conn.execute("SELECT * FROM thumbnail_guides WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         source_safety_reviews = conn.execute("SELECT * FROM source_safety_reviews WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+        trust_reviews = conn.execute("SELECT * FROM teacher_trust_reviews WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
@@ -366,6 +368,7 @@ def export_content(package_id: int):
         [dict(item) for item in visual_assets],
         [dict(item) for item in thumbnail_guides],
         [dict(item) for item in source_safety_reviews],
+        [dict(item) for item in trust_reviews],
     )
     return FileResponse(zip_path, filename=Path(zip_path).name, media_type="application/zip")
 
@@ -402,6 +405,19 @@ class ReviewUpdateRequest(BaseModel):
     review_status: str
     script_text: str
     reviewer_notes: str = ""
+
+
+class TrustReviewUpdateRequest(BaseModel):
+    factual_accuracy_score: int = Field(..., ge=0, le=100)
+    age_appropriateness_score: int = Field(..., ge=0, le=100)
+    simplicity_score: int = Field(..., ge=0, le=100)
+    visual_clarity_score: int = Field(..., ge=0, le=100)
+    engagement_score: int = Field(..., ge=0, le=100)
+    source_safety_score: int = Field(..., ge=0, le=100)
+    reviewer_confidence_score: int = Field(..., ge=0, le=100)
+    reviewer_decision: str = "pending"
+    reviewer_notes: str = ""
+    checklist_json: str = "[]"
 
 
 class AnalyticsCreateRequest(BaseModel):
@@ -520,6 +536,10 @@ def api_package(package_id: int) -> dict[str, Any]:
             "SELECT * FROM source_safety_reviews WHERE package_id = ? ORDER BY id DESC",
             (package_id,),
         ).fetchall()
+        trust_reviews = conn.execute(
+            "SELECT * FROM teacher_trust_reviews WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
@@ -532,6 +552,7 @@ def api_package(package_id: int) -> dict[str, Any]:
         "video_drafts": [dict(item) for item in video_drafts],
         "thumbnail_guides": [dict(item) for item in thumbnail_guides],
         "source_safety_reviews": [dict(item) for item in source_safety_reviews],
+        "trust_reviews": [dict(item) for item in trust_reviews],
         "visual_assets": [dict(item) for item in visual_assets],
         "suggested_visual_assets": _suggest_assets_for_package(dict(row), [dict(item) for item in visual_assets]),
     }
@@ -1223,6 +1244,149 @@ def download_source_safety_review(package_id: int, review_id: int):
     path = Path(row["file_path"])
     if not path.exists():
         raise HTTPException(status_code=404, detail="Source safety review file not found on disk")
+    return FileResponse(path, filename=row["file_name"], media_type=row["mime_type"] or "text/markdown")
+
+
+@router.post("/api/content/{package_id}/trust-review", status_code=201)
+def api_generate_trust_review(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Package not found")
+        source_safety_reviews = conn.execute(
+            "SELECT * FROM source_safety_reviews WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
+        payload = build_trust_review(dict(row), [dict(item) for item in source_safety_reviews])
+        cursor = conn.execute(
+            """
+            INSERT INTO teacher_trust_reviews (
+                package_id, status, factual_accuracy_score, age_appropriateness_score,
+                simplicity_score, visual_clarity_score, engagement_score, source_safety_score,
+                reviewer_confidence_score, overall_trust_score, approval_required, checklist_json,
+                recommendation, reviewer_decision, reviewer_notes, file_path, file_name, mime_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                package_id,
+                payload["status"],
+                payload["factual_accuracy_score"],
+                payload["age_appropriateness_score"],
+                payload["simplicity_score"],
+                payload["visual_clarity_score"],
+                payload["engagement_score"],
+                payload["source_safety_score"],
+                payload["reviewer_confidence_score"],
+                payload["overall_trust_score"],
+                payload["approval_required"],
+                payload["checklist_json"],
+                payload["recommendation"],
+                payload["reviewer_decision"],
+                payload["reviewer_notes"],
+                payload["file_path"],
+                payload["file_name"],
+                payload["mime_type"],
+            ),
+        )
+        review_id = int(cursor.lastrowid)
+        conn.execute(
+            "UPDATE content_packages SET trust_score = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (payload["overall_trust_score"], package_id),
+        )
+        review = conn.execute("SELECT * FROM teacher_trust_reviews WHERE id = ?", (review_id,)).fetchone()
+        package = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
+    return {"trust_review": dict(review), "package": _package_from_row(package)}
+
+
+@router.get("/api/content/{package_id}/trust-reviews")
+def api_list_trust_reviews(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        _assert_package_exists(conn, package_id)
+        rows = conn.execute(
+            "SELECT * FROM teacher_trust_reviews WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
+    return {"trust_reviews": [dict(row) for row in rows]}
+
+
+@router.patch("/api/content/{package_id}/trust-review/{review_id}")
+def api_update_trust_review(package_id: int, review_id: int, payload: TrustReviewUpdateRequest) -> dict[str, Any]:
+    allowed_decisions = {"pending", "approved", "edit_required", "rewrite_required", "rejected"}
+    if payload.reviewer_decision not in allowed_decisions:
+        raise HTTPException(status_code=400, detail="Invalid trust review decision")
+    with db_session() as conn:
+        existing = conn.execute(
+            "SELECT * FROM teacher_trust_reviews WHERE id = ? AND package_id = ?",
+            (review_id, package_id),
+        ).fetchone()
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Teacher trust review not found")
+        updated = rebuild_trust_review_from_manual_scores(
+            package_id=package_id,
+            factual_accuracy_score=payload.factual_accuracy_score,
+            age_appropriateness_score=payload.age_appropriateness_score,
+            simplicity_score=payload.simplicity_score,
+            visual_clarity_score=payload.visual_clarity_score,
+            engagement_score=payload.engagement_score,
+            source_safety_score=payload.source_safety_score,
+            reviewer_confidence_score=payload.reviewer_confidence_score,
+            reviewer_notes=payload.reviewer_notes,
+            reviewer_decision=payload.reviewer_decision,
+            checklist_json=payload.checklist_json,
+        )
+        conn.execute(
+            """
+            UPDATE teacher_trust_reviews
+            SET status = ?, factual_accuracy_score = ?, age_appropriateness_score = ?,
+                simplicity_score = ?, visual_clarity_score = ?, engagement_score = ?,
+                source_safety_score = ?, reviewer_confidence_score = ?, overall_trust_score = ?,
+                approval_required = ?, checklist_json = ?, recommendation = ?, reviewer_decision = ?,
+                reviewer_notes = ?, file_path = ?, file_name = ?, mime_type = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND package_id = ?
+            """,
+            (
+                updated["status"],
+                updated["factual_accuracy_score"],
+                updated["age_appropriateness_score"],
+                updated["simplicity_score"],
+                updated["visual_clarity_score"],
+                updated["engagement_score"],
+                updated["source_safety_score"],
+                updated["reviewer_confidence_score"],
+                updated["overall_trust_score"],
+                updated["approval_required"],
+                updated["checklist_json"],
+                updated["recommendation"],
+                updated["reviewer_decision"],
+                updated["reviewer_notes"],
+                updated["file_path"],
+                updated["file_name"],
+                updated["mime_type"],
+                review_id,
+                package_id,
+            ),
+        )
+        conn.execute(
+            "UPDATE content_packages SET trust_score = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (updated["overall_trust_score"], package_id),
+        )
+        review = conn.execute("SELECT * FROM teacher_trust_reviews WHERE id = ?", (review_id,)).fetchone()
+        package = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
+    return {"trust_review": dict(review), "package": _package_from_row(package)}
+
+
+@router.get("/content/{package_id}/trust-review/{review_id}/download")
+def download_trust_review(package_id: int, review_id: int):
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM teacher_trust_reviews WHERE id = ? AND package_id = ?",
+            (review_id, package_id),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Teacher trust review not found")
+    path = Path(row["file_path"])
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Teacher trust review file not found on disk")
     return FileResponse(path, filename=row["file_name"], media_type=row["mime_type"] or "text/markdown")
 
 

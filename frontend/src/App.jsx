@@ -22,13 +22,16 @@ import {
   generateContent,
   generateSourceSafetyReview,
   generateThumbnailGuide,
+  generateTrustReview,
   generateVideoDraft,
   thumbnailGuideDownloadUrl,
   sourceSafetyDownloadUrl,
+  trustReviewDownloadUrl,
   updateBatch,
   uploadVisualAsset,
   updateCalendarEntry,
   updateReview,
+  updateTrustReview,
   videoDraftDownloadUrl,
   visualAssetUrl
 } from './api.js'
@@ -791,6 +794,9 @@ function PackageDetail({ id }) {
   const [videoDraftGenerating, setVideoDraftGenerating] = useState(false)
   const [thumbnailGenerating, setThumbnailGenerating] = useState(false)
   const [sourceSafetyGenerating, setSourceSafetyGenerating] = useState(false)
+  const [trustReviewGenerating, setTrustReviewGenerating] = useState(false)
+  const [editingTrustReview, setEditingTrustReview] = useState(null)
+  const [trustReviewSaving, setTrustReviewSaving] = useState(false)
   const [analytics, setAnalytics] = useState({
     platform: 'YouTube Shorts',
     entry_date: today(),
@@ -921,6 +927,64 @@ function PackageDetail({ id }) {
     } finally {
       setSourceSafetyGenerating(false)
     }
+  }
+
+
+  async function createTrustReview() {
+    setMessage('')
+    setError('')
+    setTrustReviewGenerating(true)
+    try {
+      const result = await generateTrustReview(id)
+      setData((current) => ({
+        ...current,
+        package: result.package,
+        trust_reviews: [result.trust_review, ...(current.trust_reviews || [])]
+      }))
+      setEditingTrustReview(result.trust_review)
+      setMessage(`Teacher Trust Score generated: ${result.trust_review.overall_trust_score}.`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setTrustReviewGenerating(false)
+    }
+  }
+
+  async function saveTrustReview() {
+    if (!editingTrustReview) return
+    setMessage('')
+    setError('')
+    setTrustReviewSaving(true)
+    try {
+      const payload = {
+        factual_accuracy_score: Number(editingTrustReview.factual_accuracy_score),
+        age_appropriateness_score: Number(editingTrustReview.age_appropriateness_score),
+        simplicity_score: Number(editingTrustReview.simplicity_score),
+        visual_clarity_score: Number(editingTrustReview.visual_clarity_score),
+        engagement_score: Number(editingTrustReview.engagement_score),
+        source_safety_score: Number(editingTrustReview.source_safety_score),
+        reviewer_confidence_score: Number(editingTrustReview.reviewer_confidence_score),
+        reviewer_decision: editingTrustReview.reviewer_decision || 'pending',
+        reviewer_notes: editingTrustReview.reviewer_notes || '',
+        checklist_json: editingTrustReview.checklist_json || '[]'
+      }
+      const result = await updateTrustReview(id, editingTrustReview.id, payload)
+      setData((current) => ({
+        ...current,
+        package: result.package,
+        trust_reviews: (current.trust_reviews || []).map((item) => item.id === result.trust_review.id ? result.trust_review : item)
+      }))
+      setEditingTrustReview(result.trust_review)
+      setMessage(`Teacher Trust Score saved: ${result.trust_review.overall_trust_score}.`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setTrustReviewSaving(false)
+    }
+  }
+
+  function updateEditingTrustReview(name, value) {
+    setEditingTrustReview((current) => ({ ...current, [name]: value }))
   }
 
 
@@ -1068,6 +1132,59 @@ function PackageDetail({ id }) {
         )}
         {data.source_safety_reviews && data.source_safety_reviews.length > 0 && (
           <TextCard title="Latest source safety review" value={data.source_safety_reviews[0].review_markdown} />
+        )}
+      </div>
+
+      <div className="card stack">
+        <div className="card-header">
+          <div>
+            <h2>Teacher Trust Score review</h2>
+            <p className="muted">Use this after source safety review. Edit the category scores, add reviewer notes, and save a final approval recommendation.</p>
+          </div>
+          <button onClick={createTrustReview} disabled={trustReviewGenerating}>
+            {trustReviewGenerating ? 'Generating...' : 'Generate trust review'}
+          </button>
+        </div>
+        {!data.trust_reviews || data.trust_reviews.length === 0 ? (
+          <p className="muted">No Teacher Trust Score review yet. Generate one before approving or publishing this Short.</p>
+        ) : (
+          <div className="trust-review-list">
+            {data.trust_reviews.map((review, index) => (
+              <div className="trust-review-entry" key={review.id}>
+                <div>
+                  <strong>Trust review #{review.id}</strong>
+                  <p>Score: {review.overall_trust_score} • Decision: {review.reviewer_decision} • Approval required: {review.approval_required ? 'Yes' : 'No'}</p>
+                  <p>{review.recommendation}</p>
+                  {index === 0 && <p className="muted">Latest review is included in the export ZIP as teacher_trust_review.md.</p>}
+                </div>
+                <div className="row-meta">
+                  <TrustBadge score={review.overall_trust_score} />
+                  <button className="secondary small" onClick={() => setEditingTrustReview(review)}>Edit scores</button>
+                  <a className="button-link small" href={trustReviewDownloadUrl(id, review.id)}>Download review</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {editingTrustReview && (
+          <div className="trust-editor">
+            <h3>Edit latest trust review</h3>
+            <div className="analytics-grid">
+              <Input type="number" label="Factual accuracy" value={editingTrustReview.factual_accuracy_score} onChange={(v) => updateEditingTrustReview('factual_accuracy_score', v)} />
+              <Input type="number" label="Age appropriateness" value={editingTrustReview.age_appropriateness_score} onChange={(v) => updateEditingTrustReview('age_appropriateness_score', v)} />
+              <Input type="number" label="Simplicity" value={editingTrustReview.simplicity_score} onChange={(v) => updateEditingTrustReview('simplicity_score', v)} />
+              <Input type="number" label="Visual clarity" value={editingTrustReview.visual_clarity_score} onChange={(v) => updateEditingTrustReview('visual_clarity_score', v)} />
+              <Input type="number" label="Engagement" value={editingTrustReview.engagement_score} onChange={(v) => updateEditingTrustReview('engagement_score', v)} />
+              <Input type="number" label="Source safety" value={editingTrustReview.source_safety_score} onChange={(v) => updateEditingTrustReview('source_safety_score', v)} />
+              <Input type="number" label="Reviewer confidence" value={editingTrustReview.reviewer_confidence_score} onChange={(v) => updateEditingTrustReview('reviewer_confidence_score', v)} />
+              <Select label="Reviewer decision" value={editingTrustReview.reviewer_decision || 'pending'} options={['pending', 'approved', 'edit_required', 'rewrite_required', 'rejected']} onChange={(v) => updateEditingTrustReview('reviewer_decision', v)} />
+              <TextArea label="Trust reviewer notes" value={editingTrustReview.reviewer_notes || ''} onChange={(v) => updateEditingTrustReview('reviewer_notes', v)} rows={4} wide />
+              <div className="wide button-row">
+                <button onClick={saveTrustReview} disabled={trustReviewSaving}>{trustReviewSaving ? 'Saving...' : 'Save trust review'}</button>
+                <button className="secondary" onClick={() => setEditingTrustReview(null)}>Close editor</button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 

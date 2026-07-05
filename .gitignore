@@ -60,6 +60,7 @@ storage/final/*
 storage/raw_uploads/*
 storage/thumbnails/*
 storage/source_safety/*
+storage/trust_reviews/*
 storage/asset_library/*
 storage/scene_library/*
 !storage/**/.gitkeep

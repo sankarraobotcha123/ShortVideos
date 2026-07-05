@@ -1,11 +1,11 @@
-# Edu Content Platform MVP v10
+# Edu Content Platform MVP v11
 
 Shorts-first educational content creator assistant.
 
-This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds a **Source Safety + Originality Review workflow** on top of thumbnail helper and reusable visual assets. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, stronger TTS providers, or advanced video generation without changing the business workflow.
+This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds an editable **Teacher Trust Score review workflow** on top of source safety, thumbnail helper, reusable visual assets, audio fallback, assembly planning, and MP4 draft generation. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, stronger TTS providers, or advanced video generation without changing the business workflow.
 
 ```text
-Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Reusable Visual Assets → Thumbnail Helper → Source Safety Review → Vertical MP4 Draft → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics
+Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Reusable Visual Assets → Thumbnail Helper → Source Safety Review → Teacher Trust Review → Vertical MP4 Draft → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics
 ```
 
 ---
@@ -27,29 +27,16 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
   - pyttsx3 provider: optional, disabled by default
   - Manual recording provider: always works
 - CapCut/manual assembly plan generator
-- Reusable visual asset library:
-  - Upload PNG/JPG/WebP/GIF assets
-  - Store tags, license/source notes, and descriptions
-  - Suggest matching assets for a package
-  - Reuse matched assets inside MP4 draft scene cards
-- Thumbnail helper workflow:
-  - Generates thumbnail text ideas
-  - Creates a manual layout guide
-  - Creates Canva/CapCut thumbnail prompt
-  - Exports thumbnail guide files in each package ZIP
-- Source Safety + Originality Review workflow:
-  - Checks source name/license/page metadata
-  - Warns when copied text is marked
-  - Estimates similarity between source notes and generated script
-  - Produces risk level, checklist, recommendation, and downloadable markdown review
-  - Exports source safety review files in each package ZIP
-- Simple vertical MP4 draft generator:
-  - Creates 9:16 scene-card video drafts
-  - Uses matched reusable visual assets when tags match the scene
-  - Uses generated narration audio if available
-  - Creates silent MP4 drafts if no audio exists
-  - Creates manual video guide if MP4 generation fails
-- Teacher Trust Score
+- Reusable visual asset library
+- Thumbnail helper workflow
+- Source Safety + Originality Review workflow
+- **Teacher Trust Score Review workflow:**
+  - Generates category scores for factual accuracy, age appropriateness, simplicity, visual clarity, engagement, source safety, and reviewer confidence
+  - Allows manual editing of scores from React UI
+  - Recalculates final trust score and recommendation
+  - Updates the package trust score after review
+  - Downloads/exports `teacher_trust_review.md`
+- Simple vertical MP4 draft generator
 - Human review/edit API
 - Manual analytics API
 - Content batch planner API
@@ -69,6 +56,7 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 - Suggested visual assets on package detail
 - Thumbnail helper section on package detail
 - Source safety/originality review section on package detail
+- Teacher Trust Score review section on package detail
 - Narration audio generation section
 - CapCut/manual assembly plan section
 - Vertical MP4 draft generation section
@@ -89,7 +77,7 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 ## Folder structure
 
 ```text
-edu-content-platform-mvp-v10/
+edu-content-platform-mvp-v11/
 ├── app/                    # FastAPI backend
 │   ├── core/
 │   ├── db/
@@ -101,6 +89,9 @@ edu-content-platform-mvp-v10/
 │   │   ├── content_generator.py
 │   │   ├── export_service.py
 │   │   ├── generation_orchestrator.py
+│   │   ├── source_safety_service.py
+│   │   ├── thumbnail_service.py
+│   │   ├── trust_score_service.py
 │   │   └── video_draft_service.py
 │   ├── static/             # Legacy Jinja static files
 │   └── templates/          # Legacy Jinja pages
@@ -112,8 +103,10 @@ edu-content-platform-mvp-v10/
 │   ├── asset_library/
 │   ├── audio/
 │   ├── exports/
-│   ├── video_drafts/
-│   └── final/
+│   ├── source_safety/
+│   ├── thumbnails/
+│   ├── trust_reviews/
+│   └── video_drafts/
 ├── tests/
 ├── scripts/
 ├── requirements.txt
@@ -124,24 +117,46 @@ edu-content-platform-mvp-v10/
 
 ---
 
-
-## Source safety workflow
+## Teacher Trust Score workflow
 
 After creating a package:
 
 1. Open the package detail page.
-2. Click **Generate source safety review**.
-3. Check the risk level, similarity score, checklist, and recommendation.
-4. If the risk is high, rewrite the script before approving.
-5. Export the package ZIP and verify these files are included:
+2. Generate **Source Safety & Originality Review** first.
+3. Click **Generate trust review**.
+4. Check the category scores:
+   - Factual accuracy
+   - Age appropriateness
+   - Simplicity
+   - Visual clarity
+   - Engagement
+   - Source safety
+   - Reviewer confidence
+5. Edit scores manually if the automatic estimate is not correct.
+6. Set reviewer decision:
+   - `pending`
+   - `approved`
+   - `edit_required`
+   - `rewrite_required`
+   - `rejected`
+7. Save the trust review.
+8. Export ZIP and verify these files are included:
 
 ```text
-source_safety_review.md
-source_safety_checklist.json
-source_safety_reviews.json
+teacher_trust_review.md
+teacher_trust_checklist.json
+teacher_trust_reviews.json
 ```
 
-This is not a legal verdict or full plagiarism scanner. It is an MVP publishing guardrail to prevent copied textbook-style Shorts from entering your workflow.
+Suggested approval rule:
+
+```text
+overall_trust_score >= 85  → safe for normal review
+70–84                       → needs careful human review
+below 70                    → rewrite or regenerate before publishing
+```
+
+---
 
 ## Run backend
 
@@ -183,7 +198,7 @@ http://127.0.0.1:5173
 
 ## Recommended laptop `.env`
 
-Since Ollama is not installed on your laptop, keep this simple fallback setup:
+Since Ollama is not installed on your laptop, keep this fallback setup:
 
 ```env
 AI_PROVIDER_CHAIN=transformers,template
@@ -195,76 +210,38 @@ USE_WINDOWS_SAPI_TTS=true
 USE_PYTTSX3_TTS=false
 ```
 
-This means:
-
-- AI generation uses the built-in template fallback.
-- Audio tries Windows speech first.
-- If audio generation fails, a manual recording guide is created.
-- Video draft generation still works silently if audio is not available.
-- Reusable visual assets work without any AI provider.
-
 ---
 
-## How to test the full v10 workflow
+## How to test the full v11 workflow
 
 1. Start backend.
 2. Start frontend.
 3. Open `http://127.0.0.1:5173`.
-4. Open **Visual assets**.
-5. Upload a simple image, for example a leaf diagram.
-6. Use tags like `leaf, chlorophyll, photosynthesis, science`.
-7. Create a package for `Why are leaves green?`.
-8. Open the package detail page.
-9. Confirm matching assets appear under **Suggested reusable visuals**.
-10. Review/edit the script.
-11. Click **Generate narration**.
-12. Click **Generate assembly plan**.
-13. Click **Generate video draft**.
-14. Preview/download the MP4 draft.
+4. Open **Visual assets** and upload a reusable diagram/icon.
+5. Create a package for `Why are leaves green?`.
+6. Open the package detail page.
+7. Review/edit the script.
+8. Click **Generate thumbnail helper**.
+9. Click **Generate source safety review**.
+10. Click **Generate trust review**.
+11. Edit trust scores and save the trust review.
+12. Click **Generate narration**.
+13. Click **Generate assembly plan**.
+14. Click **Generate video draft**.
 15. Export the ZIP package.
-16. Use the MP4 draft and CapCut assembly plan for manual improvement.
-17. Publish manually.
-18. Enter analytics weekly.
+16. Publish manually.
+17. Enter analytics weekly.
 
 ---
 
-## Visual asset rules
-
-Use the asset library for images you are legally allowed to reuse:
-
-```text
-Good:
-- Self-created icons
-- Canva-created diagrams you have rights to use
-- Open-license public domain/simple icons
-- Your own screenshots/diagrams
-
-Avoid:
-- Copyrighted textbook page screenshots
-- Random Google images without license check
-- Brand logos or characters you do not have rights to use
-```
-
-Use clear tags. Example:
-
-```text
-leaf, chlorophyll, photosynthesis, plant, science
-fraction, numerator, denominator, math
-noun, verb, grammar, english
-```
-
----
-
-## Git push
+## Git push for this version
 
 ```bash
-git init
+git status
 git add .
 git status
-git commit -m "Add reusable visual asset library"
-git branch -M main
-git remote add origin YOUR_GITHUB_REPO_URL
-git push -u origin main
+git commit -m "Improve teacher trust score review workflow"
+git push
 ```
 
 Before pushing, confirm these are not staged:
@@ -278,7 +255,12 @@ storage/app.db
 storage/exports/
 storage/audio/
 storage/video_drafts/
-storage/asset_library/*
+storage/asset_library/
+storage/thumbnails/
+storage/source_safety/
+storage/trust_reviews/
+__pycache__/
+.pytest_cache/
 ```
 
 `.gitkeep` files inside storage folders should remain tracked.
@@ -290,10 +272,10 @@ storage/asset_library/*
 Backend tests:
 
 ```text
-9 passed
+13 passed
 ```
 
-Frontend build:
+Frontend production build:
 
 ```text
 passed

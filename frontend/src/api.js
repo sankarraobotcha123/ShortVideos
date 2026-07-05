@@ -192,6 +192,23 @@ export function sourceSafetyDownloadUrl(packageId, reviewId) {
   return `${API_BASE_URL}/content/${packageId}/source-safety/${reviewId}/download`
 }
 
+export function generateTrustReview(id) {
+  return request(`/api/content/${id}/trust-review`, {
+    method: 'POST'
+  })
+}
+
+export function updateTrustReview(packageId, reviewId, payload) {
+  return request(`/api/content/${packageId}/trust-review/${reviewId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function trustReviewDownloadUrl(packageId, reviewId) {
+  return `${API_BASE_URL}/content/${packageId}/trust-review/${reviewId}/download`
+}
+
 export function fetchAiSettings() {
   return request('/api/settings/ai')
 }

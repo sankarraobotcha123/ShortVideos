@@ -184,6 +184,31 @@ CREATE TABLE IF NOT EXISTS source_safety_reviews (
     FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS teacher_trust_reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'generated',
+    factual_accuracy_score INTEGER NOT NULL DEFAULT 80,
+    age_appropriateness_score INTEGER NOT NULL DEFAULT 80,
+    simplicity_score INTEGER NOT NULL DEFAULT 80,
+    visual_clarity_score INTEGER NOT NULL DEFAULT 80,
+    engagement_score INTEGER NOT NULL DEFAULT 80,
+    source_safety_score INTEGER NOT NULL DEFAULT 80,
+    reviewer_confidence_score INTEGER NOT NULL DEFAULT 80,
+    overall_trust_score INTEGER NOT NULL DEFAULT 80,
+    approval_required INTEGER NOT NULL DEFAULT 1,
+    checklist_json TEXT NOT NULL DEFAULT '[]',
+    recommendation TEXT NOT NULL DEFAULT '',
+    reviewer_decision TEXT NOT NULL DEFAULT 'pending',
+    reviewer_notes TEXT DEFAULT '',
+    file_path TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL DEFAULT 'text/markdown',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -407,6 +432,37 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
             mime_type TEXT NOT NULL DEFAULT 'text/markdown',
             reviewer_decision TEXT NOT NULL DEFAULT 'pending',
             reviewer_notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS teacher_trust_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'generated',
+            factual_accuracy_score INTEGER NOT NULL DEFAULT 80,
+            age_appropriateness_score INTEGER NOT NULL DEFAULT 80,
+            simplicity_score INTEGER NOT NULL DEFAULT 80,
+            visual_clarity_score INTEGER NOT NULL DEFAULT 80,
+            engagement_score INTEGER NOT NULL DEFAULT 80,
+            source_safety_score INTEGER NOT NULL DEFAULT 80,
+            reviewer_confidence_score INTEGER NOT NULL DEFAULT 80,
+            overall_trust_score INTEGER NOT NULL DEFAULT 80,
+            approval_required INTEGER NOT NULL DEFAULT 1,
+            checklist_json TEXT NOT NULL DEFAULT '[]',
+            recommendation TEXT NOT NULL DEFAULT '',
+            reviewer_decision TEXT NOT NULL DEFAULT 'pending',
+            reviewer_notes TEXT DEFAULT '',
+            file_path TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            mime_type TEXT NOT NULL DEFAULT 'text/markdown',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE

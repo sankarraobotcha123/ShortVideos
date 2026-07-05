@@ -835,3 +835,36 @@ button.small,
     grid-template-columns: 1fr;
   }
 }
+
+.trust-review-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.trust-review-entry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.trust-review-entry p {
+  margin: 0.25rem 0 0;
+}
+
+.trust-editor {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px dashed rgba(37, 99, 235, 0.35);
+  border-radius: 16px;
+  background: rgba(37, 99, 235, 0.04);
+}
+
+@media (max-width: 780px) {
+  .trust-review-entry {
+    grid-template-columns: 1fr;
+  }
+}

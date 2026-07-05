@@ -23,6 +23,7 @@ def export_package(
     visual_assets: Sequence[Mapping] | None = None,
     thumbnail_guides: Sequence[Mapping] | None = None,
     source_safety_reviews: Sequence[Mapping] | None = None,
+    trust_reviews: Sequence[Mapping] | None = None,
 ) -> Path:
     settings.export_dir.mkdir(parents=True, exist_ok=True)
     package_id = row["id"]
@@ -38,6 +39,7 @@ def export_package(
     visual_assets = list(visual_assets or [])
     thumbnail_guides = list(thumbnail_guides or [])
     source_safety_reviews = list(source_safety_reviews or [])
+    trust_reviews = list(trust_reviews or [])
 
     asset_summary = "No reusable visual assets saved yet. Upload assets in the Visual Assets page to reuse icons/diagrams in MP4 drafts."
     if visual_assets:
@@ -88,6 +90,15 @@ def export_package(
             f"Latest review: risk={latest_source_safety.get('risk_level')} | "
             f"similarity={latest_source_safety.get('similarity_score')}% | "
             f"status={latest_source_safety.get('status')}"
+        )
+
+    trust_review_summary = "No Teacher Trust Score review generated yet. Use the app's Generate trust review button before approving this Short."
+    latest_trust_review = trust_reviews[0] if trust_reviews else None
+    if latest_trust_review:
+        trust_review_summary = (
+            f"Latest trust review: score={latest_trust_review.get('overall_trust_score')} | "
+            f"decision={latest_trust_review.get('reviewer_decision')} | "
+            f"approval_required={'Yes' if latest_trust_review.get('approval_required') else 'No'}"
         )
 
     markdown = f"""# Content Package: {row['topic']}
@@ -142,6 +153,10 @@ def export_package(
 ## Source Safety & Originality Review
 
 {source_safety_summary}
+
+## Teacher Trust Score Review
+
+{trust_review_summary}
 
 ## Title Options
 
@@ -245,6 +260,21 @@ def export_package(
         (package_dir / "source_safety_checklist.json").write_text(str(latest_source_safety.get("checklist_json") or "[]"), encoding="utf-8")
     (package_dir / "source_safety_reviews.json").write_text(json.dumps(source_safety_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    trust_review_manifest = []
+    for review in trust_reviews:
+        source = Path(review.get("file_path") or "")
+        trust_review_manifest.append(dict(review))
+        if source.exists() and source.is_file():
+            target_name = f"teacher_trust_review_{review.get('id', 'review')}_{source.name}"
+            target = package_dir / target_name
+            target.write_bytes(source.read_bytes())
+    if latest_trust_review:
+        latest_path = Path(latest_trust_review.get("file_path") or "")
+        if latest_path.exists() and latest_path.is_file():
+            (package_dir / "teacher_trust_review.md").write_text(latest_path.read_text(encoding="utf-8"), encoding="utf-8")
+        (package_dir / "teacher_trust_checklist.json").write_text(str(latest_trust_review.get("checklist_json") or "[]"), encoding="utf-8")
+    (package_dir / "teacher_trust_reviews.json").write_text(json.dumps(trust_review_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
     payload = dict(row)
     payload["audio_assets"] = audio_manifest
     payload["assembly_plans"] = assembly_manifest
@@ -252,6 +282,7 @@ def export_package(
     payload["visual_assets"] = visual_asset_manifest
     payload["thumbnail_guides"] = thumbnail_manifest
     payload["source_safety_reviews"] = source_safety_manifest
+    payload["teacher_trust_reviews"] = trust_review_manifest
     (package_dir / "package.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
     zip_path = settings.export_dir / f"package-{package_id}-{slug}.zip"
