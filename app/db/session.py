@@ -316,6 +316,38 @@ CREATE TABLE IF NOT EXISTS content_production_cards (
     FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
 );
 
+
+
+CREATE TABLE IF NOT EXISTS content_ideas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    subject TEXT NOT NULL DEFAULT 'Science',
+    class_level TEXT NOT NULL DEFAULT 'Class 7',
+    target_audience TEXT NOT NULL DEFAULT 'School students',
+    language TEXT NOT NULL DEFAULT 'English',
+    idea_type TEXT NOT NULL DEFAULT 'curiosity',
+    hook_angle TEXT DEFAULT '',
+    source_hint TEXT DEFAULT '',
+    batch_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'backlog',
+    notes TEXT DEFAULT '',
+    curiosity_score INTEGER NOT NULL DEFAULT 7,
+    evergreen_score INTEGER NOT NULL DEFAULT 7,
+    visual_potential_score INTEGER NOT NULL DEFAULT 7,
+    student_value_score INTEGER NOT NULL DEFAULT 7,
+    production_effort_score INTEGER NOT NULL DEFAULT 4,
+    monetization_potential_score INTEGER NOT NULL DEFAULT 5,
+    total_score REAL NOT NULL DEFAULT 70,
+    priority TEXT NOT NULL DEFAULT 'medium',
+    recommendation TEXT DEFAULT '',
+    score_breakdown_json TEXT NOT NULL DEFAULT '{}',
+    converted_package_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(batch_id) REFERENCES content_batches(id) ON DELETE SET NULL,
+    FOREIGN KEY(converted_package_id) REFERENCES content_packages(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -691,6 +723,42 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS content_ideas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            subject TEXT NOT NULL DEFAULT 'Science',
+            class_level TEXT NOT NULL DEFAULT 'Class 7',
+            target_audience TEXT NOT NULL DEFAULT 'School students',
+            language TEXT NOT NULL DEFAULT 'English',
+            idea_type TEXT NOT NULL DEFAULT 'curiosity',
+            hook_angle TEXT DEFAULT '',
+            source_hint TEXT DEFAULT '',
+            batch_id INTEGER,
+            status TEXT NOT NULL DEFAULT 'backlog',
+            notes TEXT DEFAULT '',
+            curiosity_score INTEGER NOT NULL DEFAULT 7,
+            evergreen_score INTEGER NOT NULL DEFAULT 7,
+            visual_potential_score INTEGER NOT NULL DEFAULT 7,
+            student_value_score INTEGER NOT NULL DEFAULT 7,
+            production_effort_score INTEGER NOT NULL DEFAULT 4,
+            monetization_potential_score INTEGER NOT NULL DEFAULT 5,
+            total_score REAL NOT NULL DEFAULT 70,
+            priority TEXT NOT NULL DEFAULT 'medium',
+            recommendation TEXT DEFAULT '',
+            score_breakdown_json TEXT NOT NULL DEFAULT '{}',
+            converted_package_id INTEGER,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(batch_id) REFERENCES content_batches(id) ON DELETE SET NULL,
+            FOREIGN KEY(converted_package_id) REFERENCES content_packages(id) ON DELETE SET NULL
         )
         """
     )

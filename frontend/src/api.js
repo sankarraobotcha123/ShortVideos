@@ -436,3 +436,42 @@ export function updateProductionCard(packageId, payload) {
 export function productionBoardDownloadUrl() {
   return `${API_BASE_URL}/production-board/download`
 }
+
+export function fetchContentIdeas(params = {}) {
+  const query = new URLSearchParams()
+  if (params.status) query.set('status', params.status)
+  if (params.search) query.set('search', params.search)
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  return request(`/api/content-ideas${suffix}`)
+}
+
+export function createContentIdea(payload) {
+  return request('/api/content-ideas', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateContentIdea(id, payload) {
+  return request(`/api/content-ideas/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function deleteContentIdea(id) {
+  return request(`/api/content-ideas/${id}`, {
+    method: 'DELETE'
+  })
+}
+
+export function convertContentIdea(id, payload) {
+  return request(`/api/content-ideas/${id}/convert`, {
+    method: 'POST',
+    body: JSON.stringify(payload || {})
+  })
+}
+
+export function contentIdeasDownloadUrl() {
+  return `${API_BASE_URL}/content-ideas/download`
+}

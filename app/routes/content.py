@@ -40,6 +40,16 @@ from app.services.production_board_service import (
     build_content_production_board_markdown,
     update_production_card,
 )
+from app.services.idea_backlog_service import (
+    IDEA_STATUSES,
+    IDEA_TYPES,
+    build_content_ideas_markdown,
+    create_content_idea,
+    get_content_idea,
+    list_content_ideas,
+    mark_idea_converted,
+    update_content_idea,
+)
 from app.services.publishing_approval_service import (
     create_publishing_approval,
     get_publishing_approval,
@@ -155,6 +165,8 @@ def _stats(conn) -> dict[str, Any]:
     data.update({key: int(calendar_data.get(key) or 0) for key in ["scheduled_items", "calendar_published"]})
     asset_row = conn.execute("SELECT COUNT(*) AS visual_assets FROM visual_assets").fetchone()
     data["visual_assets"] = int(dict(asset_row or {}).get("visual_assets") or 0)
+    idea_row = conn.execute("SELECT COUNT(*) AS content_ideas FROM content_ideas").fetchone()
+    data["content_ideas"] = int(dict(idea_row or {}).get("content_ideas") or 0)
     return data
 
 
@@ -556,6 +568,43 @@ class ProductionCardUpdateRequest(BaseModel):
     due_date: str = ""
     notes: str = ""
 
+
+class ContentIdeaCreateRequest(BaseModel):
+    title: str = Field(..., min_length=1)
+    subject: str = "Science"
+    class_level: str = "Class 7"
+    target_audience: str = "School students"
+    language: str = "English"
+    idea_type: str = "curiosity"
+    hook_angle: str = ""
+    source_hint: str = ""
+    batch_id: int | None = None
+    status: str = "backlog"
+    notes: str = ""
+    curiosity_score: int = Field(7, ge=1, le=10)
+    evergreen_score: int = Field(7, ge=1, le=10)
+    visual_potential_score: int = Field(7, ge=1, le=10)
+    student_value_score: int = Field(7, ge=1, le=10)
+    production_effort_score: int = Field(4, ge=1, le=10)
+    monetization_potential_score: int = Field(5, ge=1, le=10)
+
+
+class ContentIdeaUpdateRequest(ContentIdeaCreateRequest):
+    pass
+
+
+class ContentIdeaConvertRequest(BaseModel):
+    output_type: str = "Short"
+    tone: str = "Curious"
+    duration_seconds: int = Field(60, ge=20, le=90)
+    board_source: str = "NCERT / Self-written"
+    source_name: str = "Idea backlog notes"
+    source_license_type: str = "Self-written / Original"
+    page_or_section_reference: str = "Idea backlog"
+    transformation_notes: str = "Converted from scored backlog idea into a Shorts package."
+    prompt_template_id: int | None = None
+
+
 class PromptPreviewRequest(BaseModel):
     board_source: str = "NCERT / Self-written"
     class_level: str = "Class 7"
@@ -749,6 +798,102 @@ def download_production_board(_: dict[str, Any] = Depends(require_permission("co
         media_type="text/markdown",
         headers={"Content-Disposition": "attachment; filename=content_production_board.md"},
     )
+
+
+@router.get("/api/content-ideas")
+def api_content_ideas(status: str | None = None, search: str = "", _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
+    with db_session() as conn:
+        backlog = list_content_ideas(conn, status=status, search=search)
+    return {"idea_backlog": backlog, "statuses": IDEA_STATUSES, "idea_types": IDEA_TYPES}
+
+
+@router.post("/api/content-ideas", status_code=201)
+def api_create_content_idea(payload: ContentIdeaCreateRequest, _: dict[str, Any] = Depends(require_permission("content:create"))) -> dict[str, Any]:
+    with db_session() as conn:
+        if payload.batch_id is not None:
+            _assert_batch_exists(conn, payload.batch_id)
+        try:
+            idea = create_content_idea(conn, payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        backlog = list_content_ideas(conn)
+    return {"idea": idea, "idea_backlog": backlog}
+
+
+@router.patch("/api/content-ideas/{idea_id}")
+def api_update_content_idea(idea_id: int, payload: ContentIdeaUpdateRequest, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
+    with db_session() as conn:
+        if payload.batch_id is not None:
+            _assert_batch_exists(conn, payload.batch_id)
+        try:
+            idea = update_content_idea(conn, idea_id, payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=404 if "not found" in str(exc).lower() else 400, detail=str(exc)) from exc
+        backlog = list_content_ideas(conn)
+    return {"idea": idea, "idea_backlog": backlog}
+
+
+@router.delete("/api/content-ideas/{idea_id}")
+def api_delete_content_idea(idea_id: int, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
+    with db_session() as conn:
+        existing = get_content_idea(conn, idea_id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Content idea not found")
+        conn.execute("DELETE FROM content_ideas WHERE id = ?", (idea_id,))
+    return {"deleted": True, "idea_id": idea_id}
+
+
+@router.post("/api/content-ideas/{idea_id}/convert", status_code=201)
+def api_convert_content_idea(idea_id: int, payload: ContentIdeaConvertRequest, _: dict[str, Any] = Depends(require_permission("content:create"))) -> dict[str, Any]:
+    with db_session() as conn:
+        idea = get_content_idea(conn, idea_id)
+        if idea is None:
+            raise HTTPException(status_code=404, detail="Content idea not found")
+        template = get_prompt_template(conn, payload.prompt_template_id) if payload.prompt_template_id else None
+        if payload.prompt_template_id and template is None:
+            raise HTTPException(status_code=404, detail="Prompt template not found")
+    tone = payload.tone or {
+        "mistake_correction": "Mistake correction",
+        "exam_friendly": "Exam-focused",
+        "story": "Story-based",
+    }.get(str(idea.get("idea_type") or ""), "Curious")
+    inp = ContentInput(
+        board_source=payload.board_source,
+        class_level=idea.get("class_level") or "Class 7",
+        subject=idea.get("subject") or "Science",
+        topic=idea.get("title") or "Untitled idea",
+        audience=idea.get("target_audience") or "School students",
+        language=idea.get("language") or "English",
+        duration_seconds=payload.duration_seconds,
+        output_type=payload.output_type,
+        tone=tone,
+        source_notes=idea.get("source_hint") or idea.get("notes") or idea.get("hook_angle") or "Self-written content idea from backlog.",
+        source_name=payload.source_name,
+        source_license_type=payload.source_license_type,
+        page_or_section_reference=payload.page_or_section_reference,
+        copied_text_used=False,
+        transformation_notes=payload.transformation_notes,
+    )
+    generated = generate_content_package_with_fallbacks(inp)
+    generated = apply_script_prompt_template(inp, generated, template)
+    package_id = _insert_generated_package(inp, generated, idea.get("batch_id"))
+    with db_session() as conn:
+        idea = mark_idea_converted(conn, idea_id, package_id)
+        row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
+    return {"idea": idea, "package": _package_from_row(row)}
+
+
+@router.get("/content-ideas/download")
+def download_content_ideas(_: dict[str, Any] = Depends(require_permission("content:view"))):
+    with db_session() as conn:
+        backlog = list_content_ideas(conn)
+    markdown = build_content_ideas_markdown(backlog)
+    return PlainTextResponse(
+        markdown,
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=content_idea_backlog.md"},
+    )
+
 
 @router.get("/api/analytics/insights")
 def api_analytics_insights(_: dict[str, Any] = Depends(require_permission("analytics:view"))) -> dict[str, Any]:

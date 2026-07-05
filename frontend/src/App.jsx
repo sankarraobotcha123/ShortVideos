@@ -2,6 +2,9 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   addAnalytics,
   changeAuthPassword,
+  contentIdeasDownloadUrl,
+  convertContentIdea,
+  createContentIdea,
   cleanupAuthSessions,
   clearAuthToken,
   createAuthUser,
@@ -25,6 +28,7 @@ import {
   fetchCalendar,
   fetchPackage,
   fetchPackages,
+  fetchContentIdeas,
   fetchCurrentUser,
   fetchProviderLogs,
   fetchProductionBoard,
@@ -50,6 +54,7 @@ import {
   trustReviewDownloadUrl,
   learningOutputDownloadUrl,
   createPromptTemplate,
+  deleteContentIdea,
   deletePromptTemplate,
   fetchPromptTemplates,
   previewPromptTemplate,
@@ -61,6 +66,7 @@ import {
   seedPromptTemplates,
   updatePromptTemplate,
   updateAuthUser,
+  updateContentIdea,
   updateBatch,
   uploadVisualAsset,
   updateCalendarEntry,
@@ -140,6 +146,27 @@ Remember: {memory_line}
 Quick challenge: explain {topic_lower} in one sentence.`
 }
 
+
+const initialContentIdea = {
+  title: 'Why do we see lightning before thunder?',
+  subject: 'Science',
+  class_level: 'Class 7',
+  target_audience: 'School students and curious learners',
+  language: 'English',
+  idea_type: 'curiosity',
+  hook_angle: 'Most students think lightning and thunder happen at different times, but the real reason is speed.',
+  source_hint: 'Light travels much faster than sound, so lightning reaches our eyes before thunder reaches our ears.',
+  batch_id: '',
+  status: 'backlog',
+  notes: 'Good visual idea with sky, flash, and sound wave timing.',
+  curiosity_score: 9,
+  evergreen_score: 8,
+  visual_potential_score: 9,
+  student_value_score: 8,
+  production_effort_score: 4,
+  monetization_potential_score: 6
+}
+
 const initialPublishingApprovalDecision = {
   reviewer_decision: 'pending',
   reviewer_name: '',
@@ -163,6 +190,7 @@ const ACTION_LABELS = {
   'video:generate': 'generate assembly plans and video drafts',
   'audio:generate': 'generate narration audio',
   'learning_outputs:generate': 'generate notes, quizzes, and worksheets',
+  'ideas:manage': 'manage content ideas and topic scoring',
   'publish:approve': 'approve publishing gates'
 }
 
@@ -174,6 +202,7 @@ const ROUTE_ACCESS = {
   batch: { permission: 'content:view' },
   calendar: { permission: 'content:view' },
   productionBoard: { permission: 'content:view' },
+  ideas: { permission: 'content:view' },
   assets: { permission: 'content:view' },
   templates: { permission: 'templates:manage' },
   analytics: { permission: 'analytics:view' },
@@ -308,6 +337,7 @@ function App() {
           {navCan('content:view') && <a className={route.name === 'batches' || route.name === 'batch' ? 'active' : ''} href="#/batches">Batches</a>}
           {navCan('content:view') && <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>}
           {navCan('content:view') && <a className={route.name === 'productionBoard' ? 'active' : ''} href="#/production-board">Production board</a>}
+          {navCan('content:view') && <a className={route.name === 'ideas' ? 'active' : ''} href="#/ideas">Idea backlog</a>}
           {navCan('content:view') && <a className={route.name === 'assets' ? 'active' : ''} href="#/assets">Visual assets</a>}
           {navCan('templates:manage') && <a className={route.name === 'templates' ? 'active' : ''} href="#/templates">Prompt templates</a>}
 
@@ -345,6 +375,7 @@ function App() {
           {route.name === 'batch' && <BatchDetail id={route.id} />}
           {route.name === 'calendar' && <CalendarPage />}
           {route.name === 'productionBoard' && <ProductionBoardPage />}
+          {route.name === 'ideas' && <ContentIdeaBacklogPage />}
           {route.name === 'assets' && <VisualAssetsPage />}
           {route.name === 'templates' && <PromptTemplatesPage />}
           {route.name === 'analytics' && <AnalyticsInsightsPage />}
@@ -375,6 +406,7 @@ function parseRoute(hash) {
   if (parts[0] === 'batches') return { name: 'batches' }
   if (parts[0] === 'calendar') return { name: 'calendar' }
   if (parts[0] === 'production-board') return { name: 'productionBoard' }
+  if (parts[0] === 'ideas') return { name: 'ideas' }
   if (parts[0] === 'assets') return { name: 'assets' }
   if (parts[0] === 'templates') return { name: 'templates' }
   if (parts[0] === 'analytics') return { name: 'analytics' }
@@ -801,12 +833,14 @@ function Dashboard() {
         <StatCard label="Active batches" value={data.stats.active_batches} />
         <StatCard label="Scheduled items" value={data.stats.scheduled_items} />
         <StatCard label="Visual assets" value={data.stats.visual_assets || 0} />
+        <StatCard label="Idea backlog" value={data.stats.content_ideas || 0} />
       </div>
 
       <div className="quick-actions card">
         <GuardedButton permission="content:create" onClick={() => navigate('#/batches')}>Plan a 20-Short batch</GuardedButton>
         <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/calendar')}>Open publishing calendar</GuardedButton>
         <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/production-board')}>Open production board</GuardedButton>
+        <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/ideas')}>Open idea backlog</GuardedButton>
         <GuardedButton permission="assets:manage" className="secondary" onClick={() => navigate('#/assets')}>Upload visual assets</GuardedButton>
         <GuardedButton permission="templates:manage" className="secondary" onClick={() => navigate('#/templates')}>Manage prompt templates</GuardedButton>
         <GuardedButton permission="analytics:view" className="secondary" onClick={() => navigate('#/analytics')}>View analytics insights</GuardedButton>
@@ -2495,6 +2529,224 @@ function PackageDetail({ id }) {
 }
 
 
+
+
+function ContentIdeaBacklogPage() {
+  const canCreate = useCan('content:create')
+  const canEdit = useCan('content:edit')
+  const [data, setData] = useState(null)
+  const [batches, setBatches] = useState([])
+  const [form, setForm] = useState(initialContentIdea)
+  const [editingId, setEditingId] = useState(null)
+  const [statusFilter, setStatusFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  function load() {
+    setError('')
+    fetchContentIdeas({ status: statusFilter, search })
+      .then(setData)
+      .catch((err) => setError(err.message))
+    fetchBatches().then((result) => setBatches(result.batches || [])).catch(() => setBatches([]))
+  }
+
+  useEffect(load, [statusFilter])
+
+  function update(name, value) {
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  function payloadFromForm() {
+    return {
+      ...form,
+      batch_id: form.batch_id ? Number(form.batch_id) : null,
+      curiosity_score: Number(form.curiosity_score),
+      evergreen_score: Number(form.evergreen_score),
+      visual_potential_score: Number(form.visual_potential_score),
+      student_value_score: Number(form.student_value_score),
+      production_effort_score: Number(form.production_effort_score),
+      monetization_potential_score: Number(form.monetization_potential_score)
+    }
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    setMessage('')
+    try {
+      if (editingId) {
+        await updateContentIdea(editingId, payloadFromForm())
+        setMessage('Idea updated and score recalculated.')
+      } else {
+        await createContentIdea(payloadFromForm())
+        setMessage('Idea added to backlog with topic score.')
+      }
+      resetForm()
+      load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function editIdea(idea) {
+    setEditingId(idea.id)
+    setForm({
+      title: idea.title || '',
+      subject: idea.subject || 'Science',
+      class_level: idea.class_level || 'Class 7',
+      target_audience: idea.target_audience || 'School students',
+      language: idea.language || 'English',
+      idea_type: idea.idea_type || 'curiosity',
+      hook_angle: idea.hook_angle || '',
+      source_hint: idea.source_hint || '',
+      batch_id: idea.batch_id ? String(idea.batch_id) : '',
+      status: idea.status || 'backlog',
+      notes: idea.notes || '',
+      curiosity_score: idea.curiosity_score || 7,
+      evergreen_score: idea.evergreen_score || 7,
+      visual_potential_score: idea.visual_potential_score || 7,
+      student_value_score: idea.student_value_score || 7,
+      production_effort_score: idea.production_effort_score || 4,
+      monetization_potential_score: idea.monetization_potential_score || 5
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function resetForm() {
+    setEditingId(null)
+    setForm(initialContentIdea)
+  }
+
+  async function removeIdea(id) {
+    if (!window.confirm('Delete this idea from the backlog?')) return
+    setError('')
+    setMessage('')
+    try {
+      await deleteContentIdea(id)
+      setMessage('Idea deleted.')
+      load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function convertIdea(idea) {
+    setBusy(true)
+    setError('')
+    setMessage('')
+    try {
+      const result = await convertContentIdea(idea.id, {
+        output_type: 'Short',
+        tone: idea.idea_type === 'exam_friendly' ? 'Exam-focused' : idea.idea_type === 'mistake_correction' ? 'Mistake correction' : 'Curious',
+        duration_seconds: 60,
+        board_source: 'NCERT / Self-written',
+        source_name: 'Idea backlog notes',
+        source_license_type: 'Self-written / Original',
+        page_or_section_reference: 'Idea backlog',
+        transformation_notes: 'Converted from scored backlog idea into a Shorts package.'
+      })
+      navigate(`#/packages/${result.package.id}`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (error && !data) return <ErrorCard title="Could not load idea backlog" message={error} />
+  if (!data) return <Loading />
+
+  const backlog = data.idea_backlog || { ideas: [], summary: {} }
+  const summary = backlog.summary || {}
+  const ideas = backlog.ideas || []
+  const statuses = data.statuses || ['backlog', 'shortlisted', 'ready', 'converted', 'archived']
+  const ideaTypes = data.idea_types || ['curiosity', 'textbook_doubt', 'exam_friendly', 'myth_vs_fact', 'mistake_correction', 'series']
+
+  return (
+    <section>
+      <Header
+        title="Content idea backlog"
+        subtitle="Capture Shorts ideas first, score them, shortlist the best ones, and convert only strong ideas into content packages."
+        action={<a className="button-link secondary" href={contentIdeasDownloadUrl()} target="_blank" rel="noreferrer">Download backlog</a>}
+      />
+
+      <div className="stats-grid">
+        <StatCard label="Total ideas" value={summary.total || 0} />
+        <StatCard label="Ready/shortlisted" value={summary.ready_or_shortlisted || 0} />
+        <StatCard label="Average score" value={summary.average_score || 0} />
+        <StatCard label="Backlog" value={(summary.by_status || {}).backlog || 0} />
+      </div>
+
+      {message && <div className="success-banner">{message}</div>}
+      {error && <div className="form-error">{error}</div>}
+
+      <form className="card form-grid" onSubmit={submit}>
+        <PermissionNotice permission={editingId ? 'content:edit' : 'content:create'} />
+        <Input label="Idea title" value={form.title} onChange={(v) => update('title', v)} />
+        <Input label="Subject" value={form.subject} onChange={(v) => update('subject', v)} />
+        <Input label="Class / Level" value={form.class_level} onChange={(v) => update('class_level', v)} />
+        <Input label="Target audience" value={form.target_audience} onChange={(v) => update('target_audience', v)} />
+        <Input label="Language" value={form.language} onChange={(v) => update('language', v)} />
+        <Select label="Idea type" value={form.idea_type} options={ideaTypes} onChange={(v) => update('idea_type', v)} />
+        <Select label="Status" value={form.status} options={statuses} onChange={(v) => update('status', v)} />
+        <Select label="Target batch" value={form.batch_id} options={[{ value: '', label: 'No batch yet' }, ...batches.map((b) => ({ value: String(b.id), label: b.name }))]} onChange={(v) => update('batch_id', v)} />
+        <TextArea label="Hook angle" value={form.hook_angle} onChange={(v) => update('hook_angle', v)} rows={3} wide />
+        <TextArea label="Source hint / fact notes" value={form.source_hint} onChange={(v) => update('source_hint', v)} rows={4} wide />
+        <TextArea label="Planning notes" value={form.notes} onChange={(v) => update('notes', v)} rows={3} wide />
+
+        <Input type="number" label="Curiosity score (1-10)" value={form.curiosity_score} onChange={(v) => update('curiosity_score', v)} />
+        <Input type="number" label="Evergreen score (1-10)" value={form.evergreen_score} onChange={(v) => update('evergreen_score', v)} />
+        <Input type="number" label="Visual potential (1-10)" value={form.visual_potential_score} onChange={(v) => update('visual_potential_score', v)} />
+        <Input type="number" label="Student value (1-10)" value={form.student_value_score} onChange={(v) => update('student_value_score', v)} />
+        <Input type="number" label="Production effort (1 easy - 10 hard)" value={form.production_effort_score} onChange={(v) => update('production_effort_score', v)} />
+        <Input type="number" label="Monetization potential (1-10)" value={form.monetization_potential_score} onChange={(v) => update('monetization_potential_score', v)} />
+
+        <div className="form-actions wide">
+          <button type="button" className="secondary" onClick={resetForm}>Reset</button>
+          <GuardedButton permission={editingId ? 'content:edit' : 'content:create'} type="submit" disabled={busy}>{busy ? 'Saving...' : editingId ? 'Update idea' : 'Add idea'}</GuardedButton>
+        </div>
+      </form>
+
+      <div className="card form-grid compact-form">
+        <Select label="Status filter" value={statusFilter} options={[{ value: '', label: 'All statuses' }, ...statuses.map((status) => ({ value: status, label: status }))]} onChange={setStatusFilter} />
+        <Input label="Search ideas" value={search} onChange={setSearch} />
+        <div className="form-actions"><button className="secondary" onClick={load}>Search</button></div>
+      </div>
+
+      <div className="card">
+        <div className="card-header"><h2>Scored ideas</h2><span>{ideas.length} items</span></div>
+        {ideas.length === 0 ? <p className="muted">No ideas yet. Add the first one above.</p> : (
+          <div className="package-list">
+            {ideas.map((idea) => (
+              <div className="package-row idea-row" key={idea.id}>
+                <div>
+                  <h3>{idea.title}</h3>
+                  <p>{idea.subject} • {idea.class_level} • {idea.idea_type} • {idea.status}</p>
+                  <p>{idea.hook_angle || 'No hook angle yet.'}</p>
+                  <p><strong>Recommendation:</strong> {idea.recommendation}</p>
+                  {idea.batch_name && <p>Batch: {idea.batch_name}</p>}
+                  {idea.converted_package_id && <p>Converted package: #{idea.converted_package_id} {idea.converted_package_topic || ''}</p>}
+                </div>
+                <div className="row-meta wide-actions">
+                  <TrustBadge score={Math.round(idea.total_score || 0)} />
+                  <StatusBadge status={idea.priority || 'medium'} />
+                  <GuardedButton permission="content:edit" className="secondary small" onClick={() => editIdea(idea)}>Edit</GuardedButton>
+                  <GuardedButton permission="content:create" className="small" disabled={busy || idea.status === 'converted'} onClick={() => convertIdea(idea)}>Convert to package</GuardedButton>
+                  <GuardedButton permission="content:edit" className="secondary small" onClick={() => removeIdea(idea.id)}>Delete</GuardedButton>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
 
 function ProductionBoardPage() {
   const canEdit = useCan('content:edit')

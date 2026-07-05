@@ -70,6 +70,7 @@ def build_system_readiness(conn) -> dict[str, Any]:
         "manual_analytics": _count(conn, "manual_analytics"),
         "prompt_templates": _count(conn, "prompt_templates"),
         "provider_logs": _count(conn, "ai_provider_logs"),
+        "content_ideas": _count(conn, "content_ideas"),
     }
     dirs = [
         settings.database_path.parent,
@@ -139,6 +140,7 @@ def seed_demo_data(conn, reset_demo: bool = False) -> dict[str, Any]:
 
     today = date.today()
     batch_id = _create_demo_batch(conn, today)
+    _create_demo_ideas(conn, batch_id)
     package_ids: list[int] = []
 
     for index, topic in enumerate(DEMO_TOPICS):
@@ -197,6 +199,7 @@ def _delete_demo_rows(conn) -> None:
     demo_ids = [row[0] for row in conn.execute("SELECT id FROM content_packages WHERE source_name = ?", (DEMO_SOURCE_NAME,)).fetchall()]
     for package_id in demo_ids:
         conn.execute("DELETE FROM content_packages WHERE id = ?", (package_id,))
+    conn.execute("DELETE FROM content_ideas WHERE notes LIKE ?", ("%Demo backlog idea seeded%",))
     conn.execute("DELETE FROM content_batches WHERE name = ?", (DEMO_BATCH_NAME,))
 
 
@@ -218,6 +221,32 @@ def _create_demo_batch(conn, today: date) -> int:
         ),
     )
     return int(cursor.lastrowid)
+
+
+
+def _create_demo_ideas(conn, batch_id: int) -> None:
+    from app.services.idea_backlog_service import create_content_idea
+
+    for topic in DEMO_TOPICS:
+        create_content_idea(conn, {
+            "title": topic["topic"],
+            "subject": topic["subject"],
+            "class_level": "Class 7",
+            "target_audience": "School students and curious learners",
+            "language": "English",
+            "idea_type": "curiosity" if topic["tone"] == "Curious" else "exam_friendly",
+            "hook_angle": f"Use a simple visual question to explain {topic['topic']}.",
+            "source_hint": topic["source_notes"],
+            "batch_id": batch_id,
+            "status": "shortlisted",
+            "notes": "Demo backlog idea seeded for local testing.",
+            "curiosity_score": 8,
+            "evergreen_score": 8,
+            "visual_potential_score": 8,
+            "student_value_score": 8,
+            "production_effort_score": 4,
+            "monetization_potential_score": 6,
+        })
 
 
 def _insert_demo_package(conn, inp: ContentInput, generated: dict[str, Any], batch_id: int) -> int:

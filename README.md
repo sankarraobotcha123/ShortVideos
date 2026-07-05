@@ -1,19 +1,19 @@
-# Edu Content Platform MVP — v23
+# Edu Content Platform MVP — v25
 
-Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, hardened auth, and a final publishing approval gate.
+Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, and a content idea backlog with topic scoring.
 
-## What is new in v23
+## What is new in v25
 
-- Fixed the **Prompt templates** page not opening by adding the missing `initialPromptTemplate` frontend state.
-- Added **Publishing Approval Gate workflow** before marking a Short as published.
-- Added publishing checklist based on script review, source safety, Teacher Trust Score, and optional production readiness items.
-- Added new database table: `publishing_approvals`.
-- Added new backend service: `app/services/publishing_approval_service.py`.
-- Added new API endpoints for generating, listing, updating, and downloading publishing approval gates.
-- Package detail page now shows the latest publishing gate and publisher decision controls.
-- Marking a package or calendar entry as `published` is blocked until a publishing gate is approved.
-- Export ZIP now includes publishing approval reports and checklist JSON.
-- Updated version to `0.24.0` and frontend asset version to `23`.
+- Added **Content Idea Backlog + Topic Scoring workflow**.
+- Added new React page: `#/ideas`.
+- Added new backend service: `app/services/idea_backlog_service.py`.
+- Added new database table: `content_ideas`.
+- Added API endpoints to create, update, delete, list, download, and convert ideas into content packages.
+- Added scoring fields for curiosity, evergreen value, visual potential, student value, production effort, and monetization potential.
+- Added weighted topic score and priority recommendation.
+- Added dashboard and sidebar links for the idea backlog.
+- Demo seed now creates sample ideas also.
+- Updated version to `0.25.0` and frontend asset version to `25`.
 
 ## Default local login
 
@@ -51,43 +51,40 @@ python scripts/setup_project.py --seed-demo
 uvicorn app.main:app --reload
 ```
 
+Backend:
+
+```text
+http://127.0.0.1:8000
+```
+
 ## Run frontend
+
+Open a second terminal:
 
 ```bash
 npm run frontend:install
 npm run frontend:dev
 ```
 
-Open:
+Frontend:
 
 ```text
 http://127.0.0.1:5173
 ```
 
-## Test the v23 fix and new workflow
+## Test the idea backlog workflow
 
 ```text
-1. Open #/templates and confirm the Prompt templates page opens.
-2. Seed default templates if needed.
-3. Create/open a content package.
-4. Generate source safety review.
-5. Generate Teacher Trust Score review and approve/edit scores if needed.
-6. Save script review as approved.
-7. Generate publishing approval gate.
-8. Save publisher decision as approved if required checks pass.
-9. Mark the package/calendar entry as published only after gate approval.
+Open http://127.0.0.1:5173/#/ideas
+→ Add a Shorts idea
+→ Adjust the score fields
+→ Mark the idea as shortlisted or ready
+→ Convert the idea into a package
+→ Open the generated package
+→ Download the idea backlog report
 ```
 
-## Pre-push checks
-
-```bash
-python scripts/setup_project.py --check-only
-python -m pytest
-npm run frontend:build
-python scripts/pre_push_check.py
-```
-
-## Git commands for this step
+## Pre-push checklist
 
 ```bash
 git status
@@ -98,11 +95,11 @@ python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Add content production board workflow"
+git commit -m "Add content idea backlog and topic scoring workflow"
 git push
 ```
 
-Before committing, confirm these are not staged:
+Do not commit generated/local files:
 
 ```text
 .env
@@ -121,37 +118,4 @@ storage/learning_outputs/
 storage/release_reports/
 __pycache__/
 .pytest_cache/
-```
-
-## Next recommended step
-
-Add a final **content production board** that shows every package grouped by workflow status: Draft, Needs source safety, Needs trust review, Needs publishing gate, Ready to publish, Published.
-
-Suggested next commit message:
-
-```bash
-git commit -m "Add content production board workflow"
-```
-
-
-## v24 update — Content Production Board
-
-This version adds a Kanban-style production board for Shorts workflow management. It groups packages into practical production stages:
-
-- Script Review
-- Script Revision
-- Production Assets
-- Source Safety
-- Teacher Trust Review
-- Publishing Gate
-- Ready to Publish
-- Scheduled
-- Published
-
-The board is computed from existing package/review/calendar data and supports manual stage, priority, owner, due date, and board notes. Use it from the React UI at `#/production-board`.
-
-Recommended commit message:
-
-```bash
-git commit -m "Add content production board workflow"
 ```
