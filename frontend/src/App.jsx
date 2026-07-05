@@ -10,6 +10,7 @@ import {
   deleteVisualAsset,
   exportUrl,
   fetchAiSettings,
+  fetchAnalyticsInsights,
   fetchAudioSettings,
   fetchBatch,
   fetchBatches,
@@ -135,6 +136,7 @@ function App() {
           <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>
           <a className={route.name === 'assets' ? 'active' : ''} href="#/assets">Visual assets</a>
           <a className={route.name === 'templates' ? 'active' : ''} href="#/templates">Prompt templates</a>
+          <a className={route.name === 'analytics' ? 'active' : ''} href="#/analytics">Analytics insights</a>
           <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
           <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
           <a href="http://127.0.0.1:8000" target="_blank" rel="noreferrer">Legacy Jinja UI</a>
@@ -154,6 +156,7 @@ function App() {
         {route.name === 'calendar' && <CalendarPage />}
         {route.name === 'assets' && <VisualAssetsPage />}
         {route.name === 'templates' && <PromptTemplatesPage />}
+        {route.name === 'analytics' && <AnalyticsInsightsPage />}
         {route.name === 'settings' && <AiSettings />}
         {route.name === 'audioSettings' && <AudioSettings />}
       </main>
@@ -172,6 +175,7 @@ function parseRoute(hash) {
   if (parts[0] === 'calendar') return { name: 'calendar' }
   if (parts[0] === 'assets') return { name: 'assets' }
   if (parts[0] === 'templates') return { name: 'templates' }
+  if (parts[0] === 'analytics') return { name: 'analytics' }
   if (parts[0] === 'settings' && parts[1] === 'ai') return { name: 'settings' }
   if (parts[0] === 'settings' && parts[1] === 'audio') return { name: 'audioSettings' }
   return { name: 'dashboard' }
@@ -209,6 +213,7 @@ function Dashboard() {
         <button className="secondary" onClick={() => navigate('#/calendar')}>Open publishing calendar</button>
         <button className="secondary" onClick={() => navigate('#/assets')}>Upload visual assets</button>
         <button className="secondary" onClick={() => navigate('#/templates')}>Manage prompt templates</button>
+        <button className="secondary" onClick={() => navigate('#/analytics')}>View analytics insights</button>
         <button className="secondary" onClick={() => navigate('#/settings/ai')}>Check AI fallback</button>
       </div>
 
@@ -1644,6 +1649,181 @@ function PackageDetail({ id }) {
     </section>
   )
 }
+
+
+function AnalyticsInsightsPage() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  function load() {
+    setError('')
+    fetchAnalyticsInsights().then(setData).catch((err) => setError(err.message))
+  }
+
+  useEffect(load, [])
+
+  function downloadReport() {
+    if (!data?.report_markdown) return
+    const blob = new Blob([data.report_markdown], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'analytics_dashboard_insights.md'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  if (error) return <ErrorCard title="Could not load analytics insights" message={error} />
+  if (!data) return <Loading />
+
+  const totals = data.totals || {}
+
+  return (
+    <section>
+      <Header
+        title="Analytics dashboard insights"
+        subtitle="Turn manual YouTube Shorts analytics into practical decisions: best videos, weak videos, best tone/template/batch, weekly summary, and next actions."
+        action={<button onClick={downloadReport}>Download report</button>}
+      />
+
+      {totals.total_entries === 0 ? (
+        <div className="card stack">
+          <h2>No analytics yet</h2>
+          <p className="muted">Open a published package and enter views, retention, likes, comments, shares, CTR, and notes. After a few entries, this page will show what is working.</p>
+          <button onClick={() => navigate('#/')}>Go to dashboard</button>
+        </div>
+      ) : (
+        <>
+          <div className="stats-grid analytics-stats-grid">
+            <StatCard label="Packages tracked" value={totals.packages_with_analytics} />
+            <StatCard label="Latest total views" value={totals.total_latest_views} />
+            <StatCard label="Avg retention %" value={totals.avg_retention_pct} />
+            <StatCard label="Engagement rate %" value={totals.engagement_rate_pct} />
+            <StatCard label="Avg CTR %" value={totals.avg_ctr_pct} />
+            <StatCard label="Avg views/package" value={totals.avg_views_per_package} />
+          </div>
+
+          {!data.has_enough_data && (
+            <div className="form-error soft-warning">
+              You have useful early data, but not enough for strong conclusions yet. Try to collect analytics from at least 10–20 Shorts before locking the content formula.
+            </div>
+          )}
+
+          <div className="card stack">
+            <div className="card-header"><h2>Recommended next actions</h2><span>{data.recommendations.length} suggestions</span></div>
+            <ul className="recommendation-list">
+              {data.recommendations.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+
+          <div className="detail-grid">
+            <VideoRanking title="Top videos by views" videos={data.top_videos_by_views} metric="views" />
+            <VideoRanking title="Top videos by retention" videos={data.top_videos_by_retention} metric="retention_pct" suffix="%" />
+          </div>
+
+          <div className="card stack">
+            <div className="card-header"><h2>Weak videos to improve</h2><span>{data.weak_videos.length} items</span></div>
+            {data.weak_videos.length === 0 ? (
+              <p className="muted">No weak videos detected yet, or not enough analytics data. Keep entering weekly numbers.</p>
+            ) : (
+              <div className="package-list compact">
+                {data.weak_videos.map((item) => (
+                  <button key={item.package_id} className="package-row" onClick={() => navigate(`#/packages/${item.package_id}`)}>
+                    <div>
+                      <h3>{item.topic}</h3>
+                      <p>{item.views} views • {item.retention_pct}% retention • {item.engagement_rate_pct}% engagement</p>
+                      <p>{item.tone} • {item.prompt_template_name} • {item.batch_name}</p>
+                    </div>
+                    <div className="row-meta"><StatusBadge status={item.review_status} /><TrustBadge score={item.trust_score} /></div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="detail-grid">
+            <PerformanceTable title="Tone performance" rows={data.grouped.tones} />
+            <PerformanceTable title="Prompt template performance" rows={data.grouped.templates} />
+            <PerformanceTable title="Subject performance" rows={data.grouped.subjects} />
+            <PerformanceTable title="Batch performance" rows={data.grouped.batches} />
+          </div>
+
+          <WeeklySummary rows={data.weekly_summary} />
+          <TextCard title="Analytics report markdown" value={data.report_markdown} />
+        </>
+      )}
+    </section>
+  )
+}
+
+function VideoRanking({ title, videos = [], metric, suffix = '' }) {
+  return (
+    <div className="card stack">
+      <div className="card-header"><h2>{title}</h2><span>{videos.length} items</span></div>
+      {videos.length === 0 ? <p className="muted">No videos yet.</p> : (
+        <div className="insight-list">
+          {videos.map((item, index) => (
+            <button key={`${title}-${item.package_id}`} className="insight-row" onClick={() => navigate(`#/packages/${item.package_id}`)}>
+              <span className="rank-number">#{index + 1}</span>
+              <div>
+                <strong>{item.topic}</strong>
+                <p>{item.views} views • {item.retention_pct}% retention • {item.engagement_rate_pct}% engagement</p>
+                <p>{item.tone} • {item.prompt_template_name} • {item.batch_name}</p>
+              </div>
+              <strong>{item[metric]}{suffix}</strong>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PerformanceTable({ title, rows = [] }) {
+  return (
+    <div className="card stack">
+      <div className="card-header"><h2>{title}</h2><span>{rows.length} groups</span></div>
+      {rows.length === 0 ? <p className="muted">No grouped analytics yet.</p> : (
+        <div className="performance-table">
+          <div className="performance-head"><span>Name</span><span>Videos</span><span>Views</span><span>Retention</span></div>
+          {rows.map((row) => (
+            <div className="performance-row" key={`${title}-${row.name}`}>
+              <strong>{row.name}</strong>
+              <span>{row.count}</span>
+              <span>{row.total_views}</span>
+              <span>{row.avg_retention_pct}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WeeklySummary({ rows = [] }) {
+  return (
+    <div className="card stack">
+      <div className="card-header"><h2>Weekly analytics summary</h2><span>{rows.length} weeks</span></div>
+      {rows.length === 0 ? <p className="muted">No weekly entries yet.</p> : (
+        <div className="performance-table weekly-table">
+          <div className="performance-head"><span>Week</span><span>Entries</span><span>Views</span><span>Retention</span><span>CTR</span></div>
+          {rows.map((row) => (
+            <div className="performance-row" key={row.week}>
+              <strong>{row.week}</strong>
+              <span>{row.entries}</span>
+              <span>{row.total_views}</span>
+              <span>{row.avg_retention_pct}%</span>
+              <span>{row.avg_ctr_pct}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 function AiSettings() {
   const [data, setData] = useState(null)

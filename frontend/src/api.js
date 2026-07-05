@@ -264,3 +264,7 @@ export function previewPromptTemplate(id, payload) {
     body: JSON.stringify(payload)
   })
 }
+
+export function fetchAnalyticsInsights() {
+  return request('/api/analytics/insights')
+}

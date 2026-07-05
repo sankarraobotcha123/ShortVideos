@@ -21,6 +21,7 @@ from app.services.source_safety_service import generate_source_safety_review
 from app.services.trust_score_service import build_trust_review, rebuild_trust_review_from_manual_scores
 from app.services.learning_output_service import generate_learning_output
 from app.services.asset_library_service import save_uploaded_asset, normalize_tags, rank_assets_for_scene
+from app.services.analytics_insights_service import build_analytics_insights
 from app.services.prompt_template_service import (
     apply_script_prompt_template,
     build_prompt_preview,
@@ -616,6 +617,13 @@ def api_preview_prompt_template(template_id: int, payload: PromptPreviewRequest)
     if template is None:
         raise HTTPException(status_code=404, detail="Prompt template not found")
     return {"preview": build_prompt_preview(inp, base_package, template)}
+
+
+@router.get("/api/analytics/insights")
+def api_analytics_insights() -> dict[str, Any]:
+    with db_session() as conn:
+        insights = build_analytics_insights(conn)
+    return insights
 
 
 @router.get("/api/packages")

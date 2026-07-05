@@ -531,3 +531,66 @@ def test_learning_output_workflow_and_export(tmp_path):
     exported = client.get(f"/content/{package_id}/export")
     assert exported.status_code == 200
     assert exported.headers["content-type"] == "application/zip"
+
+
+def test_analytics_dashboard_insights_workflow(tmp_path):
+    settings.database_path = tmp_path / "analytics-insights-test.db"
+    settings.export_dir = tmp_path / "exports"
+    init_db()
+
+    client = TestClient(app)
+
+    packages = []
+    for topic, tone, views, retention in [
+        ("Why are leaves green?", "Curious", 1500, 78),
+        ("Why does ice float?", "Story-based", 2400, 86),
+        ("Common photosynthesis mistake", "Mistake correction", 350, 42),
+    ]:
+        created = client.post(
+            "/api/content/generate",
+            json={
+                "board_source": "Self-written",
+                "class_level": "Class 7",
+                "subject": "Science",
+                "topic": topic,
+                "audience": "School students",
+                "language": "English",
+                "duration_seconds": 60,
+                "output_type": "Short",
+                "tone": tone,
+                "source_notes": "Simple self-written science facts for testing.",
+                "source_name": "Self notes",
+                "source_license_type": "Original",
+                "transformation_notes": "Original analogy added.",
+            },
+        )
+        assert created.status_code == 201
+        package_id = created.json()["package"]["id"]
+        packages.append(package_id)
+        analytics = client.post(
+            f"/api/content/{package_id}/analytics",
+            json={
+                "platform": "YouTube Shorts",
+                "entry_date": "2026-07-05",
+                "views": views,
+                "likes": max(1, views // 20),
+                "comments": max(1, views // 100),
+                "shares": max(1, views // 80),
+                "avg_view_duration_seconds": 31,
+                "retention_pct": retention,
+                "ctr_pct": 5.5,
+                "notes": "Test analytics entry",
+            },
+        )
+        assert analytics.status_code == 201
+
+    insights = client.get("/api/analytics/insights")
+    assert insights.status_code == 200
+    body = insights.json()
+    assert body["totals"]["packages_with_analytics"] == 3
+    assert body["totals"]["total_latest_views"] == 4250
+    assert body["top_videos_by_views"][0]["topic"] == "Why does ice float?"
+    assert body["top_videos_by_retention"][0]["retention_pct"] == 86
+    assert body["weak_videos"]
+    assert body["grouped"]["tones"]
+    assert "Analytics Dashboard Insights" in body["report_markdown"]

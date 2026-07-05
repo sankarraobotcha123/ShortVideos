@@ -1,11 +1,11 @@
-# Edu Content Platform MVP v13
+# Edu Content Platform MVP v14
 
 Shorts-first educational content creator assistant.
 
-This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds a **Prompt Template Manager** on top of notes, quiz, flashcards, worksheet outputs, Teacher Trust Score review, source safety, thumbnail helper, reusable visual assets, audio fallback, assembly planning, and MP4 draft generation. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, stronger TTS providers, or advanced video generation without changing the business workflow.
+This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds **Analytics Dashboard Insights** on top of prompt templates, notes/quiz/flashcards/worksheets, Teacher Trust Score review, source safety, thumbnail helper, reusable visual assets, audio fallback, assembly planning, and MP4 draft generation. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, stronger TTS providers, or advanced video generation without changing the workflow.
 
 ```text
-Concept input → Prompt Template → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Reusable Visual Assets → Thumbnail Helper → Source Safety Review → Teacher Trust Review → Learning Outputs → Vertical MP4 Draft → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics
+Concept input → Prompt Template → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Reusable Visual Assets → Thumbnail Helper → Source Safety Review → Teacher Trust Review → Learning Outputs → Vertical MP4 Draft → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics → Analytics Insights
 ```
 
 ---
@@ -22,13 +22,12 @@ Concept input → Prompt Template → Script → Storyboard → Subtitles → Na
   - Template provider: always works
   - Transformers provider: optional local open-source model
   - Ollama provider: optional later on desktop
-- **Prompt Template Manager:**
+- Prompt Template Manager:
   - Default script templates seeded into SQLite
   - Create/edit/delete prompt templates from React UI
   - Preview prompt rendering with sample concept data
   - Select a script prompt template while creating a package
   - Store template ID, name, style, and snapshot on generated packages
-  - Export `prompt_template_snapshot.txt` inside package ZIP
 - TTS/audio fallback system:
   - Windows SAPI provider: optional on Windows
   - pyttsx3 provider: optional, disabled by default
@@ -40,8 +39,18 @@ Concept input → Prompt Template → Script → Storyboard → Subtitles → Na
 - Teacher Trust Score Review workflow
 - Notes, quiz, flashcards, and worksheet output generator
 - Simple vertical MP4 draft generator
-- Human review/edit API
 - Manual analytics API
+- **Analytics Dashboard Insights API:**
+  - overall analytics snapshot
+  - top videos by views
+  - top videos by retention
+  - weak videos to improve
+  - tone performance
+  - prompt-template performance
+  - subject performance
+  - batch performance
+  - weekly analytics summary
+  - markdown analytics report
 - Content batch planner API
 - Publishing calendar API
 - ZIP export package
@@ -66,6 +75,7 @@ Concept input → Prompt Template → Script → Storyboard → Subtitles → Na
 - CapCut assembly plan section on package detail
 - Vertical MP4 draft section on package detail
 - Manual analytics section
+- **Analytics Insights screen**
 - AI fallback status screen
 - Audio fallback status screen
 
@@ -75,14 +85,14 @@ Concept input → Prompt Template → Script → Storyboard → Subtitles → Na
 
 ```bash
 python -m venv .venv
-.venv\Scriptsctivate
+.venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
 python scripts/init_db.py
 uvicorn app.main:app --reload
 ```
 
-Backend runs at:
+Backend URL:
 
 ```text
 http://127.0.0.1:8000
@@ -92,14 +102,14 @@ http://127.0.0.1:8000
 
 ## Run frontend
 
-Open a second terminal:
+Open a second terminal in the project root:
 
 ```bash
 npm run frontend:install
 npm run frontend:dev
 ```
 
-Frontend runs at:
+Frontend URL:
 
 ```text
 http://127.0.0.1:5173
@@ -107,9 +117,9 @@ http://127.0.0.1:5173
 
 ---
 
-## Recommended laptop settings
+## Recommended laptop AI settings
 
-Keep Ollama disabled on the laptop:
+Keep Ollama disabled on the laptop until your other desktop is ready:
 
 ```env
 AI_PROVIDER_CHAIN=transformers,template
@@ -117,53 +127,51 @@ USE_OLLAMA=false
 USE_TRANSFORMERS=false
 ```
 
-Keep audio fallback safe:
-
-```env
-TTS_PROVIDER_CHAIN=windows_sapi,manual_recording
-USE_WINDOWS_SAPI_TTS=true
-USE_PYTTSX3_TTS=false
-```
+The template fallback keeps content package generation working immediately.
 
 ---
 
-## Test workflow
+## Test workflow for v14
 
 1. Start backend and frontend.
-2. Go to **Prompt templates**.
-3. Check default templates or create a custom template.
-4. Go to **Create package**.
-5. Select a prompt template.
-6. Generate package.
-7. Open package detail and confirm **Prompt template used** appears.
-8. Generate thumbnail helper, source safety review, trust review, learning outputs, narration, assembly plan, and MP4 draft as needed.
-9. Export ZIP and check `prompt_template_snapshot.txt`.
+2. Create 3–5 content packages.
+3. Add manual analytics from each package detail page.
+4. Open **Analytics insights** from the sidebar.
+5. Check:
+   - top videos by views
+   - top videos by retention
+   - weak videos to improve
+   - tone/template/batch performance
+   - weekly summary
+6. Download the analytics markdown report.
 
 ---
 
 ## Tests
 
 ```bash
-pytest -q
+python -m pytest -q
 npm run frontend:build
 ```
 
-Current verification for v13:
+Current verification for this package:
 
 ```text
-17 passed
-frontend build passed
+18 passed
+Frontend production build passed
 ```
 
 ---
 
-## Git command for v13
+## Git commands for v14
+
+Use this exact commit message:
 
 ```bash
 git status
 git add .
 git status
-git commit -m "Add prompt template manager workflow"
+git commit -m "Add analytics dashboard insights workflow"
 git push
 ```
 
@@ -185,4 +193,20 @@ storage/trust_reviews/
 storage/learning_outputs/
 __pycache__/
 .pytest_cache/
+```
+
+---
+
+## Next recommended step
+
+Next build should be:
+
+```text
+AI Provider Fallback Logging Improvements
+```
+
+Recommended commit message for the next step:
+
+```bash
+git commit -m "Improve AI provider fallback logging workflow"
 ```

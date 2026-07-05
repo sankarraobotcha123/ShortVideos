@@ -1,32 +1,30 @@
-# Next Steps After v13
+# Next Steps After v14
 
-## What changed in v13
+## What changed in v14
 
-- Added **Prompt Template Manager workflow**.
-- Added backend service `prompt_template_service.py`.
-- Added `prompt_templates` database table.
-- Seeded default script templates:
-  - Curiosity Short Script
-  - Mistake Correction Script
-  - Exam-Focused Script
-  - Story / Analogy Script
-  - Quick Revision Script
-- Added package fields:
-  - `prompt_template_id`
-  - `prompt_template_name`
-  - `prompt_template_style`
-  - `prompt_template_snapshot`
-- Added API endpoints:
-  - `GET /api/prompt-templates`
-  - `POST /api/prompt-templates/seed`
-  - `POST /api/prompt-templates`
-  - `PATCH /api/prompt-templates/{template_id}`
-  - `DELETE /api/prompt-templates/{template_id}`
-  - `POST /api/prompt-templates/{template_id}/preview`
-- Added React screen: **Prompt templates**.
-- Added prompt-template selector to Create Package form.
-- Export ZIP now includes `prompt_template_snapshot.txt` when a package uses a template.
-- Updated frontend asset version to 13.
+- Added **Analytics Dashboard Insights workflow**.
+- Added backend service `analytics_insights_service.py`.
+- Added API endpoint:
+  - `GET /api/analytics/insights`
+- Added React screen: **Analytics insights**.
+- Added sidebar navigation for Analytics insights.
+- Added dashboard quick action to open analytics insights.
+- Added analytics insight calculations:
+  - total latest views
+  - average retention
+  - average CTR
+  - engagement rate
+  - top videos by views
+  - top videos by retention
+  - weak videos to improve
+  - tone performance
+  - prompt-template performance
+  - subject performance
+  - batch performance
+  - weekly summary
+  - recommendations
+  - downloadable markdown report from the browser
+- Updated frontend asset version to 14.
 
 ---
 
@@ -36,7 +34,7 @@ Backend:
 
 ```bash
 python -m venv .venv
-.venv\Scriptsctivate
+.venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
 python scripts/init_db.py
@@ -53,27 +51,23 @@ npm run frontend:dev
 Test:
 
 1. Open `http://127.0.0.1:5173`.
-2. Open **Prompt templates**.
-3. Click **Seed default templates** if templates are missing.
-4. Create or edit one template.
-5. Click **Preview**.
-6. Open **Create package**.
-7. Select a prompt template.
-8. Generate the package.
-9. Open package detail and confirm the template name appears under AI provider attempts.
-10. Export ZIP and check `prompt_template_snapshot.txt`.
+2. Create at least 3 packages.
+3. Open each package and add manual analytics.
+4. Open **Analytics insights** from the sidebar.
+5. Check top videos, weak videos, tone/template/batch performance, and weekly summary.
+6. Click **Download report** and confirm `analytics_dashboard_insights.md` downloads.
 
 ---
 
 ## Git commands for this step
 
-Use this commit message exactly for the v13 change:
+Use this commit message exactly for the v14 change:
 
 ```bash
 git status
 git add .
 git status
-git commit -m "Add prompt template manager workflow"
+git commit -m "Add analytics dashboard insights workflow"
 git push
 ```
 
@@ -104,17 +98,18 @@ __pycache__/
 Next build should be:
 
 ```text
-Better Analytics Dashboard Insights
-```
-
-Recommended commit message for the next step:
-
-```bash
-git commit -m "Add analytics dashboard insights workflow"
+AI Provider Fallback Logging Improvements
 ```
 
 Why this is next:
 
-- You already have package creation, review, source safety, trust score, learning outputs, thumbnails, batches, calendar, and prompt templates.
-- Now the system should help you learn which Shorts, hooks, topics, templates, and batches perform better.
-- This supports the business goal: publish consistently, measure, and improve.
+- You are not using Ollama on the laptop now.
+- The project already supports fallback generation, but logging can be clearer.
+- Better provider logs will help you safely test template, Transformers, and later Ollama on another desktop.
+- This keeps the project ready for better AI without breaking the current workflow.
+
+Recommended commit message for the next step:
+
+```bash
+git commit -m "Improve AI provider fallback logging workflow"
+```
