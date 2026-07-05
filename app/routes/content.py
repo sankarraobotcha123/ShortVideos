@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -16,6 +16,7 @@ from app.services.generation_orchestrator import generate_content_package_with_f
 from app.services.audio_service import audio_provider_status, generate_audio_asset
 from app.services.assembly_service import generate_assembly_plan
 from app.services.video_draft_service import generate_video_draft
+from app.services.asset_library_service import save_uploaded_asset, normalize_tags, rank_assets_for_scene
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -60,6 +61,17 @@ def _calendar_from_row(row) -> dict[str, Any]:
     item = dict(row)
     item["package_id"] = int(item.get("package_id"))
     return item
+
+
+def _suggest_assets_for_package(package: dict[str, Any], assets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    pseudo_scene = {
+        "scene_name": package.get("topic", ""),
+        "on_screen_text": package.get("hook", ""),
+        "script_segment": package.get("script_text", ""),
+        "visual_direction": package.get("visual_prompts_markdown", ""),
+        "subtitle_text": package.get("source_notes", ""),
+    }
+    return rank_assets_for_scene(pseudo_scene, package, assets)[:8]
 
 
 def _assert_batch_exists(conn, batch_id: int) -> None:
@@ -111,6 +123,8 @@ def _stats(conn) -> dict[str, Any]:
     calendar_data = dict(calendar_row or {})
     data.update({key: int(batch_data.get(key) or 0) for key in ["total_batches", "active_batches"]})
     data.update({key: int(calendar_data.get(key) or 0) for key in ["scheduled_items", "calendar_published"]})
+    asset_row = conn.execute("SELECT COUNT(*) AS visual_assets FROM visual_assets").fetchone()
+    data["visual_assets"] = int(dict(asset_row or {}).get("visual_assets") or 0)
     return data
 
 
@@ -337,9 +351,16 @@ def export_content(package_id: int):
         audio_assets = conn.execute("SELECT * FROM audio_assets WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         assembly_plans = conn.execute("SELECT * FROM assembly_plans WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         video_drafts = conn.execute("SELECT * FROM video_drafts WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+        visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
-    zip_path = export_package(dict(row), [dict(item) for item in audio_assets], [dict(item) for item in assembly_plans], [dict(item) for item in video_drafts])
+    zip_path = export_package(
+        dict(row),
+        [dict(item) for item in audio_assets],
+        [dict(item) for item in assembly_plans],
+        [dict(item) for item in video_drafts],
+        [dict(item) for item in visual_assets],
+    )
     return FileResponse(zip_path, filename=Path(zip_path).name, media_type="application/zip")
 
 
@@ -485,6 +506,7 @@ def api_package(package_id: int) -> dict[str, Any]:
             "SELECT * FROM video_drafts WHERE package_id = ? ORDER BY id DESC",
             (package_id,),
         ).fetchall()
+        visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
     return {
@@ -494,6 +516,8 @@ def api_package(package_id: int) -> dict[str, Any]:
         "audio_assets": [dict(item) for item in audio_assets],
         "assembly_plans": [dict(item) for item in assembly_plans],
         "video_drafts": [dict(item) for item in video_drafts],
+        "visual_assets": [dict(item) for item in visual_assets],
+        "suggested_visual_assets": _suggest_assets_for_package(dict(row), [dict(item) for item in visual_assets]),
     }
 
 
@@ -675,6 +699,82 @@ def api_assign_package_batch(package_id: int, payload: PackageBatchUpdateRequest
         )
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
     return {"package": _package_from_row(row)}
+
+
+
+
+@router.get("/api/assets")
+def api_visual_assets() -> dict[str, Any]:
+    with db_session() as conn:
+        rows = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
+    return {"assets": [dict(row) for row in rows]}
+
+
+@router.post("/api/assets", status_code=201)
+def api_upload_visual_asset(
+    title: str = Form(...),
+    tags: str = Form(""),
+    description: str = Form(""),
+    source_type: str = Form("self_created"),
+    license_type: str = Form(""),
+    notes: str = Form(""),
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    clean_tags = ", ".join(normalize_tags(tags))
+    try:
+        saved = save_uploaded_asset(file, title, clean_tags)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    with db_session() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO visual_assets (
+                title, tags, description, file_path, file_name, mime_type,
+                source_type, license_type, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                title.strip(),
+                clean_tags,
+                description.strip(),
+                saved["file_path"],
+                saved["file_name"],
+                saved["mime_type"],
+                source_type.strip() or "self_created",
+                license_type.strip(),
+                notes.strip(),
+            ),
+        )
+        asset = conn.execute("SELECT * FROM visual_assets WHERE id = ?", (int(cursor.lastrowid),)).fetchone()
+    return {"asset": dict(asset)}
+
+
+@router.delete("/api/assets/{asset_id}")
+def api_delete_visual_asset(asset_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        asset = conn.execute("SELECT * FROM visual_assets WHERE id = ?", (asset_id,)).fetchone()
+        if asset is None:
+            raise HTTPException(status_code=404, detail="Visual asset not found")
+        conn.execute("DELETE FROM visual_assets WHERE id = ?", (asset_id,))
+    path = Path(asset["file_path"])
+    if path.exists() and path.is_file():
+        try:
+            path.unlink()
+        except OSError:
+            pass
+    return {"deleted": True, "asset_id": asset_id}
+
+
+@router.get("/assets/{asset_id}/download")
+def download_visual_asset(asset_id: int):
+    with db_session() as conn:
+        asset = conn.execute("SELECT * FROM visual_assets WHERE id = ?", (asset_id,)).fetchone()
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Visual asset not found")
+    path = Path(asset["file_path"])
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Visual asset file not found on disk")
+    return FileResponse(path, filename=asset["file_name"], media_type=asset["mime_type"] or "application/octet-stream")
 
 
 @router.get("/api/calendar")
@@ -1006,7 +1106,13 @@ def api_generate_video_draft(package_id: int) -> dict[str, Any]:
             "SELECT * FROM assembly_plans WHERE package_id = ? ORDER BY id DESC",
             (package_id,),
         ).fetchall()
-        payload = generate_video_draft(dict(row), [dict(item) for item in audio_assets], [dict(item) for item in assembly_plans])
+        visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
+        payload = generate_video_draft(
+            dict(row),
+            [dict(item) for item in audio_assets],
+            [dict(item) for item in assembly_plans],
+            [dict(item) for item in visual_assets],
+        )
         cursor = conn.execute(
             """
             INSERT INTO video_drafts (

@@ -249,3 +249,74 @@ def test_video_draft_workflow_and_export(tmp_path):
     exported = client.get(f"/content/{package_id}/export")
     assert exported.status_code == 200
     assert exported.headers["content-type"] == "application/zip"
+
+
+def test_visual_asset_upload_and_video_draft_matching(tmp_path):
+    settings.database_path = tmp_path / "asset-test.db"
+    settings.export_dir = tmp_path / "exports"
+    settings.audio_dir = tmp_path / "audio"
+    settings.video_draft_dir = tmp_path / "video_drafts"
+    settings.asset_library_dir = tmp_path / "asset_library"
+    settings.tts_provider_chain = ["manual_recording"]
+    settings.use_windows_sapi = False
+    settings.use_pyttsx3 = False
+    init_db()
+
+    client = TestClient(app)
+
+    from io import BytesIO
+    from PIL import Image
+
+    image_buffer = BytesIO()
+    Image.new("RGB", (256, 256), (34, 197, 94)).save(image_buffer, format="PNG")
+    image_buffer.seek(0)
+
+    uploaded = client.post(
+        "/api/assets",
+        data={
+            "title": "Leaf chlorophyll icon",
+            "tags": "leaf, chlorophyll, photosynthesis, science",
+            "description": "Reusable visual for green leaves.",
+            "source_type": "self_created",
+            "license_type": "Original",
+            "notes": "Test asset",
+        },
+        files={"file": ("leaf.png", image_buffer, "image/png")},
+    )
+    assert uploaded.status_code == 201
+    asset_id = uploaded.json()["asset"]["id"]
+
+    listed = client.get("/api/assets")
+    assert listed.status_code == 200
+    assert len(listed.json()["assets"]) == 1
+
+    package_payload = {
+        "board_source": "Self-written",
+        "class_level": "Class 7",
+        "subject": "Science",
+        "topic": "Why are leaves green?",
+        "audience": "School students",
+        "language": "English",
+        "duration_seconds": 20,
+        "output_type": "Short",
+        "tone": "Curious",
+        "source_notes": "Leaves contain chlorophyll. Chlorophyll reflects green light.",
+        "source_name": "Self notes",
+        "source_license_type": "Original",
+        "transformation_notes": "Original analogy added.",
+    }
+    created = client.post("/api/content/generate", json=package_payload)
+    assert created.status_code == 201
+    package_id = created.json()["package"]["id"]
+
+    detail = client.get(f"/api/content/{package_id}")
+    assert detail.status_code == 200
+    assert detail.json()["suggested_visual_assets"][0]["id"] == asset_id
+
+    draft = client.post(f"/api/content/{package_id}/video-draft")
+    assert draft.status_code == 201
+    assert draft.json()["video_draft"]["status"] in {"generated", "manual_required"}
+
+    downloaded = client.get(f"/assets/{asset_id}/download")
+    assert downloaded.status_code == 200
+    assert downloaded.headers["content-type"].startswith("image/")

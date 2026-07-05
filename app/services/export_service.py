@@ -15,7 +15,13 @@ def _safe_slug(value: str) -> str:
     return value.strip("-")[:80] or "content-package"
 
 
-def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, assembly_plans: Sequence[Mapping] | None = None, video_drafts: Sequence[Mapping] | None = None) -> Path:
+def export_package(
+    row: Mapping,
+    audio_assets: Sequence[Mapping] | None = None,
+    assembly_plans: Sequence[Mapping] | None = None,
+    video_drafts: Sequence[Mapping] | None = None,
+    visual_assets: Sequence[Mapping] | None = None,
+) -> Path:
     settings.export_dir.mkdir(parents=True, exist_ok=True)
     package_id = row["id"]
     slug = _safe_slug(row["topic"])
@@ -27,6 +33,14 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, 
     audio_assets = list(audio_assets or [])
     assembly_plans = list(assembly_plans or [])
     video_drafts = list(video_drafts or [])
+    visual_assets = list(visual_assets or [])
+
+    asset_summary = "No reusable visual assets saved yet. Upload assets in the Visual Assets page to reuse icons/diagrams in MP4 drafts."
+    if visual_assets:
+        asset_summary = "\n".join(
+            f"- {asset.get('title')} | tags: {asset.get('tags', '')} | file: {asset.get('file_name')}"
+            for asset in visual_assets[:20]
+        )
 
     audio_summary = "No narration asset generated yet. Use the app's Generate narration button or record manually."
     if audio_assets:
@@ -84,6 +98,10 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, 
 
 {row['visual_prompts_markdown']}
 
+## Reusable Visual Assets
+
+{asset_summary}
+
 ## Narration Audio
 
 {audio_summary}
@@ -140,6 +158,18 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, 
     (package_dir / "storyboard.md").write_text(row["storyboard_markdown"], encoding="utf-8")
     (package_dir / "visual_prompts.md").write_text(row["visual_prompts_markdown"], encoding="utf-8")
 
+    visual_asset_manifest = []
+    asset_files_dir = package_dir / "visual_assets"
+    asset_files_dir.mkdir(exist_ok=True)
+    for asset in visual_assets:
+        source = Path(asset.get("file_path") or "")
+        visual_asset_manifest.append(dict(asset))
+        if source.exists() and source.is_file():
+            target_name = f"asset_{asset.get('id', 'item')}_{source.name}"
+            target = asset_files_dir / target_name
+            target.write_bytes(source.read_bytes())
+    (package_dir / "visual_assets.json").write_text(json.dumps(visual_asset_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
     audio_manifest = []
     for asset in audio_assets:
         source = Path(asset.get("file_path") or "")
@@ -171,10 +201,12 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, 
     payload["audio_assets"] = audio_manifest
     payload["assembly_plans"] = assembly_manifest
     payload["video_drafts"] = video_manifest
+    payload["visual_assets"] = visual_asset_manifest
     (package_dir / "package.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
     zip_path = settings.export_dir / f"package-{package_id}-{slug}.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for file in package_dir.iterdir():
-            zf.write(file, arcname=file.name)
+        for file in package_dir.rglob("*"):
+            if file.is_file():
+                zf.write(file, arcname=file.relative_to(package_dir))
     return zip_path

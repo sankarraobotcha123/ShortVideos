@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 
 from app.core.config import settings
 from app.services.assembly_service import generate_assembly_plan
+from app.services.asset_library_service import choose_scene_assets
 
 
 VIDEO_WIDTH = 1080
@@ -98,7 +99,14 @@ def _draw_wrapped(draw, xy: tuple[int, int], text: str, font, fill, max_width: i
     return y
 
 
-def _create_scene_card(package: Mapping[str, Any], scene: Mapping[str, Any], index: int, total: int, output_path: Path) -> None:
+def _create_scene_card(
+    package: Mapping[str, Any],
+    scene: Mapping[str, Any],
+    index: int,
+    total: int,
+    output_path: Path,
+    visual_asset: Mapping[str, Any] | None = None,
+) -> None:
     from PIL import Image, ImageDraw
 
     topic = _clean(str(package.get("topic") or "Educational Short"))
@@ -127,14 +135,36 @@ def _create_scene_card(package: Mapping[str, Any], scene: Mapping[str, Any], ind
     _draw_wrapped(draw, (SAFE_X, 145), topic, title_font, (255, 255, 255), VIDEO_WIDTH - SAFE_X * 2, max_lines=2, line_spacing=12)
     draw.text((SAFE_X, 300), time_label, font=micro_font, fill=(203, 213, 225))
 
+    # Optional reusable asset preview. This is intentionally simple: the uploaded
+    # image becomes a visual anchor in the draft card, while text remains readable.
+    asset_label = ""
+    if visual_asset:
+        asset_path = Path(str(visual_asset.get("file_path") or ""))
+        if asset_path.exists() and asset_path.is_file():
+            try:
+                asset_img = Image.open(asset_path).convert("RGB")
+                asset_img.thumbnail((360, 360))
+                ax = VIDEO_WIDTH - SAFE_X - asset_img.width
+                ay = 500
+                draw.rounded_rectangle((ax - 22, ay - 22, ax + asset_img.width + 22, ay + asset_img.height + 22), radius=28, fill=(226, 232, 240))
+                img.paste(asset_img, (ax, ay))
+                asset_label = f"Reusable asset: {visual_asset.get('title') or visual_asset.get('file_name')}"
+            except Exception:
+                asset_label = "Reusable asset selected, but preview could not be loaded."
+
+    text_width = VIDEO_WIDTH - SAFE_X * 2
+    if asset_label:
+        text_width = VIDEO_WIDTH - SAFE_X * 2 - 410
+
     draw.text((SAFE_X, 470), "ON-SCREEN TEXT", font=micro_font, fill=(71, 85, 105))
-    _draw_wrapped(draw, (SAFE_X, 530), on_screen_text, hero_font, (15, 23, 42), VIDEO_WIDTH - SAFE_X * 2, max_lines=3, line_spacing=18)
+    _draw_wrapped(draw, (SAFE_X, 530), on_screen_text, hero_font, (15, 23, 42), text_width, max_lines=4, line_spacing=18)
 
     draw.text((SAFE_X, 880), "NARRATION", font=micro_font, fill=(71, 85, 105))
     _draw_wrapped(draw, (SAFE_X, 935), script_segment, body_font, (30, 41, 59), VIDEO_WIDTH - SAFE_X * 2, max_lines=5, line_spacing=14)
 
     draw.text((SAFE_X, 1355), "VISUAL NOTE", font=micro_font, fill=(219, 234, 254))
-    _draw_wrapped(draw, (SAFE_X, 1390), visual, small_font, (255, 255, 255), VIDEO_WIDTH - SAFE_X * 2, max_lines=2, line_spacing=10)
+    note_text = f"{visual} {asset_label}".strip()
+    _draw_wrapped(draw, (SAFE_X, 1390), note_text, small_font, (255, 255, 255), VIDEO_WIDTH - SAFE_X * 2, max_lines=2, line_spacing=10)
 
     draw.text((SAFE_X, 1560), "Draft preview only — replace scene cards with final visuals in CapCut later.", font=micro_font, fill=(148, 163, 184))
     draw.text((SAFE_X, 1640), "9:16 vertical • captions safe-area checked • script timing draft", font=micro_font, fill=(148, 163, 184))
@@ -215,6 +245,7 @@ def generate_video_draft(
     package: Mapping[str, Any],
     audio_assets: Sequence[Mapping[str, Any]] | None = None,
     assembly_plans: Sequence[Mapping[str, Any]] | None = None,
+    visual_assets: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Generate a simple vertical MP4 draft for review.
 
@@ -234,10 +265,15 @@ def generate_video_draft(
         if not scenes:
             raise RuntimeError("No scenes were available to render.")
 
+        scene_assets = choose_scene_assets(package, scenes, list(visual_assets or []))
         image_paths: list[Path] = []
+        matched_asset_ids: set[int] = set()
         for index, scene in enumerate(scenes, start=1):
             image_path = output_dir / f"scene-{index:02d}.png"
-            _create_scene_card(package, scene, index, len(scenes), image_path)
+            asset = scene_assets[index - 1] if index - 1 < len(scene_assets) else None
+            if asset and asset.get("id"):
+                matched_asset_ids.add(int(asset.get("id")))
+            _create_scene_card(package, scene, index, len(scenes), image_path, asset)
             image_paths.append(image_path)
 
         ffmpeg = _ffmpeg_exe()
@@ -264,7 +300,8 @@ def generate_video_draft(
 
         audio = _latest_generated_audio(audio_assets)
         has_audio = False
-        provider_notes = "Silent vertical MP4 draft generated from scene cards."
+        asset_note = f" Used {len(matched_asset_ids)} reusable visual asset(s)." if matched_asset_ids else " No reusable visual assets matched; text scene cards used."
+        provider_notes = "Silent vertical MP4 draft generated from scene cards." + asset_note
         output_path = silent_video_path
         if audio:
             audio_path = Path(str(audio.get("file_path") or ""))
@@ -287,7 +324,7 @@ def generate_video_draft(
                 ])
                 output_path = final_video_path
                 has_audio = True
-                provider_notes = f"Vertical MP4 draft generated with narration audio: {audio.get('file_name')}"
+                provider_notes = f"Vertical MP4 draft generated with narration audio: {audio.get('file_name')}." + asset_note
             except Exception as audio_error:
                 provider_notes = f"Silent MP4 draft generated. Audio merge failed: {audio_error}"
 

@@ -7,6 +7,7 @@ import {
   createBatch,
   createCalendarEntry,
   deleteCalendarEntry,
+  deleteVisualAsset,
   exportUrl,
   fetchAiSettings,
   fetchAudioSettings,
@@ -15,14 +16,17 @@ import {
   fetchCalendar,
   fetchPackage,
   fetchPackages,
+  fetchVisualAssets,
   generateAssembly,
   generateAudio,
   generateContent,
   generateVideoDraft,
   updateBatch,
+  uploadVisualAsset,
   updateCalendarEntry,
   updateReview,
-  videoDraftDownloadUrl
+  videoDraftDownloadUrl,
+  visualAssetUrl
 } from './api.js'
 
 const initialForm = {
@@ -67,6 +71,15 @@ const initialCalendar = {
   notes: ''
 }
 
+const initialVisualAsset = {
+  title: 'Leaf chlorophyll diagram',
+  tags: 'leaf, chlorophyll, photosynthesis, science',
+  description: 'Simple reusable visual for explaining why leaves look green.',
+  source_type: 'self_created',
+  license_type: 'Self-created / Original',
+  notes: 'Use for Class 6-8 science Shorts about plants.'
+}
+
 function today() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -104,6 +117,7 @@ function App() {
           <a className={route.name === 'new' ? 'active' : ''} href="#/new">Create package</a>
           <a className={route.name === 'batches' || route.name === 'batch' ? 'active' : ''} href="#/batches">Batches</a>
           <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>
+          <a className={route.name === 'assets' ? 'active' : ''} href="#/assets">Visual assets</a>
           <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
           <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
           <a href="http://127.0.0.1:8000" target="_blank" rel="noreferrer">Legacy Jinja UI</a>
@@ -121,6 +135,7 @@ function App() {
         {route.name === 'batches' && <BatchesPage />}
         {route.name === 'batch' && <BatchDetail id={route.id} />}
         {route.name === 'calendar' && <CalendarPage />}
+        {route.name === 'assets' && <VisualAssetsPage />}
         {route.name === 'settings' && <AiSettings />}
         {route.name === 'audioSettings' && <AudioSettings />}
       </main>
@@ -137,6 +152,7 @@ function parseRoute(hash) {
   if (parts[0] === 'batches' && parts[1]) return { name: 'batch', id: parts[1] }
   if (parts[0] === 'batches') return { name: 'batches' }
   if (parts[0] === 'calendar') return { name: 'calendar' }
+  if (parts[0] === 'assets') return { name: 'assets' }
   if (parts[0] === 'settings' && parts[1] === 'ai') return { name: 'settings' }
   if (parts[0] === 'settings' && parts[1] === 'audio') return { name: 'audioSettings' }
   return { name: 'dashboard' }
@@ -166,11 +182,13 @@ function Dashboard() {
         <StatCard label="Published" value={data.stats.published} />
         <StatCard label="Active batches" value={data.stats.active_batches} />
         <StatCard label="Scheduled items" value={data.stats.scheduled_items} />
+        <StatCard label="Visual assets" value={data.stats.visual_assets || 0} />
       </div>
 
       <div className="quick-actions card">
         <button onClick={() => navigate('#/batches')}>Plan a 20-Short batch</button>
         <button className="secondary" onClick={() => navigate('#/calendar')}>Open publishing calendar</button>
+        <button className="secondary" onClick={() => navigate('#/assets')}>Upload visual assets</button>
         <button className="secondary" onClick={() => navigate('#/settings/ai')}>Check AI fallback</button>
       </div>
 
@@ -627,6 +645,136 @@ function CalendarPage() {
   )
 }
 
+function VisualAssetsPage() {
+  const [assets, setAssets] = useState([])
+  const [form, setForm] = useState(initialVisualAsset)
+  const [file, setFile] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  function load() {
+    setLoading(true)
+    fetchVisualAssets()
+      .then((result) => {
+        setAssets(result.assets || [])
+        setError('')
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(load, [])
+
+  function update(name, value) {
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setMessage('')
+    setError('')
+    if (!file) {
+      setError('Please choose an image file first.')
+      return
+    }
+    try {
+      const formData = new FormData()
+      Object.entries(form).forEach(([key, value]) => formData.append(key, value))
+      formData.append('file', file)
+      const result = await uploadVisualAsset(formData)
+      setAssets((current) => [result.asset, ...current])
+      setFile(null)
+      event.target.reset()
+      setForm(initialVisualAsset)
+      setMessage('Visual asset uploaded. It can now be reused in video drafts when tags match the scene.')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function remove(assetId) {
+    setMessage('')
+    setError('')
+    try {
+      await deleteVisualAsset(assetId)
+      setAssets((current) => current.filter((asset) => asset.id !== assetId))
+      setMessage('Visual asset removed.')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  return (
+    <section>
+      <Header
+        title="Reusable visual assets"
+        subtitle="Upload icons, diagrams, screenshots, or simple images once. Matching assets are reused in MP4 draft scene cards before you move to CapCut."
+        action={<button onClick={() => navigate('#/new')}>Create package</button>}
+      />
+      {message && <div className="success-banner">{message}</div>}
+      {error && <div className="form-error">{error}</div>}
+
+      <div className="detail-grid">
+        <form className="card stack" onSubmit={submit}>
+          <h2>Upload asset</h2>
+          <p className="muted">Use clear tags such as <strong>leaf, chlorophyll, photosynthesis</strong>. The draft generator matches tags with scene text.</p>
+          <Input label="Title" value={form.title} onChange={(v) => update('title', v)} />
+          <Input label="Tags" value={form.tags} onChange={(v) => update('tags', v)} />
+          <TextArea label="Description" value={form.description} onChange={(v) => update('description', v)} rows={3} />
+          <Input label="Source type" value={form.source_type} onChange={(v) => update('source_type', v)} />
+          <Input label="License type" value={form.license_type} onChange={(v) => update('license_type', v)} />
+          <TextArea label="Notes" value={form.notes} onChange={(v) => update('notes', v)} rows={3} />
+          <label className="field">
+            <span>Image file</span>
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => setFile(event.target.files?.[0] || null)} />
+          </label>
+          <button type="submit">Upload visual asset</button>
+        </form>
+
+        <div className="card stack">
+          <h2>How matching works</h2>
+          <p className="muted">When you generate a vertical MP4 draft, the backend checks each scene's topic, script, subtitle, and visual direction. If those words match asset tags, the image appears in the scene card.</p>
+          <ul className="check-list">
+            <li>Use simple PNG/JPG/WebP images.</li>
+            <li>Prefer self-created, open-license, or Canva-made assets.</li>
+            <li>Use 3–8 meaningful tags per asset.</li>
+            <li>Do not upload copyrighted textbook screenshots unless you have rights.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header">
+          <h2>Asset library</h2>
+          <span>{assets.length} assets</span>
+        </div>
+        {loading ? <Loading /> : assets.length === 0 ? (
+          <p className="muted">No visual assets yet. Upload your first reusable diagram or icon.</p>
+        ) : (
+          <div className="asset-grid">
+            {assets.map((asset) => (
+              <div className="asset-card" key={asset.id}>
+                <img src={visualAssetUrl(asset.id)} alt={asset.title} />
+                <div>
+                  <h3>{asset.title}</h3>
+                  <p>{asset.description || 'No description'}</p>
+                  <p className="tag-line">{asset.tags}</p>
+                  <p className="muted">{asset.source_type} • {asset.license_type || 'license not set'}</p>
+                  <div className="row-meta">
+                    <a className="button-link small" href={visualAssetUrl(asset.id)} target="_blank" rel="noreferrer">Open</a>
+                    <button className="danger small" onClick={() => remove(asset.id)}>Delete</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 function PackageDetail({ id }) {
   const [data, setData] = useState(null)
   const [batches, setBatches] = useState([])
@@ -909,6 +1057,32 @@ function PackageDetail({ id }) {
       </div>
 
 
+
+      <div className="card stack">
+        <div className="card-header">
+          <div>
+            <h2>Suggested reusable visuals</h2>
+            <p className="muted">These assets match this package's topic/script tags and can appear in the MP4 draft scene cards.</p>
+          </div>
+          <button className="secondary" onClick={() => navigate('#/assets')}>Manage assets</button>
+        </div>
+        {!data.suggested_visual_assets || data.suggested_visual_assets.length === 0 ? (
+          <p className="muted">No matching assets yet. Upload assets with tags like leaf, chlorophyll, photosynthesis, math, grammar, etc.</p>
+        ) : (
+          <div className="asset-strip">
+            {data.suggested_visual_assets.map((asset) => (
+              <div className="asset-mini" key={asset.id}>
+                <img src={visualAssetUrl(asset.id)} alt={asset.title} />
+                <div>
+                  <strong>{asset.title}</strong>
+                  <span>{asset.tags}</span>
+                  <small>match score: {asset.match_score}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="card stack">
         <div className="card-header">

@@ -140,6 +140,38 @@ export function audioDownloadUrl(packageId, assetId) {
   return `${API_BASE_URL}/content/${packageId}/audio/${assetId}/download`
 }
 
+export function fetchVisualAssets() {
+  return request('/api/assets')
+}
+
+export async function uploadVisualAsset(formData) {
+  const response = await fetch(`${API_BASE_URL}/api/assets`, {
+    method: 'POST',
+    body: formData
+  })
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}`
+    try {
+      const body = await response.json()
+      message = body.detail || message
+    } catch (_) {
+      // Keep default message.
+    }
+    throw new Error(message)
+  }
+  return response.json()
+}
+
+export function deleteVisualAsset(id) {
+  return request(`/api/assets/${id}`, {
+    method: 'DELETE'
+  })
+}
+
+export function visualAssetUrl(id) {
+  return `${API_BASE_URL}/assets/${id}/download`
+}
+
 export function fetchAiSettings() {
   return request('/api/settings/ai')
 }

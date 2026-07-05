@@ -1,19 +1,22 @@
-# Next Steps After v7
+# Next Steps After v8
 
-## What changed in v7
+## What changed in v8
 
-- Added **simple vertical MP4 draft generation**.
-- Added backend service `video_draft_service.py`.
-- Added `video_drafts` database table.
+- Added **Reusable Visual Asset Library**.
+- Added backend service `asset_library_service.py`.
+- Added `visual_assets` database table.
 - Added API endpoints:
-  - `POST /api/content/{id}/video-draft`
-  - `GET /api/content/{id}/video-drafts`
-  - `GET /content/{id}/video-draft/{draft_id}/download`
-- Added React package-detail section: **Generate video draft**.
+  - `GET /api/assets`
+  - `POST /api/assets`
+  - `DELETE /api/assets/{asset_id}`
+  - `GET /assets/{asset_id}/download`
+- Added React screen: **Visual assets**.
+- Added suggested visual assets to package detail page.
+- Updated MP4 draft generation to use matching uploaded visual assets inside scene cards.
 - Export ZIP now includes:
-  - generated MP4 draft or manual guide file
-  - `video_drafts.json`
-- Backend tests passed: `8 passed`.
+  - `visual_assets.json`
+  - copies of saved visual asset files inside `visual_assets/`
+- Backend tests passed: `9 passed`.
 - Frontend production build passed.
 
 ---
@@ -46,13 +49,14 @@ http://127.0.0.1:5173
 
 Test:
 
-1. Create or open a package.
-2. Click **Generate narration**.
-3. Click **Generate assembly plan**.
-4. Click **Generate video draft**.
-5. Preview/download the MP4 draft.
-6. Export the ZIP.
-7. Improve the MP4 manually in CapCut if needed.
+1. Go to **Visual assets**.
+2. Upload a leaf/chlorophyll image.
+3. Add tags: `leaf, chlorophyll, photosynthesis, science`.
+4. Create/open a package: `Why are leaves green?`.
+5. Check **Suggested reusable visuals**.
+6. Generate video draft.
+7. Confirm the scene card uses the uploaded asset when matched.
+8. Export ZIP.
 
 ---
 
@@ -61,7 +65,7 @@ Test:
 ```bash
 git add .
 git status
-git commit -m "Add vertical MP4 draft generator"
+git commit -m "Add reusable visual asset library"
 git push
 ```
 
@@ -76,62 +80,48 @@ storage/app.db
 storage/exports/
 storage/audio/
 storage/video_drafts/
+storage/asset_library/*
 storage/final/
 ```
 
 ---
 
-## Recommended next feature: reusable visual asset library
+## Recommended next feature: thumbnail helper
 
-Now that the app can generate script, audio/guide, CapCut plan, and a simple video draft, the next best feature is reusable visual assets.
+The next best feature is **thumbnail helper**, not full thumbnail prediction.
 
-First version should be simple:
-
-```text
-Asset upload/import → tag asset → choose asset during draft generation → reuse before creating new visuals
-```
-
-Suggested folders:
+First version should generate:
 
 ```text
-storage/asset_library/
-  science/
-  math/
-  icons/
-  backgrounds/
-  diagrams/
+Topic + hook + title options → thumbnail text ideas + layout guide + Canva/CapCut prompt
 ```
 
-Suggested database table:
+Suggested output:
 
 ```text
-AssetLibraryItem
-  id
-  tag
-  topic_area
-  file_path
-  file_name
-  asset_type
-  reuse_count
-  notes
+1. Thumbnail text option
+2. Emotion/curiosity angle
+3. Visual layout
+4. Background idea
+5. Main object/image suggestion
+6. Color/contrast note
+7. What not to put on thumbnail
 ```
 
-Update the video draft generator to prefer:
+Why this is next:
 
-```text
-Matching reusable asset → generated scene card fallback
-```
-
-This improves quality without needing paid image generation.
+- It directly helps Shorts/YouTube packaging.
+- It does not require paid image generation.
+- It improves click interest while the content workflow is still manual-first.
 
 ---
 
-## Feature after asset library
+## Feature after thumbnail helper
 
-Add a simple **thumbnail helper**:
+Add **basic notes + quiz worksheet export**:
 
 ```text
-Topic + hook + title → thumbnail text ideas + layout guide + export prompt
+Approved script → short notes → 5-question quiz → worksheet markdown/PDF-ready export
 ```
 
-Do not build a full thumbnail prediction engine yet. Generate useful thumbnail guidance first.
+This supports future monetization through PDFs, worksheets, and study packs.
