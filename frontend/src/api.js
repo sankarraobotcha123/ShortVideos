@@ -118,6 +118,16 @@ export function generateAssembly(id) {
   })
 }
 
+export function generateVideoDraft(id) {
+  return request(`/api/content/${id}/video-draft`, {
+    method: 'POST'
+  })
+}
+
+export function videoDraftDownloadUrl(packageId, draftId) {
+  return `${API_BASE_URL}/content/${packageId}/video-draft/${draftId}/download`
+}
+
 export function assemblyDownloadUrl(packageId, planId) {
   return `${API_BASE_URL}/content/${packageId}/assembly/${planId}/download`
 }

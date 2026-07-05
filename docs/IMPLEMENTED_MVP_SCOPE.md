@@ -1,4 +1,4 @@
-# Implemented MVP Scope — v5
+# Implemented MVP Scope — v7
 
 This build follows the planning document's rule: build tools that help publish better Shorts faster, reduce risk, and save repeated manual time.
 
@@ -22,7 +22,13 @@ This build follows the planning document's rule: build tools that help publish b
   - Optional pyttsx3 provider
   - Manual recording fallback
 - Audio asset download
-- Export ZIP with content files, subtitles, visual prompts, and audio assets/guides
+- CapCut/manual assembly plan export
+- Simple vertical MP4 draft generation
+  - Scene-card video drafts
+  - Narration audio merge when WAV exists
+  - Silent MP4 fallback when no audio exists
+  - Manual video guide fallback when rendering fails
+- Export ZIP with content files, subtitles, visual prompts, audio assets/guides, assembly plans, and video drafts
 - GitHub-ready `.gitignore`
 - Backend tests
 
@@ -33,8 +39,9 @@ This build follows the planning document's rule: build tools that help publish b
 - Real LLM prompt quality tuning
 - Ollama desktop deployment
 - Piper/Coqui TTS
-- CapCut scene plan export
-- Automatic 9:16 video generation
+- Reusable visual asset library
+- AI image generation
+- Advanced animation engine
 - Thumbnail generation
 - YouTube API publishing
 - Automated analytics sync
@@ -42,13 +49,13 @@ This build follows the planning document's rule: build tools that help publish b
 ## Current recommended use
 
 ```text
-Plan batch → Generate package → Generate narration/recording guide → Review/edit → Schedule → Export ZIP → Assemble manually → Publish → Enter analytics
+Plan batch → Generate package → Generate narration/recording guide → Review/edit → Generate assembly plan → Generate MP4 draft → Schedule → Export ZIP → Improve manually → Publish → Enter analytics
 ```
 
 ## Next implementation target
 
 ```text
-CapCut/manual assembly export
+Reusable visual asset library
 ```
 
-This should create a scene-by-scene editing plan that can be followed in CapCut before building full video automation.
+This should allow the draft generator to reuse real icons, diagrams, and backgrounds before any paid or heavy AI image generation is added.

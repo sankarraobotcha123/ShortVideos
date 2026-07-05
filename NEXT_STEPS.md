@@ -1,20 +1,19 @@
-# Next Steps After v6
+# Next Steps After v7
 
-## What changed in v6
+## What changed in v7
 
-- Added **CapCut/manual assembly plan** generation.
-- Added backend service `assembly_service.py`.
-- Added `assembly_plans` database table.
+- Added **simple vertical MP4 draft generation**.
+- Added backend service `video_draft_service.py`.
+- Added `video_drafts` database table.
 - Added API endpoints:
-  - `POST /api/content/{id}/assembly`
-  - `GET /api/content/{id}/assembly`
-  - `GET /content/{id}/assembly/{plan_id}/download`
-- Added React package-detail section: **Generate assembly plan**.
+  - `POST /api/content/{id}/video-draft`
+  - `GET /api/content/{id}/video-drafts`
+  - `GET /content/{id}/video-draft/{draft_id}/download`
+- Added React package-detail section: **Generate video draft**.
 - Export ZIP now includes:
-  - `capcut_assembly_plan.md`
-  - `assembly_plan.json`
-  - `assembly_plans.json`
-- Backend tests passed: `7 passed`.
+  - generated MP4 draft or manual guide file
+  - `video_drafts.json`
+- Backend tests passed: `8 passed`.
 - Frontend production build passed.
 
 ---
@@ -50,8 +49,10 @@ Test:
 1. Create or open a package.
 2. Click **Generate narration**.
 3. Click **Generate assembly plan**.
-4. Download the plan or export the ZIP.
-5. Open `capcut_assembly_plan.md` and use it while editing in CapCut.
+4. Click **Generate video draft**.
+5. Preview/download the MP4 draft.
+6. Export the ZIP.
+7. Improve the MP4 manually in CapCut if needed.
 
 ---
 
@@ -60,7 +61,7 @@ Test:
 ```bash
 git add .
 git status
-git commit -m "Add CapCut assembly planning workflow"
+git commit -m "Add vertical MP4 draft generator"
 git push
 ```
 
@@ -74,81 +75,63 @@ frontend/dist/
 storage/app.db
 storage/exports/
 storage/audio/
+storage/video_drafts/
 storage/final/
 ```
 
 ---
 
-## Recommended next feature: simple vertical video draft
+## Recommended next feature: reusable visual asset library
 
-Now that you have script, subtitles, audio/guide, and CapCut plan, the next feature can be a simple MP4 draft generator.
+Now that the app can generate script, audio/guide, CapCut plan, and a simple video draft, the next best feature is reusable visual assets.
 
-First version should be basic:
+First version should be simple:
 
 ```text
-Script + scene plan + generated/manual audio + simple background cards + subtitles → 9:16 MP4 draft
+Asset upload/import → tag asset → choose asset during draft generation → reuse before creating new visuals
 ```
 
-Suggested implementation:
-
-- Use MoviePy or FFmpeg.
-- Use plain background cards first, not AI images.
-- Burn subtitles or display scene text.
-- Use narration audio if a WAV exists.
-- If no WAV exists, generate a silent draft with timing cards.
-- Export to `storage/final/`.
-
-Do not build complex animation yet. The goal is a rough draft that can be improved in CapCut.
-
----
-
-## Feature after simple MP4 draft
-
-Add a reusable visual asset library:
+Suggested folders:
 
 ```text
-storage/assets/
+storage/asset_library/
   science/
   math/
   icons/
   backgrounds/
+  diagrams/
 ```
 
-Then update the assembly/video draft flow to reuse existing visuals before generating new ones.
-
----
-
-## Current AI/TTS setup reminder
-
-For this laptop:
-
-```env
-AI_PROVIDER_CHAIN=transformers,template
-USE_OLLAMA=false
-USE_TRANSFORMERS=false
-
-TTS_PROVIDER_CHAIN=windows_sapi,manual_recording
-USE_WINDOWS_SAPI_TTS=true
-USE_PYTTSX3_TTS=false
-```
-
-Later desktop with Ollama:
-
-```env
-AI_PROVIDER_CHAIN=ollama,transformers,template
-USE_OLLAMA=true
-OLLAMA_MODEL=llama3.1:8b
-```
-
----
-
-## Build priority reminder
-
-Only build features that help one of these goals:
+Suggested database table:
 
 ```text
-1. Publish better Shorts faster.
-2. Reduce factual/content risk.
-3. Understand what the audience likes.
-4. Save repeated manual time.
+AssetLibraryItem
+  id
+  tag
+  topic_area
+  file_path
+  file_name
+  asset_type
+  reuse_count
+  notes
 ```
+
+Update the video draft generator to prefer:
+
+```text
+Matching reusable asset → generated scene card fallback
+```
+
+This improves quality without needing paid image generation.
+
+---
+
+## Feature after asset library
+
+Add a simple **thumbnail helper**:
+
+```text
+Topic + hook + title → thumbnail text ideas + layout guide + export prompt
+```
+
+Do not build a full thumbnail prediction engine yet. Generate useful thumbnail guidance first.

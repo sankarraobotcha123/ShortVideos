@@ -18,9 +18,11 @@ import {
   generateAssembly,
   generateAudio,
   generateContent,
+  generateVideoDraft,
   updateBatch,
   updateCalendarEntry,
-  updateReview
+  updateReview,
+  videoDraftDownloadUrl
 } from './api.js'
 
 const initialForm = {
@@ -634,6 +636,7 @@ function PackageDetail({ id }) {
   const [selectedBatchId, setSelectedBatchId] = useState('')
   const [audioGenerating, setAudioGenerating] = useState(false)
   const [assemblyGenerating, setAssemblyGenerating] = useState(false)
+  const [videoDraftGenerating, setVideoDraftGenerating] = useState(false)
   const [analytics, setAnalytics] = useState({
     platform: 'YouTube Shorts',
     entry_date: today(),
@@ -724,6 +727,25 @@ function PackageDetail({ id }) {
       setError(err.message)
     } finally {
       setAssemblyGenerating(false)
+    }
+  }
+
+
+  async function createVideoDraft() {
+    setMessage('')
+    setError('')
+    setVideoDraftGenerating(true)
+    try {
+      const result = await generateVideoDraft(id)
+      setData((current) => ({
+        ...current,
+        video_drafts: [result.video_draft, ...(current.video_drafts || [])]
+      }))
+      setMessage(result.video_draft.status === 'generated' ? 'Vertical MP4 draft generated.' : 'Manual video draft guide created.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setVideoDraftGenerating(false)
     }
   }
 
@@ -883,6 +905,42 @@ function PackageDetail({ id }) {
         )}
         {data.assembly_plans && data.assembly_plans.length > 0 && (
           <TextCard title="Latest CapCut assembly plan" value={data.assembly_plans[0].plan_markdown} />
+        )}
+      </div>
+
+
+
+      <div className="card stack">
+        <div className="card-header">
+          <div>
+            <h2>Vertical MP4 draft</h2>
+            <p className="muted">Generate a simple 9:16 review video from scene cards. Replace these cards with final visuals later in CapCut.</p>
+          </div>
+          <button onClick={createVideoDraft} disabled={videoDraftGenerating}>
+            {videoDraftGenerating ? 'Generating...' : 'Generate video draft'}
+          </button>
+        </div>
+        {!data.video_drafts || data.video_drafts.length === 0 ? (
+          <p className="muted">No video draft yet. Generate one after reviewing the script, narration, and assembly plan.</p>
+        ) : (
+          <div className="video-draft-list">
+            {data.video_drafts.map((draft) => (
+              <div className="video-draft-entry" key={draft.id}>
+                <div>
+                  <strong>{draft.file_name}</strong>
+                  <p>{draft.status} • {draft.draft_mode} • {draft.duration_seconds}s • {draft.scene_count} scenes</p>
+                  {draft.provider_notes && <p>{draft.provider_notes}</p>}
+                </div>
+                <div className="row-meta">
+                  <StatusBadge status={draft.status} />
+                  {draft.mime_type === 'video/mp4' && (
+                    <video controls width="220" src={videoDraftDownloadUrl(id, draft.id)} />
+                  )}
+                  <a className="button-link small" href={videoDraftDownloadUrl(id, draft.id)}>Download</a>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 

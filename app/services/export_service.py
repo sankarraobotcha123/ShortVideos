@@ -15,7 +15,7 @@ def _safe_slug(value: str) -> str:
     return value.strip("-")[:80] or "content-package"
 
 
-def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, assembly_plans: Sequence[Mapping] | None = None) -> Path:
+def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, assembly_plans: Sequence[Mapping] | None = None, video_drafts: Sequence[Mapping] | None = None) -> Path:
     settings.export_dir.mkdir(parents=True, exist_ok=True)
     package_id = row["id"]
     slug = _safe_slug(row["topic"])
@@ -26,6 +26,7 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, 
     hashtags = json.loads(row["hashtags"] or "[]")
     audio_assets = list(audio_assets or [])
     assembly_plans = list(assembly_plans or [])
+    video_drafts = list(video_drafts or [])
 
     audio_summary = "No narration asset generated yet. Use the app's Generate narration button or record manually."
     if audio_assets:
@@ -44,6 +45,15 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, 
             f"{latest_assembly.get('estimated_duration_seconds', row.get('duration_seconds', 60))} sec | "
             f"{latest_assembly.get('assembly_mode', 'capcut_manual_plan')}"
         )
+
+    video_summary = "No MP4 draft generated yet. Use the app's Generate video draft button."
+    if video_drafts:
+        video_lines = []
+        for draft in video_drafts:
+            video_lines.append(
+                f"- {draft.get('file_name')} | {draft.get('status')} | {draft.get('draft_mode')} | {draft.get('duration_seconds', 0)} sec"
+            )
+        video_summary = "\n".join(video_lines)
 
     markdown = f"""# Content Package: {row['topic']}
 
@@ -81,6 +91,10 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, 
 ## CapCut / Manual Assembly
 
 {assembly_summary}
+
+## Video Drafts
+
+{video_summary}
 
 ## Title Options
 
@@ -143,9 +157,20 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, 
         (package_dir / "assembly_plan.json").write_text(str(latest_assembly.get("plan_json") or "{}"), encoding="utf-8")
     (package_dir / "assembly_plans.json").write_text(json.dumps(assembly_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    video_manifest = []
+    for draft in video_drafts:
+        source = Path(draft.get("file_path") or "")
+        video_manifest.append(dict(draft))
+        if source.exists() and source.is_file():
+            target_name = f"video_draft_{draft.get('id', 'draft')}_{source.name}"
+            target = package_dir / target_name
+            target.write_bytes(source.read_bytes())
+    (package_dir / "video_drafts.json").write_text(json.dumps(video_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
     payload = dict(row)
     payload["audio_assets"] = audio_manifest
     payload["assembly_plans"] = assembly_manifest
+    payload["video_drafts"] = video_manifest
     (package_dir / "package.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
     zip_path = settings.export_dir / f"package-{package_id}-{slug}.zip"

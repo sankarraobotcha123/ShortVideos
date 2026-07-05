@@ -37,6 +37,7 @@ class Settings:
     database_path: Path = Path(os.getenv("DATABASE_PATH", "storage/app.db"))
     export_dir: Path = Path(os.getenv("EXPORT_DIR", "storage/exports"))
     audio_dir: Path = Path(os.getenv("AUDIO_DIR", "storage/audio"))
+    video_draft_dir: Path = Path(os.getenv("VIDEO_DRAFT_DIR", "storage/video_drafts"))
 
     # AI provider chain. The system tries each provider in order and falls back
     # safely to the built-in template provider.
@@ -68,7 +69,7 @@ class Settings:
     tts_voice_id: str = os.getenv("TTS_VOICE_ID", "default")
     tts_rate: int = int(os.getenv("TTS_RATE", "165"))
 
-    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "5")
+    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "7")
 
     cors_origins: list[str] = [
         item.strip()

@@ -15,6 +15,7 @@ from app.services.export_service import export_package
 from app.services.generation_orchestrator import generate_content_package_with_fallbacks, provider_status
 from app.services.audio_service import audio_provider_status, generate_audio_asset
 from app.services.assembly_service import generate_assembly_plan
+from app.services.video_draft_service import generate_video_draft
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -335,9 +336,10 @@ def export_content(package_id: int):
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         audio_assets = conn.execute("SELECT * FROM audio_assets WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         assembly_plans = conn.execute("SELECT * FROM assembly_plans WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+        video_drafts = conn.execute("SELECT * FROM video_drafts WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
-    zip_path = export_package(dict(row), [dict(item) for item in audio_assets], [dict(item) for item in assembly_plans])
+    zip_path = export_package(dict(row), [dict(item) for item in audio_assets], [dict(item) for item in assembly_plans], [dict(item) for item in video_drafts])
     return FileResponse(zip_path, filename=Path(zip_path).name, media_type="application/zip")
 
 
@@ -479,6 +481,10 @@ def api_package(package_id: int) -> dict[str, Any]:
             "SELECT * FROM assembly_plans WHERE package_id = ? ORDER BY id DESC",
             (package_id,),
         ).fetchall()
+        video_drafts = conn.execute(
+            "SELECT * FROM video_drafts WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
     return {
@@ -487,6 +493,7 @@ def api_package(package_id: int) -> dict[str, Any]:
         "calendar": dict(calendar) if calendar else None,
         "audio_assets": [dict(item) for item in audio_assets],
         "assembly_plans": [dict(item) for item in assembly_plans],
+        "video_drafts": [dict(item) for item in video_drafts],
     }
 
 
@@ -983,3 +990,66 @@ def _insert_analytics_record(
                 notes,
             ),
         )
+
+
+@router.post("/api/content/{package_id}/video-draft", status_code=201)
+def api_generate_video_draft(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Package not found")
+        audio_assets = conn.execute(
+            "SELECT * FROM audio_assets WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
+        assembly_plans = conn.execute(
+            "SELECT * FROM assembly_plans WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
+        payload = generate_video_draft(dict(row), [dict(item) for item in audio_assets], [dict(item) for item in assembly_plans])
+        cursor = conn.execute(
+            """
+            INSERT INTO video_drafts (
+                package_id, status, file_path, file_name, mime_type, draft_mode,
+                duration_seconds, scene_count, has_audio, provider_notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                package_id,
+                payload["status"],
+                payload["file_path"],
+                payload["file_name"],
+                payload["mime_type"],
+                payload["draft_mode"],
+                payload.get("duration_seconds", 0),
+                payload.get("scene_count", 0),
+                int(bool(payload.get("has_audio"))),
+                payload.get("provider_notes", ""),
+            ),
+        )
+        draft_id = int(cursor.lastrowid)
+        draft = conn.execute("SELECT * FROM video_drafts WHERE id = ?", (draft_id,)).fetchone()
+    return {"video_draft": dict(draft)}
+
+
+@router.get("/api/content/{package_id}/video-drafts")
+def api_list_video_drafts(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        _assert_package_exists(conn, package_id)
+        rows = conn.execute("SELECT * FROM video_drafts WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+    return {"video_drafts": [dict(row) for row in rows]}
+
+
+@router.get("/content/{package_id}/video-draft/{draft_id}/download")
+def download_video_draft(package_id: int, draft_id: int):
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM video_drafts WHERE id = ? AND package_id = ?",
+            (draft_id, package_id),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Video draft not found")
+    path = Path(row["file_path"])
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Video draft file not found on disk")
+    return FileResponse(path, filename=row["file_name"], media_type=row["mime_type"] or "application/octet-stream")

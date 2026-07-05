@@ -110,6 +110,23 @@ CREATE TABLE IF NOT EXISTS assembly_plans (
     FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
 );
 
+
+CREATE TABLE IF NOT EXISTS video_drafts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'generated',
+    file_path TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL DEFAULT 'video/mp4',
+    draft_mode TEXT NOT NULL DEFAULT 'scene_card_silent_mp4',
+    duration_seconds INTEGER NOT NULL DEFAULT 60,
+    scene_count INTEGER NOT NULL DEFAULT 0,
+    has_audio INTEGER NOT NULL DEFAULT 0,
+    provider_notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -133,6 +150,7 @@ def ensure_storage() -> None:
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
     settings.export_dir.mkdir(parents=True, exist_ok=True)
     settings.audio_dir.mkdir(parents=True, exist_ok=True)
+    settings.video_draft_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -238,6 +256,28 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
             scene_count INTEGER NOT NULL DEFAULT 0,
             estimated_duration_seconds INTEGER NOT NULL DEFAULT 60,
             assembly_mode TEXT NOT NULL DEFAULT 'capcut_manual_plan',
+            provider_notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS video_drafts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'generated',
+            file_path TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            mime_type TEXT NOT NULL DEFAULT 'video/mp4',
+            draft_mode TEXT NOT NULL DEFAULT 'scene_card_silent_mp4',
+            duration_seconds INTEGER NOT NULL DEFAULT 60,
+            scene_count INTEGER NOT NULL DEFAULT 0,
+            has_audio INTEGER NOT NULL DEFAULT 0,
             provider_notes TEXT DEFAULT '',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
