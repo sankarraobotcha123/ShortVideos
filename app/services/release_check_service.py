@@ -22,6 +22,7 @@ REQUIRED_GITIGNORE_PATTERNS = [
     "storage/learning_outputs/*",
     "storage/handoffs/*",
     "storage/release_reports/*",
+    "storage/youtube_oauth/*",
     "__pycache__/",
     ".pytest_cache/",
 ]
@@ -41,9 +42,11 @@ REQUIRED_FILES = [
     "setup_windows.ps1",
     "docs/FRESH_CLONE_SETUP.md",
     "docs/PROVIDER_ADAPTER_SETUP.md",
+    "docs/YOUTUBE_PUBLISHING_GUIDE.md",
     "app/routes/auth.py",
     "app/services/auth_service.py",
     "app/services/provider_setup_service.py",
+    "app/services/youtube_publishing_service.py",
 ]
 
 REQUIRED_DIRS = [
@@ -55,6 +58,7 @@ REQUIRED_DIRS = [
     "storage",
     "storage/raw_uploads",
     "storage/scene_library",
+    "storage/youtube_oauth",
 ]
 
 REQUIRED_ENV_KEYS = [
@@ -77,6 +81,15 @@ REQUIRED_ENV_KEYS = [
     "DEFAULT_ADMIN_EMAIL",
     "DEFAULT_ADMIN_PASSWORD",
     "HANDOFF_DIR",
+    "YOUTUBE_API_ENABLED",
+    "YOUTUBE_DRY_RUN",
+    "YOUTUBE_OAUTH_DIR",
+    "YOUTUBE_CLIENT_SECRETS_FILE",
+    "YOUTUBE_TOKEN_FILE",
+    "YOUTUBE_CHANNEL_ID",
+    "YOUTUBE_DEFAULT_PRIVACY_STATUS",
+    "YOUTUBE_DEFAULT_PLAYLIST_ID",
+    "YOUTUBE_NOTIFY_SUBSCRIBERS",
 ]
 
 PROTECTED_PATHS = [
@@ -94,6 +107,7 @@ PROTECTED_PATHS = [
     "storage/trust_reviews/",
     "storage/learning_outputs/",
     "storage/handoffs/",
+    "storage/youtube_oauth/",
     "__pycache__/",
     ".pytest_cache/",
 ]
@@ -107,7 +121,7 @@ GIT_COMMANDS = [
     "git status",
     "git add .",
     "git status",
-    "git commit -m \"Add real provider adapter setup guide\"",
+    "git commit -m \"Add YouTube publishing checklist workflow\"",
     "git push",
 ]
 
@@ -200,7 +214,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         recommendations.append("Review warnings. Some may be acceptable, but confirm before release.")
     recommendations.append("Do not commit generated media, local databases, virtual environments, node_modules, or .env files.")
     recommendations.append("Run backend tests and frontend build before pushing a release commit.")
-    recommendations.append("Use the exact commit message for this step: Add real provider adapter setup guide")
+    recommendations.append("Use the exact commit message for this step: Add YouTube publishing checklist workflow")
 
     report_markdown = build_release_report_markdown(
         pass_count=pass_count,
@@ -215,7 +229,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
     )
 
     return {
-        "version": "0.28.0",
+        "version": "0.31.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "pass_count": pass_count,
@@ -230,7 +244,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         "manual_command_checks": command_checks,
         "protected_paths": PROTECTED_PATHS,
         "git_commands": GIT_COMMANDS,
-        "commit_message": "Add real provider adapter setup guide",
+        "commit_message": "Add YouTube publishing checklist workflow",
         "recommendations": recommendations,
         "report_markdown": report_markdown,
         "settings_snapshot": {

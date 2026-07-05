@@ -23,6 +23,7 @@ STORAGE_DIRS = [
     "storage/learning_outputs",
     "storage/release_reports",
     "storage/handoffs",
+    "storage/youtube_oauth",
 ]
 
 

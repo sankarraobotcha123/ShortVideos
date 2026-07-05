@@ -17,6 +17,8 @@ This build follows the planning document's rule: build tools that help publish b
 - Manual analytics entry
 - Content batch planner
 - Publishing calendar
+- YouTube manual publishing checklist
+- Optional YouTube API dry-run preparation placeholders
 - TTS/audio provider chain
   - Windows SAPI provider
   - Optional pyttsx3 provider
@@ -39,11 +41,11 @@ This build follows the planning document's rule: build tools that help publish b
 - Real LLM prompt quality tuning
 - Ollama desktop deployment
 - Piper/Coqui TTS
-- Reusable visual asset library
+- Deployment packaging and production configuration guide
 - AI image generation
 - Advanced animation engine
 - Thumbnail generation
-- YouTube API publishing
+- Real YouTube API publishing
 - Automated analytics sync
 
 ## Current recommended use
@@ -55,7 +57,7 @@ Plan batch → Generate package → Generate narration/recording guide → Revie
 ## Next implementation target
 
 ```text
-Reusable visual asset library
+Deployment packaging and production configuration guide
 ```
 
 This should allow the draft generator to reuse real icons, diagrams, and backgrounds before any paid or heavy AI image generation is added.

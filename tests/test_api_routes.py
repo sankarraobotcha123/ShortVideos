@@ -699,7 +699,7 @@ def test_release_checklist_api_available(tmp_path):
     response = client.get("/api/release/checklist")
     assert response.status_code == 200
     body = response.json()["release"]
-    assert body["commit_message"] == "Add real provider adapter setup guide"
+    assert body["commit_message"] == "Add YouTube publishing checklist workflow"
     assert "git status" in body["git_commands"]
     assert body["report_markdown"].startswith("# Production Cleanup")
 
@@ -886,3 +886,21 @@ def test_provider_setup_guide_api(tmp_path):
     download = client.get("/provider-setup/guide/download")
     assert download.status_code == 200
     assert "Real Provider Adapter Setup Guide" in download.text
+
+
+
+def test_youtube_publishing_checklist_api(tmp_path):
+    settings.database_path = tmp_path / "youtube-publishing-test.db"
+    init_db()
+
+    client = TestClient(app)
+    response = client.get("/api/youtube-publishing/checklist")
+    assert response.status_code == 200
+    body = response.json()["youtube_publishing"]
+    assert body["summary"]["commit_message"] == "Add YouTube publishing checklist workflow"
+    assert any(phase["key"] == "youtube_studio_upload" for phase in body["manual_publishing_phases"])
+    assert "YOUTUBE_API_ENABLED=false" in body["guide_markdown"]
+
+    download = client.get("/youtube-publishing/checklist/download")
+    assert download.status_code == 200
+    assert "YouTube Manual Publishing Checklist" in download.text

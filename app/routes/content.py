@@ -28,6 +28,7 @@ from app.services.demo_seed_service import build_system_readiness, seed_demo_dat
 from app.services.release_check_service import build_release_checklist
 from app.services.setup_guide_service import build_setup_guide
 from app.services.provider_setup_service import build_provider_setup_guide
+from app.services.youtube_publishing_service import build_youtube_publishing_checklist
 from app.services.prompt_template_service import (
     apply_script_prompt_template,
     build_prompt_preview,
@@ -1275,6 +1276,25 @@ def download_provider_setup_guide(_: dict[str, Any] = Depends(require_permission
         guide["guide_markdown"],
         media_type="text/markdown",
         headers={"Content-Disposition": "attachment; filename=real_provider_adapter_setup_guide.md"},
+    )
+
+
+
+@router.get("/api/youtube-publishing/checklist")
+def api_youtube_publishing_checklist(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
+    with db_session() as conn:
+        checklist = build_youtube_publishing_checklist(conn)
+    return {"youtube_publishing": checklist}
+
+
+@router.get("/youtube-publishing/checklist/download")
+def download_youtube_publishing_checklist(_: dict[str, Any] = Depends(require_permission("content:view"))):
+    with db_session() as conn:
+        checklist = build_youtube_publishing_checklist(conn)
+    return PlainTextResponse(
+        checklist["guide_markdown"],
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=youtube_manual_publishing_checklist.md"},
     )
 
 @router.get("/api/release/checklist")

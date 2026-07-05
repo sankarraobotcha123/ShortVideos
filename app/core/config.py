@@ -44,6 +44,18 @@ class Settings:
     trust_review_dir: Path = Path(os.getenv("TRUST_REVIEW_DIR", "storage/trust_reviews"))
     learning_output_dir: Path = Path(os.getenv("LEARNING_OUTPUT_DIR", "storage/learning_outputs"))
     handoff_dir: Path = Path(os.getenv("HANDOFF_DIR", "storage/handoffs"))
+    youtube_oauth_dir: Path = Path(os.getenv("YOUTUBE_OAUTH_DIR", "storage/youtube_oauth"))
+
+    # YouTube publishing remains manual in the MVP. These settings prepare a
+    # future API adapter without enabling uploads or storing secrets in Git.
+    youtube_api_enabled: bool = _bool_env("YOUTUBE_API_ENABLED", "false")
+    youtube_dry_run: bool = _bool_env("YOUTUBE_DRY_RUN", "true")
+    youtube_client_secrets_file: Path = Path(os.getenv("YOUTUBE_CLIENT_SECRETS_FILE", "storage/youtube_oauth/client_secret.json"))
+    youtube_token_file: Path = Path(os.getenv("YOUTUBE_TOKEN_FILE", "storage/youtube_oauth/token.json"))
+    youtube_channel_id: str = os.getenv("YOUTUBE_CHANNEL_ID", "")
+    youtube_default_privacy_status: str = os.getenv("YOUTUBE_DEFAULT_PRIVACY_STATUS", "private")
+    youtube_default_playlist_id: str = os.getenv("YOUTUBE_DEFAULT_PLAYLIST_ID", "")
+    youtube_notify_subscribers: bool = _bool_env("YOUTUBE_NOTIFY_SUBSCRIBERS", "false")
 
     # AI provider chain. The system tries each provider in order and falls back
     # safely to the built-in template provider.
@@ -84,7 +96,7 @@ class Settings:
     tts_voice_id: str = os.getenv("TTS_VOICE_ID", "default")
     tts_rate: int = int(os.getenv("TTS_RATE", "165"))
 
-    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "30")
+    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "31")
 
     # Authentication is a foundation layer for role-based review/publishing workflows.
     # Keep AUTH_REQUIRED=false during local MVP work if you do not want to block older routes yet.

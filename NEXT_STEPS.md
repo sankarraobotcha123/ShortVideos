@@ -1,34 +1,30 @@
 # Next Steps
 
-Current version: `0.30.0`
+Current version: `0.31.0`
 
-## Completed in v30
+## Completed in v31
 
-- Added Real Provider Adapter Setup Guide workflow.
-- Added provider setup guide page at `#/provider-setup`.
-- Added provider environment profiles for:
-  - laptop-safe template fallback
-  - Ollama desktop mode
-  - Transformers local experiment mode
-  - future hosted API mode
-- Added `docs/PROVIDER_ADAPTER_SETUP.md`.
-- Added hosted API placeholder `.env.example` keys without making hosted APIs active.
-- Kept template fallback as the safest default.
+- Added YouTube manual publishing checklist workflow.
+- Added YouTube publishing page at `#/youtube-publishing`.
+- Added package readiness summary for manual YouTube upload.
+- Added optional future YouTube API dry-run preparation notes.
+- Added safe YouTube environment placeholders in `.env.example`.
+- Added `docs/YOUTUBE_PUBLISHING_GUIDE.md`.
+- Kept API uploading disabled by default and protected OAuth files from Git.
 
 ## Recommended next step
 
-**YouTube manual publishing checklist + optional API integration preparation**
+**Deployment packaging and production configuration guide**
 
 Suggested commit message:
 
 ```bash
-git commit -m "Add YouTube publishing checklist workflow"
+git commit -m "Add deployment packaging and production configuration guide"
 ```
 
-## Remaining suggested major steps after v30
+## Remaining suggested major steps after v31
 
-1. YouTube manual publishing checklist + optional API integration preparation
-2. Deployment packaging and production configuration guide
-3. Final MVP bug-fix and UI polish pass
+1. Deployment packaging and production configuration guide
+2. Final MVP bug-fix and UI polish pass
 
-After v30, there are **3 remaining major steps** for the strong MVP roadmap.
+After v31, there are **2 remaining major steps** for the strong MVP roadmap.

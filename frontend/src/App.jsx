@@ -50,6 +50,7 @@ import {
   fetchSetupGuide,
   fetchSystemReadiness,
   fetchVisualAssets,
+  fetchYoutubePublishingChecklist,
   getStoredAuthUser,
   generateAssembly,
   generateAudio,
@@ -82,6 +83,7 @@ import {
   productionBoardDownloadUrl,
   contentSeriesDownloadUrl,
   multilingualPlansDownloadUrl,
+  youtubePublishingChecklistDownloadUrl,
   seedDemoData,
   seedPromptTemplates,
   updatePromptTemplate,
@@ -304,6 +306,7 @@ const ROUTE_ACCESS = {
   analytics: { permission: 'analytics:view' },
   providerLogs: { permission: 'analytics:view' },
   providerSetup: { permission: 'content:view' },
+  youtubePublishing: { permission: 'content:view' },
   demo: { permission: 'content:create' },
   users: { role: 'super_admin' },
   authHardening: { role: 'super_admin' }
@@ -408,6 +411,7 @@ function routeDisplayName(route) {
     analytics: 'Analytics insights',
     providerLogs: 'Provider logs',
     providerSetup: 'Provider setup guide',
+    youtubePublishing: 'YouTube publishing',
     demo: 'MVP demo setup',
     release: 'Release checklist',
     setup: 'Fresh clone setup',
@@ -485,6 +489,7 @@ function App() {
           {navCan('analytics:view') && <NavItem route={route} active={route.name === 'analytics'} href="#/analytics">Analytics insights</NavItem>}
           {navCan('analytics:view') && <NavItem route={route} active={route.name === 'providerLogs'} href="#/provider-logs">Provider logs</NavItem>}
           {navCan('content:view') && <NavItem route={route} active={route.name === 'providerSetup'} href="#/provider-setup">Provider setup guide</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'youtubePublishing'} href="#/youtube-publishing">YouTube publishing</NavItem>}
           <NavItem route={route} active={route.name === 'settings'} href="#/settings/ai">AI fallback status</NavItem>
           <NavItem route={route} active={route.name === 'audioSettings'} href="#/settings/audio">Audio fallback status</NavItem>
 
@@ -527,6 +532,7 @@ function App() {
           {route.name === 'analytics' && <AnalyticsInsightsPage />}
           {route.name === 'providerLogs' && <ProviderLogsPage />}
           {route.name === 'providerSetup' && <ProviderSetupGuidePage />}
+          {route.name === 'youtubePublishing' && <YoutubePublishingChecklistPage />}
           {route.name === 'demo' && <DemoSetupPage />}
           {route.name === 'release' && <ReleaseChecklistPage />}
           {route.name === 'setup' && <FreshCloneSetupPage />}
@@ -564,6 +570,7 @@ function parseRoute(hash) {
   if (parts[0] === 'analytics') return { name: 'analytics' }
   if (parts[0] === 'provider-logs') return { name: 'providerLogs' }
   if (parts[0] === 'provider-setup') return { name: 'providerSetup' }
+  if (parts[0] === 'youtube-publishing') return { name: 'youtubePublishing' }
   if (parts[0] === 'demo') return { name: 'demo' }
   if (parts[0] === 'release') return { name: 'release' }
   if (parts[0] === 'setup') return { name: 'setup' }
@@ -4491,6 +4498,144 @@ function ProviderSetupGuidePage() {
         <button onClick={() => downloadMarkdown('real_provider_adapter_setup_guide.md', guide.guide_markdown || '')}>Download markdown from browser</button>
         <button className="secondary" onClick={() => navigate('#/provider-logs')}>Open provider logs</button>
         <button className="secondary" onClick={() => navigate('#/settings/ai')}>Open AI fallback status</button>
+      </div>
+    </section>
+  )
+}
+
+
+function YoutubePublishingChecklistPage() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchYoutubePublishingChecklist().then(setData).catch((err) => setError(err.message))
+  }, [])
+
+  if (error) return <ErrorCard title="Could not load YouTube publishing checklist" message={error} />
+  if (!data) return <Loading />
+
+  const checklist = data.youtube_publishing || {}
+  const summary = checklist.summary || {}
+  const phases = checklist.manual_publishing_phases || []
+  const packages = checklist.package_readiness || []
+  const apiSteps = checklist.api_prep_steps || []
+  const envProfiles = checklist.env_profiles || []
+  const envChecks = checklist.env_checks || []
+
+  return (
+    <section>
+      <Header
+        title="YouTube manual publishing checklist"
+        subtitle="Publish manually from YouTube Studio now, while keeping safe dry-run API placeholders ready for a future integration."
+        action={<a className="button-link" href={youtubePublishingChecklistDownloadUrl()} target="_blank" rel="noreferrer">Download checklist</a>}
+      />
+
+      <div className="stats-grid">
+        <StatCard label="Ready to upload" value={summary.ready_to_upload_count || 0} />
+        <StatCard label="Needs gate" value={summary.needs_gate_count || 0} />
+        <StatCard label="Scheduled" value={summary.scheduled_count || 0} />
+        <StatCard label="Published" value={summary.published_count || 0} />
+      </div>
+
+      <div className="card stack success-card">
+        <div className="card-header"><h2>Current recommendation</h2><StatusBadge status="manual-first" /></div>
+        <p>Use manual YouTube Studio publishing for this MVP. API upload is only prepared as a future dry-run path, so no accidental upload or secret leak is introduced.</p>
+        <pre>{`YOUTUBE_API_ENABLED=false\nYOUTUBE_DRY_RUN=true\nYOUTUBE_DEFAULT_PRIVACY_STATUS=private`}</pre>
+        <div className="quick-actions">
+          <button className="secondary" onClick={() => navigate('#/calendar')}>Open calendar</button>
+          <button className="secondary" onClick={() => navigate('#/handoff')}>Open batch handoff</button>
+          <button className="secondary" onClick={() => navigate('#/release')}>Open release checklist</button>
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Manual publishing phases</h2><span>{phases.length} phases</span></div>
+        <div className="detail-grid">
+          {phases.map((phase) => (
+            <div className="card nested-card stack" key={phase.key}>
+              <h3>{phase.title}</h3>
+              <p>{phase.goal}</p>
+              <ul className="check-list">
+                {(phase.items || []).map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Package readiness for YouTube</h2><span>{packages.length} packages checked</span></div>
+        {packages.length === 0 && <p className="muted">Create and approve at least one package to see upload readiness here.</p>}
+        {packages.length > 0 && (
+          <div className="performance-table youtube-table">
+            <div className="performance-head"><span>Package</span><span>Trust</span><span>Gate</span><span>Calendar</span><span>Next action</span></div>
+            {packages.map((item) => (
+              <div className="performance-row" key={item.id}>
+                <strong>#{item.id} {item.best_title}</strong>
+                <span>{item.trust_score}</span>
+                <StatusBadge status={item.gate_status} />
+                <span>{item.calendar_status}{item.planned_publish_date ? ` • ${item.planned_publish_date}` : ''}</span>
+                <span>{item.next_action}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="card stack warning-card">
+        <div className="card-header"><h2>Optional API integration preparation</h2><StatusBadge status="future" /></div>
+        <div className="timeline-list">
+          {apiSteps.map((item) => (
+            <div className="timeline-item" key={item.step}>
+              <strong>{item.step}. {item.title}</strong>
+              <p>{item.description}</p>
+              <code>{item.owner_action}</code>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>YouTube environment profiles</h2><span>{envProfiles.length} profiles</span></div>
+        <div className="detail-grid">
+          {envProfiles.map((profile) => (
+            <div className="card nested-card stack" key={profile.key}>
+              <h3>{profile.title}</h3>
+              <p>{profile.when_to_use}</p>
+              <pre>{profile.env}</pre>
+              <button className="secondary" onClick={() => copyText(profile.env)}>Copy env profile</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>.env.example YouTube keys</h2><span>{envChecks.length} checks</span></div>
+        <div className="performance-table release-table">
+          <div className="performance-head"><span>Status</span><span>Key</span><span>Detail</span><span>Fix</span></div>
+          {envChecks.map((item) => (
+            <div className="performance-row" key={item.key}>
+              <StatusBadge status={item.status} />
+              <strong>{item.key}</strong>
+              <span>{item.detail}</span>
+              <span>{item.status === 'pass' ? '-' : 'Add this key to .env.example'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Git commands for this step</h2><StatusBadge status="git" /></div>
+        <pre>{(checklist.git_commands || []).join('\n')}</pre>
+        <button className="secondary" onClick={() => copyText((checklist.git_commands || []).join('\n'))}>Copy Git commands</button>
+      </div>
+
+      <TextCard title="YouTube publishing checklist markdown" value={checklist.guide_markdown || ''} />
+      <div className="quick-actions">
+        <button onClick={() => downloadMarkdown('youtube_manual_publishing_checklist.md', checklist.guide_markdown || '')}>Download markdown from browser</button>
+        <button className="secondary" onClick={() => navigate('#/calendar')}>Open calendar</button>
+        <button className="secondary" onClick={() => navigate('#/analytics')}>Open analytics</button>
       </div>
     </section>
   )

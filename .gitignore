@@ -64,6 +64,7 @@ storage/trust_reviews/*
 storage/learning_outputs/*
 storage/handoffs/*
 storage/release_reports/*
+storage/youtube_oauth/*
 storage/asset_library/*
 storage/scene_library/*
 !storage/**/.gitkeep

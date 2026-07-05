@@ -474,6 +474,7 @@ def ensure_storage() -> None:
     settings.trust_review_dir.mkdir(parents=True, exist_ok=True)
     settings.learning_output_dir.mkdir(parents=True, exist_ok=True)
     settings.handoff_dir.mkdir(parents=True, exist_ok=True)
+    settings.youtube_oauth_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_connection() -> sqlite3.Connection:

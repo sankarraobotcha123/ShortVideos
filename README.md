@@ -100,7 +100,7 @@ python scripts/pre_push_check.py
 ## Recommended Git commit
 
 ```bash
-git commit -m "Add lightweight multilingual planning workflow and improve sidebar active state"
+git commit -m "Add YouTube publishing checklist workflow"
 ```
 
 
@@ -122,3 +122,17 @@ git commit -m "Add lightweight multilingual planning workflow and improve sideba
 - Added hosted API placeholder environment keys while keeping hosted APIs disabled by default.
 - Added environment profiles for laptop-safe template fallback, Ollama desktop mode, Transformers local experiments, and future hosted API mode.
 - Suggested commit: `Add real provider adapter setup guide`.
+
+
+## v31 — YouTube Manual Publishing Checklist + API Prep
+
+- Added YouTube publishing checklist page at `#/youtube-publishing`.
+- Added backend service `app/services/youtube_publishing_service.py`.
+- Added API endpoints:
+  - `GET /api/youtube-publishing/checklist`
+  - `GET /youtube-publishing/checklist/download`
+- Added `docs/YOUTUBE_PUBLISHING_GUIDE.md`.
+- Added package readiness checks for manual upload status, publishing gate status, schedule status, and next action.
+- Added safe YouTube API placeholder env keys while keeping real API upload disabled by default.
+- Added protected `storage/youtube_oauth/` folder for future local OAuth files.
+- Suggested commit: `Add YouTube publishing checklist workflow`.

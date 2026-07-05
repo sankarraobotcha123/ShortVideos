@@ -449,6 +449,15 @@ export function providerSetupGuideDownloadUrl() {
   return `${API_BASE_URL}/provider-setup/guide/download`
 }
 
+
+export function fetchYoutubePublishingChecklist() {
+  return request('/api/youtube-publishing/checklist')
+}
+
+export function youtubePublishingChecklistDownloadUrl() {
+  return `${API_BASE_URL}/youtube-publishing/checklist/download`
+}
+
 export function fetchReleaseChecklist() {
   return request('/api/release/checklist')
 }

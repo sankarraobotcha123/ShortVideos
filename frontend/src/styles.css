@@ -1125,6 +1125,18 @@ button.small,
   grid-template-columns: 0.7fr 1.2fr 1.8fr 1.8fr;
 }
 
+.youtube-table .performance-head,
+.youtube-table .performance-row {
+  grid-template-columns: minmax(0, 1.8fr) 0.5fr 0.8fr 0.9fr minmax(0, 1.8fr);
+}
+
+@media (max-width: 780px) {
+  .youtube-table .performance-head,
+  .youtube-table .performance-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .warning-card {
   border-color: rgba(245, 158, 11, 0.35);
 }
