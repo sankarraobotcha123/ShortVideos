@@ -1,109 +1,74 @@
-# Next Steps After v15
+# Next Steps After v16
 
-## What changed in v15
+## What changed in v16
 
-- Added **AI Provider Fallback Logging workflow**.
-- Added backend service `provider_log_service.py`.
-- Added database table `ai_provider_logs`.
-- Added timing metadata to provider attempts.
-- Added API endpoint:
-  - `GET /api/provider-logs`
-- Package generation now stores provider attempts as queryable log rows.
-- Package detail API now returns `provider_logs`.
-- Export ZIP now includes:
-  - `ai_provider_logs.json`
-  - `ai_provider_log_report.md`
-- Added React screen: **Provider logs**.
-- Added sidebar navigation for Provider logs.
-- Added package-detail **AI provider attempt log** section.
-- Added dashboard quick action to review provider logs.
-- Updated frontend asset version to 15.
+v16 stabilizes the MVP for daily testing and demos.
 
----
+Added:
 
-## Immediate test workflow
+- MVP demo setup screen
+- system readiness checks
+- demo data seed API
+- demo data seed script
+- demo Science Shorts batch
+- demo packages with analytics, reviews, thumbnails, learning outputs, calendar entries, and provider logs
+- safer local test workflow before adding more features
 
-Backend:
+## How to test v16
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env
 python scripts/init_db.py
+python scripts/seed_demo_data.py
 uvicorn app.main:app --reload
 ```
 
-Frontend:
+Second terminal:
 
 ```bash
 npm run frontend:install
 npm run frontend:dev
 ```
 
-Test:
+Then open:
 
-1. Open `http://127.0.0.1:5173`.
-2. Create a content package.
-3. Open the package detail page.
-4. Check **AI provider attempt log**.
-5. Open **Provider logs** from the sidebar.
-6. Confirm provider successes/failures and recommendations.
-7. Export the package ZIP.
-8. Confirm `ai_provider_logs.json` and `ai_provider_log_report.md` are present.
+```text
+http://127.0.0.1:5173/#/demo
+```
 
----
+Check:
 
-## Git commands for this step
+- readiness checklist
+- storage folder checks
+- provider checks
+- demo seed button
+- Dashboard demo packages
+- Analytics insights demo data
+- Provider logs demo data
 
-Use this commit message exactly for the v15 change:
+## Git command for v16
 
 ```bash
 git status
 git add .
 git status
-git commit -m "Improve AI provider fallback logging workflow"
+git commit -m "Stabilize MVP with demo data and usability fixes"
 git push
 ```
 
-Before committing, make sure these are not staged:
+## Next recommended build
 
-```text
-.env
-.venv/
-frontend/node_modules/
-frontend/dist/
-storage/app.db
-storage/exports/
-storage/audio/
-storage/video_drafts/
-storage/asset_library/
-storage/thumbnails/
-storage/source_safety/
-storage/trust_reviews/
-storage/learning_outputs/
-__pycache__/
-.pytest_cache/
-```
+Production cleanup and release checklist:
 
----
+- route-level validation pass
+- README screenshot checklist
+- `.env.example` cleanup
+- one-command dev run notes
+- Windows troubleshooting page
+- GitHub issue templates
+- release checklist before sharing with others
 
-## Next recommended step
-
-Next build should be:
-
-```text
-MVP Stabilization and Demo Data Seed Workflow
-```
-
-Why this is next:
-
-- The main Shorts workflow is now broad enough for daily use.
-- Before adding more large features, the project needs better demo data, smoother empty states, safer validation, and a clear test/demo setup.
-- This will make it easier to push to GitHub, demo the project, and continue development without confusion.
-
-Recommended commit message for the next step:
+Commit message:
 
 ```bash
-git commit -m "Stabilize MVP with demo data and usability fixes"
+git commit -m "Add production cleanup and release checklist"
 ```

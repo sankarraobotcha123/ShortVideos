@@ -18,6 +18,7 @@ import {
   fetchPackage,
   fetchPackages,
   fetchProviderLogs,
+  fetchSystemReadiness,
   fetchVisualAssets,
   generateAssembly,
   generateAudio,
@@ -35,6 +36,7 @@ import {
   deletePromptTemplate,
   fetchPromptTemplates,
   previewPromptTemplate,
+  seedDemoData,
   seedPromptTemplates,
   updatePromptTemplate,
   updateBatch,
@@ -139,6 +141,7 @@ function App() {
           <a className={route.name === 'templates' ? 'active' : ''} href="#/templates">Prompt templates</a>
           <a className={route.name === 'analytics' ? 'active' : ''} href="#/analytics">Analytics insights</a>
           <a className={route.name === 'providerLogs' ? 'active' : ''} href="#/provider-logs">Provider logs</a>
+          <a className={route.name === 'demo' ? 'active' : ''} href="#/demo">MVP demo setup</a>
           <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
           <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
           <a href="http://127.0.0.1:8000" target="_blank" rel="noreferrer">Legacy Jinja UI</a>
@@ -160,6 +163,7 @@ function App() {
         {route.name === 'templates' && <PromptTemplatesPage />}
         {route.name === 'analytics' && <AnalyticsInsightsPage />}
         {route.name === 'providerLogs' && <ProviderLogsPage />}
+        {route.name === 'demo' && <DemoSetupPage />}
         {route.name === 'settings' && <AiSettings />}
         {route.name === 'audioSettings' && <AudioSettings />}
       </main>
@@ -180,6 +184,7 @@ function parseRoute(hash) {
   if (parts[0] === 'templates') return { name: 'templates' }
   if (parts[0] === 'analytics') return { name: 'analytics' }
   if (parts[0] === 'provider-logs') return { name: 'providerLogs' }
+  if (parts[0] === 'demo') return { name: 'demo' }
   if (parts[0] === 'settings' && parts[1] === 'ai') return { name: 'settings' }
   if (parts[0] === 'settings' && parts[1] === 'audio') return { name: 'audioSettings' }
   return { name: 'dashboard' }
@@ -219,6 +224,7 @@ function Dashboard() {
         <button className="secondary" onClick={() => navigate('#/templates')}>Manage prompt templates</button>
         <button className="secondary" onClick={() => navigate('#/analytics')}>View analytics insights</button>
         <button className="secondary" onClick={() => navigate('#/provider-logs')}>Review provider logs</button>
+        <button className="secondary" onClick={() => navigate('#/demo')}>Run MVP demo setup</button>
         <button className="secondary" onClick={() => navigate('#/settings/ai')}>Check AI fallback</button>
       </div>
 
@@ -1952,6 +1958,120 @@ function ProviderLogsPage() {
             ))}
           </div>
         )}
+      </div>
+    </section>
+  )
+}
+
+
+function DemoSetupPage() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+
+  const load = () => {
+    setError('')
+    fetchSystemReadiness().then(setData).catch((err) => setError(err.message))
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const runSeed = async (resetDemo = false) => {
+    setBusy(true)
+    setError('')
+    setMessage('')
+    try {
+      const result = await seedDemoData(resetDemo)
+      setData({ readiness: result.readiness })
+      setMessage(result.demo?.message || 'Demo seed completed.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (error) return <ErrorCard title="Could not load demo setup" message={error} />
+  if (!data) return <Loading />
+
+  const readiness = data.readiness || {}
+  const counts = readiness.counts || {}
+  const readyItems = readiness.ready_items || []
+  const directories = readiness.directory_checks || []
+  const providers = readiness.provider_checks || []
+  const recommendations = readiness.recommendations || []
+
+  return (
+    <section>
+      <Header
+        title="MVP demo setup"
+        subtitle="Seed demo content, verify local storage, and confirm the fallback workflow before daily Shorts production."
+        action={<button onClick={() => runSeed(false)} disabled={busy}>{busy ? 'Working...' : 'Seed demo data'}</button>}
+      />
+
+      {message && <div className="card success-card"><strong>{message}</strong><p className="muted">Open Dashboard, Analytics insights, Provider logs, or a demo package to test the full workflow.</p></div>}
+
+      <div className="stats-grid">
+        <StatCard label="Packages" value={counts.packages || 0} />
+        <StatCard label="Batches" value={counts.batches || 0} />
+        <StatCard label="Calendar items" value={counts.calendar_items || 0} />
+        <StatCard label="Analytics entries" value={counts.manual_analytics || 0} />
+        <StatCard label="Prompt templates" value={counts.prompt_templates || 0} />
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Readiness checklist</h2><StatusBadge status={readiness.overall_ready ? 'ready' : 'needs_setup'} /></div>
+        <ul className="check-list">
+          {readyItems.map((item) => <li key={item.label}>[{item.passed ? 'x' : ' '}] {item.label}</li>)}
+        </ul>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Recommended actions</h2><span>{recommendations.length} items</span></div>
+        <ul className="check-list">
+          {recommendations.map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Storage folder checks</h2><span>{directories.length} folders</span></div>
+        <div className="performance-table">
+          <div className="performance-head"><span>Folder</span><span>Exists</span><span>Writable</span></div>
+          {directories.map((item) => (
+            <div className="performance-row" key={item.path}>
+              <strong>{item.path}</strong>
+              <span>{item.exists ? 'yes' : 'no'}</span>
+              <span>{item.writable ? 'yes' : 'no'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Provider checks</h2><span>{providers.length} providers</span></div>
+        <div className="provider-grid">
+          {providers.map((provider) => (
+            <div className="provider-card" key={provider.name}>
+              <div className="provider-top"><h2>{provider.name}</h2><StatusBadge status={provider.available ? 'available' : 'disabled'} /></div>
+              <p>{provider.message}</p>
+              <span className="muted">In chain: {provider.in_chain ? 'yes' : 'no'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <h2>Demo controls</h2>
+        <p className="muted">Normal seed is safe and will not duplicate demo rows. Reset only deletes rows tagged as demo seed data.</p>
+        <div className="quick-actions">
+          <button onClick={() => runSeed(false)} disabled={busy}>Seed demo data</button>
+          <button className="secondary" onClick={() => runSeed(true)} disabled={busy}>Reset demo data</button>
+          <button className="secondary" onClick={() => navigate('#/')}>Open dashboard</button>
+          <button className="secondary" onClick={() => navigate('#/analytics')}>Open analytics insights</button>
+        </div>
       </div>
     </section>
   )

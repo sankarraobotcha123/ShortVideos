@@ -272,3 +272,15 @@ export function fetchAnalyticsInsights() {
 export function fetchProviderLogs() {
   return request('/api/provider-logs')
 }
+
+
+export function fetchSystemReadiness() {
+  return request('/api/system/readiness')
+}
+
+export function seedDemoData(resetDemo = false) {
+  return request('/api/demo/seed', {
+    method: 'POST',
+    body: JSON.stringify({ reset_demo: resetDemo })
+  })
+}

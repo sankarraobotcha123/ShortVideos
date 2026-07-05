@@ -23,6 +23,7 @@ from app.services.learning_output_service import generate_learning_output
 from app.services.asset_library_service import save_uploaded_asset, normalize_tags, rank_assets_for_scene
 from app.services.analytics_insights_service import build_analytics_insights
 from app.services.provider_log_service import build_provider_log_summary, list_provider_logs, record_generation_provider_logs
+from app.services.demo_seed_service import build_system_readiness, seed_demo_data
 from app.services.prompt_template_service import (
     apply_script_prompt_template,
     build_prompt_preview,
@@ -519,6 +520,10 @@ class PromptTemplateUpdateRequest(BaseModel):
     notes: str = ""
 
 
+
+class DemoSeedRequest(BaseModel):
+    reset_demo: bool = False
+
 class PromptPreviewRequest(BaseModel):
     board_source: str = "NCERT / Self-written"
     class_level: str = "Class 7"
@@ -630,6 +635,21 @@ def api_analytics_insights() -> dict[str, Any]:
         insights = build_analytics_insights(conn)
     return insights
 
+
+
+@router.get("/api/system/readiness")
+def api_system_readiness() -> dict[str, Any]:
+    with db_session() as conn:
+        readiness = build_system_readiness(conn)
+    return {"readiness": readiness}
+
+
+@router.post("/api/demo/seed", status_code=201)
+def api_seed_demo_data(payload: DemoSeedRequest) -> dict[str, Any]:
+    with db_session() as conn:
+        result = seed_demo_data(conn, reset_demo=payload.reset_demo)
+        readiness = build_system_readiness(conn)
+    return {"demo": result, "readiness": readiness}
 
 
 

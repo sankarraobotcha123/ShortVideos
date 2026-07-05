@@ -1,81 +1,45 @@
-# Edu Content Platform MVP v15
+# Edu Content Platform MVP v16
 
 Shorts-first educational content creator assistant.
 
-This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds **AI Provider Fallback Logging** on top of analytics insights, prompt templates, notes/quiz/flashcards/worksheets, Teacher Trust Score review, source safety, thumbnail helper, reusable visual assets, audio fallback, assembly planning, and MP4 draft generation. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, stronger TTS providers, or advanced video generation without changing the workflow.
+This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds **MVP stabilization + demo data seeding** on top of AI provider fallback logging, analytics insights, prompt templates, notes/quiz/flashcards/worksheets, Teacher Trust Score review, source safety, thumbnail helper, reusable visual assets, audio fallback, assembly planning, and MP4 draft generation. Ollama is not required.
 
 ```text
-Concept input → Prompt Template → AI Provider Chain → Provider Attempt Logs → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Reusable Visual Assets → Thumbnail Helper → Source Safety Review → Teacher Trust Review → Learning Outputs → Vertical MP4 Draft → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics → Analytics Insights
+Concept input → Prompt Template → AI Provider Chain → Provider Logs → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Plan → Visual Assets → Thumbnail Helper → Source Safety → Teacher Trust Review → Learning Outputs → MP4 Draft → Review → Batch Planner → Calendar → Export ZIP → Manual Analytics → Analytics Insights → Demo Setup / Readiness Checks
 ```
 
 ---
 
-## What is included now
+## What changed in v16
 
-### Backend
-
-- FastAPI backend
-- SQLite database
-- REST API for React frontend
-- Legacy Jinja UI kept as backup
-- AI provider fallback system:
-  - Template provider: always works
-  - Transformers provider: optional local open-source model
-  - Ollama provider: optional later on desktop
-- **AI Provider Fallback Logging:**
-  - stores every provider attempt in SQLite
-  - records provider name, availability, success/failure, message, order, and duration
-  - exposes provider summary and recent logs through API
-  - includes provider logs in package detail and package ZIP export
-  - helps safely test Ollama later without breaking the laptop workflow
-- Prompt Template Manager:
-  - Default script templates seeded into SQLite
-  - Create/edit/delete prompt templates from React UI
-  - Preview prompt rendering with sample concept data
-  - Select a script prompt template while creating a package
-  - Store template ID, name, style, and snapshot on generated packages
-- TTS/audio fallback system:
-  - Windows SAPI provider: optional on Windows
-  - pyttsx3 provider: optional, disabled by default
-  - Manual recording provider: always works
-- CapCut/manual assembly plan generator
-- Reusable visual asset library
-- Thumbnail helper workflow
-- Source Safety + Originality Review workflow
-- Teacher Trust Score Review workflow
-- Notes, quiz, flashcards, and worksheet output generator
-- Simple vertical MP4 draft generator
-- Manual analytics API
-- Analytics Dashboard Insights API
-- Content batch planner API
-- Publishing calendar API
-- ZIP export package
-
-### Frontend
-
-- React + Vite npm frontend
-- Dashboard
-- Create content package form with prompt-template selection
-- Prompt Template Manager screen
-- Batch planner screen
-- Batch detail/edit screen
-- Publishing calendar screen
-- Visual asset library screen
-- Package detail/review screen
-- Package-level AI provider attempt log
-- Suggested visual assets on package detail
-- Thumbnail helper section on package detail
-- Source safety/originality review section on package detail
-- Teacher Trust Score review section on package detail
-- Learning outputs section on package detail
-- Narration/audio section on package detail
-- CapCut assembly plan section on package detail
-- Vertical MP4 draft section on package detail
-- Manual analytics section
-- Analytics Insights screen
-- **Provider Logs screen**
-- AI fallback status screen
-- Audio fallback status screen
+- Added **MVP Demo Setup** screen in the React frontend.
+- Added backend readiness API:
+  - `GET /api/system/readiness`
+- Added demo data seed API:
+  - `POST /api/demo/seed`
+- Added demo data seed script:
+  - `python scripts/seed_demo_data.py`
+  - `python scripts/seed_demo_data.py --reset-demo`
+- Added backend service:
+  - `app/services/demo_seed_service.py`
+- Demo seed creates:
+  - one Science Shorts batch
+  - three demo content packages
+  - prompt-template usage
+  - provider logs
+  - source safety reviews
+  - teacher trust reviews
+  - thumbnail guides
+  - learning outputs
+  - publishing calendar rows
+  - manual analytics entries
+- Added readiness checks for:
+  - storage folders
+  - prompt templates
+  - provider fallback availability
+  - manual analytics availability
+  - demo seed status
+- Updated app version to `0.16.0` and frontend asset version to `16`.
 
 ---
 
@@ -115,6 +79,30 @@ http://127.0.0.1:5173
 
 ---
 
+## Seed demo data
+
+Use this when you want a ready-made local demo without manually creating packages first:
+
+```bash
+python scripts/seed_demo_data.py
+```
+
+To delete only demo-seeded rows and recreate them:
+
+```bash
+python scripts/seed_demo_data.py --reset-demo
+```
+
+You can also seed from the frontend:
+
+```text
+Open React app → MVP demo setup → Seed demo data
+```
+
+The seed is safe: normal seed will not duplicate existing demo rows. Reset deletes only rows tagged as demo seed data.
+
+---
+
 ## Recommended laptop AI settings
 
 Keep Ollama disabled on the laptop until your other desktop is ready:
@@ -125,27 +113,24 @@ USE_OLLAMA=false
 USE_TRANSFORMERS=false
 ```
 
-The template fallback keeps content package generation working immediately. The v15 provider log screen will show that Transformers is disabled and template succeeded.
+The template fallback keeps content package generation working immediately. Provider logs will show disabled providers and the successful fallback.
 
 ---
 
-## Test workflow for v15
+## Test workflow for v16
 
 1. Start backend and frontend.
-2. Create a content package.
-3. Open the package detail page.
-4. Check **AI provider attempt log**.
-5. Open **Provider logs** from the sidebar.
-6. Confirm:
-   - provider attempts count
-   - successes/failures
-   - template fallback count
-   - recent provider messages
-   - recommended actions
-7. Export the package ZIP.
-8. Confirm the ZIP includes:
-   - `ai_provider_logs.json`
-   - `ai_provider_log_report.md`
+2. Open **MVP demo setup**.
+3. Click **Seed demo data**.
+4. Open Dashboard and confirm demo packages exist.
+5. Open Analytics Insights and confirm demo analytics are visible.
+6. Open Provider Logs and confirm fallback attempts are visible.
+7. Open a demo package and check:
+   - source safety review
+   - teacher trust review
+   - thumbnail guide
+   - learning outputs
+   - export ZIP
 
 ---
 
@@ -159,13 +144,13 @@ npm run frontend:build
 Current verification for this package:
 
 ```text
-19 passed
+20 passed
 Frontend production build passed
 ```
 
 ---
 
-## Git commands for v15
+## Git commands for v16
 
 Use this exact commit message:
 
@@ -173,7 +158,7 @@ Use this exact commit message:
 git status
 git add .
 git status
-git commit -m "Improve AI provider fallback logging workflow"
+git commit -m "Stabilize MVP with demo data and usability fixes"
 git push
 ```
 
@@ -204,11 +189,11 @@ __pycache__/
 Next build should be:
 
 ```text
-MVP Stabilization and Demo Data Seed Workflow
+Production cleanup and release checklist
 ```
 
 Recommended commit message for the next step:
 
 ```bash
-git commit -m "Stabilize MVP with demo data and usability fixes"
+git commit -m "Add production cleanup and release checklist"
 ```

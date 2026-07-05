@@ -641,3 +641,50 @@ def test_ai_provider_logging_workflow(tmp_path):
     exported = client.get(f"/content/{package_id}/export")
     assert exported.status_code == 200
     assert exported.headers["content-type"] == "application/zip"
+
+
+def test_demo_seed_and_readiness_workflow(tmp_path):
+    settings.database_path = tmp_path / "demo-seed-test.db"
+    settings.export_dir = tmp_path / "exports"
+    settings.audio_dir = tmp_path / "audio"
+    settings.video_draft_dir = tmp_path / "video_drafts"
+    settings.asset_library_dir = tmp_path / "asset_library"
+    settings.thumbnail_dir = tmp_path / "thumbnails"
+    settings.source_safety_dir = tmp_path / "source_safety"
+    settings.trust_review_dir = tmp_path / "trust_reviews"
+    settings.learning_output_dir = tmp_path / "learning_outputs"
+    settings.ai_provider_chain = ["transformers", "template"]
+    settings.use_ollama = False
+    settings.use_transformers = False
+    init_db()
+
+    client = TestClient(app)
+
+    before = client.get("/api/system/readiness")
+    assert before.status_code == 200
+    assert before.json()["readiness"]["overall_ready"] is True
+
+    seeded = client.post("/api/demo/seed", json={"reset_demo": False})
+    assert seeded.status_code == 201
+    body = seeded.json()
+    assert body["demo"]["created"] is True
+    assert body["demo"]["package_count"] == 3
+    assert body["readiness"]["demo_seeded"] is True
+
+    packages = client.get("/api/packages")
+    assert packages.status_code == 200
+    assert packages.json()["stats"]["total"] == 3
+
+    insights = client.get("/api/analytics/insights")
+    assert insights.status_code == 200
+    assert insights.json()["totals"]["packages_with_analytics"] == 3
+
+    duplicate = client.post("/api/demo/seed", json={"reset_demo": False})
+    assert duplicate.status_code == 201
+    assert duplicate.json()["demo"]["created"] is False
+    assert duplicate.json()["demo"]["package_count"] == 3
+
+    reset = client.post("/api/demo/seed", json={"reset_demo": True})
+    assert reset.status_code == 201
+    assert reset.json()["demo"]["created"] is True
+    assert reset.json()["demo"]["package_count"] == 3
