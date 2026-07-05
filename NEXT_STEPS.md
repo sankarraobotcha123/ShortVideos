@@ -1,14 +1,17 @@
-# Next Steps After v3
+# Next Steps After v5
 
-## What changed in v3
+## What changed in v5
 
-- React/Vite npm frontend added as the main UI.
-- FastAPI REST APIs added for dashboard, generation, review, analytics, and AI provider status.
-- Jinja pages kept as a backup UI.
-- Ollama remains optional and disabled by default.
-- Transformers remains optional and disabled by default.
-- Template fallback keeps the app working immediately.
-- `.gitignore` added for Python, Node, local databases, generated media, cache files, and environment files.
+- TTS/audio fallback system added.
+- Windows SAPI provider added for Windows machines where built-in speech works.
+- pyttsx3 provider added as optional but disabled by default.
+- Manual recording fallback added and always available.
+- Package detail page now has a **Generate narration** section.
+- Audio files/guides can be downloaded from the frontend.
+- Export ZIP now includes audio asset metadata and generated audio/recording guide files.
+- Audio fallback status page added.
+- API tests now cover audio fallback.
+- Tests passed: `6 passed`.
 
 ---
 
@@ -42,13 +45,33 @@ http://127.0.0.1:5173
 
 ---
 
-### Step 2: Push to GitHub
+### Step 2: Test narration fallback
+
+1. Create a content package.
+2. Open the package detail page.
+3. Click **Generate narration**.
+4. If Windows SAPI works, download/play the `.wav` file.
+5. If it does not work, download the manual recording guide.
+
+Recommended `.env` for your current laptop:
+
+```env
+TTS_PROVIDER_CHAIN=windows_sapi,manual_recording
+USE_WINDOWS_SAPI_TTS=true
+USE_PYTTSX3_TTS=false
+```
+
+This keeps publishing possible even if no TTS engine works.
+
+---
+
+### Step 3: Push to GitHub
 
 ```bash
 git init
 git add .
 git status
-git commit -m "Initial Edu Content Platform MVP"
+git commit -m "Add audio fallback workflow"
 git branch -M main
 git remote add origin YOUR_GITHUB_REPO_URL
 git push -u origin main
@@ -68,99 +91,64 @@ storage/final/
 
 ---
 
-### Step 3: Improve the React UI
+## Next feature: CapCut/manual assembly export
 
-Recommended improvements:
-
-- Better mobile layout for content review.
-- Add search/filter by topic, subject, status, trust score.
-- Add dashboard cards for content targets.
-- Add a "copy full publish package" button.
-- Add a "duplicate package" button for similar concepts.
-
----
-
-### Step 4: Add content batch planner
-
-Build this before heavy AI automation.
-
-Useful tables/features:
-
-```text
-ContentBatch
-- name
-- niche
-- target_audience
-- planned_count
-- completed_count
-- published_count
-- notes
-
-PublishingCalendar
-- package_id
-- planned_publish_date
-- actual_publish_date
-- platform
-- status
-- playlist_name
-```
-
-Why this matters:
-
-```text
-The business goal is consistent Shorts publishing, not random one-off generation.
-```
-
----
-
-### Step 5: Add TTS/audio fallback
-
-Because Ollama is not available on the laptop, keep AI text generation simple and focus on production helpers.
-
-Fallback order:
-
-```text
-1. Browser voice preview now available in React.
-2. Add backend text-to-audio using pyttsx3 or edge-tts later.
-3. Add Piper/Coqui later if local setup is stable.
-4. Allow manual voice recording fallback always.
-```
-
-Suggested first backend TTS output:
-
-```text
-storage/audio/package-{id}/narration.wav
-```
-
----
-
-### Step 6: Add CapCut/manual assembly export
-
-Before full video generation, export a creator-friendly package:
+Before building full automatic video generation, export a creator-friendly assembly package:
 
 ```text
 script.txt
 subtitles.srt
 storyboard.md
 visual_prompts.md
+narration.wav or recording-guide.txt
 capcut_scene_plan.md
 publish_metadata.md
 ```
 
-This lets publishing continue even while automation is incomplete.
+Recommended API:
+
+```text
+POST /api/content/{id}/assembly-plan
+GET  /content/{id}/export
+```
+
+What the assembly plan should contain:
+
+```text
+Scene number
+Start time
+End time
+Script segment
+Suggested visual
+Suggested transition
+Subtitle text
+Audio instruction
+CapCut editing note
+```
+
+This is the best next step because it helps you publish Shorts even before full video automation is reliable.
 
 ---
 
-### Step 7: Add simple video assembly later
+## Feature after CapCut export: simple vertical video draft
 
 Only after the package workflow is useful:
 
 ```text
 MoviePy or FFmpeg
-images + narration + subtitles → vertical 9:16 draft video
+background image/cards + narration + subtitles → vertical 9:16 draft video
 ```
 
-Do not block publishing on perfect video automation.
+Keep this simple first:
+
+```text
+1. One background per scene
+2. Burn subtitles
+3. Use narration audio if available
+4. Export MP4 draft
+```
+
+Do not block publishing on perfect animation automation.
 
 ---
 

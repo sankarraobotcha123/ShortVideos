@@ -529,3 +529,99 @@ pre {
     align-items: stretch;
   }
 }
+
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.package-list.compact {
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.calendar-list {
+  display: grid;
+  gap: 12px;
+}
+
+.calendar-entry {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  background: var(--panel-soft);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.calendar-entry p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.status-badge.planning,
+.status-badge.active,
+.status-badge.planned,
+.status-badge.scheduled {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-badge.completed {
+  background: #dcfce7;
+  color: var(--success);
+}
+
+.status-badge.paused,
+.status-badge.skipped {
+  background: #fef3c7;
+  color: var(--warning);
+}
+
+@media (max-width: 980px) {
+  .calendar-entry,
+  .quick-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.audio-list {
+  display: grid;
+  gap: 12px;
+}
+
+.audio-entry {
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.audio-entry audio {
+  max-width: 260px;
+}
+
+.button-link.small {
+  font-size: 0.82rem;
+  padding: 8px 10px;
+}
+
+@media (max-width: 900px) {
+  .audio-entry {
+    flex-direction: column;
+  }
+  .audio-entry audio {
+    width: 100%;
+    max-width: 100%;
+  }
+}

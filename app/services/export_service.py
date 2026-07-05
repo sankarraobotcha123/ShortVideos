@@ -4,7 +4,7 @@ import json
 import re
 import zipfile
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, Sequence
 
 from app.core.config import settings
 
@@ -15,7 +15,7 @@ def _safe_slug(value: str) -> str:
     return value.strip("-")[:80] or "content-package"
 
 
-def export_package(row: Mapping) -> Path:
+def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None) -> Path:
     settings.export_dir.mkdir(parents=True, exist_ok=True)
     package_id = row["id"]
     slug = _safe_slug(row["topic"])
@@ -24,6 +24,16 @@ def export_package(row: Mapping) -> Path:
 
     titles = json.loads(row["title_options"] or "[]")
     hashtags = json.loads(row["hashtags"] or "[]")
+    audio_assets = list(audio_assets or [])
+
+    audio_summary = "No narration asset generated yet. Use the app's Generate narration button or record manually."
+    if audio_assets:
+        lines = []
+        for asset in audio_assets:
+            lines.append(
+                f"- {asset.get('file_name')} | {asset.get('status')} | {asset.get('provider_used')} | {asset.get('duration_seconds', 0)} sec"
+            )
+        audio_summary = "\n".join(lines)
 
     markdown = f"""# Content Package: {row['topic']}
 
@@ -53,6 +63,10 @@ def export_package(row: Mapping) -> Path:
 ## Visual Prompts
 
 {row['visual_prompts_markdown']}
+
+## Narration Audio
+
+{audio_summary}
 
 ## Title Options
 
@@ -98,7 +112,19 @@ def export_package(row: Mapping) -> Path:
     (package_dir / "storyboard.md").write_text(row["storyboard_markdown"], encoding="utf-8")
     (package_dir / "visual_prompts.md").write_text(row["visual_prompts_markdown"], encoding="utf-8")
 
+    audio_manifest = []
+    for asset in audio_assets:
+        source = Path(asset.get("file_path") or "")
+        audio_manifest.append(dict(asset))
+        if source.exists() and source.is_file():
+            target_name = f"audio_{asset.get('id', 'asset')}_{source.name}"
+            target = package_dir / target_name
+            target.write_bytes(source.read_bytes())
+
+    (package_dir / "audio_assets.json").write_text(json.dumps(audio_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
     payload = dict(row)
+    payload["audio_assets"] = audio_manifest
     (package_dir / "package.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
     zip_path = settings.export_dir / f"package-{package_id}-{slug}.zip"

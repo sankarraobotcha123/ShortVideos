@@ -1,11 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   addAnalytics,
+  audioDownloadUrl,
+  assignPackageBatch,
+  createBatch,
+  createCalendarEntry,
+  deleteCalendarEntry,
   exportUrl,
   fetchAiSettings,
+  fetchAudioSettings,
+  fetchBatch,
+  fetchBatches,
+  fetchCalendar,
   fetchPackage,
   fetchPackages,
+  generateAudio,
   generateContent,
+  updateBatch,
+  updateCalendarEntry,
   updateReview
 } from './api.js'
 
@@ -19,6 +31,7 @@ const initialForm = {
   duration_seconds: 60,
   output_type: 'Short',
   tone: 'Curious',
+  batch_id: '',
   source_name: 'Self-written concept notes',
   source_license_type: 'Self-written / Original',
   page_or_section_reference: '',
@@ -29,7 +42,30 @@ const initialForm = {
     'Converted source facts into a simple original explanation with analogy, visual scenes, and a student challenge.'
 }
 
-const today = () => new Date().toISOString().slice(0, 10)
+const initialBatch = {
+  name: 'First 20 Science Curiosity Shorts',
+  niche: 'Class 6-8 Science curiosity Shorts',
+  target_audience: 'School students and curious learners',
+  start_date: today(),
+  end_date: '',
+  planned_count: 20,
+  status: 'planning',
+  notes: 'Test hooks, visual style, retention, and comments before automating more.'
+}
+
+const initialCalendar = {
+  package_id: '',
+  planned_publish_date: today(),
+  actual_publish_date: '',
+  platform: 'YouTube Shorts',
+  status: 'planned',
+  playlist_name: 'Science Curiosity Shorts',
+  notes: ''
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10)
+}
 
 function useHashRoute() {
   const [hash, setHash] = useState(window.location.hash || '#/')
@@ -62,12 +98,15 @@ function App() {
         <nav>
           <a className={route.name === 'dashboard' ? 'active' : ''} href="#/">Dashboard</a>
           <a className={route.name === 'new' ? 'active' : ''} href="#/new">Create package</a>
+          <a className={route.name === 'batches' || route.name === 'batch' ? 'active' : ''} href="#/batches">Batches</a>
+          <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>
           <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
+          <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
           <a href="http://127.0.0.1:8000" target="_blank" rel="noreferrer">Legacy Jinja UI</a>
         </nav>
         <div className="side-note">
           <strong>Current rule</strong>
-          <span>Publish useful Shorts first. Add full automation only after the workflow proves value.</span>
+          <span>Plan 20-30 Shorts as batches. Publish consistently. Automate only after the workflow proves value.</span>
         </div>
       </aside>
 
@@ -75,7 +114,11 @@ function App() {
         {route.name === 'dashboard' && <Dashboard />}
         {route.name === 'new' && <CreatePackage />}
         {route.name === 'package' && <PackageDetail id={route.id} />}
+        {route.name === 'batches' && <BatchesPage />}
+        {route.name === 'batch' && <BatchDetail id={route.id} />}
+        {route.name === 'calendar' && <CalendarPage />}
         {route.name === 'settings' && <AiSettings />}
+        {route.name === 'audioSettings' && <AudioSettings />}
       </main>
     </div>
   )
@@ -87,7 +130,11 @@ function parseRoute(hash) {
   if (clean === '/' || parts.length === 0) return { name: 'dashboard' }
   if (parts[0] === 'new') return { name: 'new' }
   if (parts[0] === 'packages' && parts[1]) return { name: 'package', id: parts[1] }
+  if (parts[0] === 'batches' && parts[1]) return { name: 'batch', id: parts[1] }
+  if (parts[0] === 'batches') return { name: 'batches' }
+  if (parts[0] === 'calendar') return { name: 'calendar' }
   if (parts[0] === 'settings' && parts[1] === 'ai') return { name: 'settings' }
+  if (parts[0] === 'settings' && parts[1] === 'audio') return { name: 'audioSettings' }
   return { name: 'dashboard' }
 }
 
@@ -106,15 +153,21 @@ function Dashboard() {
     <section>
       <Header
         title="Creator dashboard"
-        subtitle="Track generated Shorts packages, review status, and basic production progress."
+        subtitle="Track generated Shorts packages, content batches, calendar items, review status, and production progress."
         action={<button onClick={() => navigate('#/new')}>Create new package</button>}
       />
 
       <div className="stats-grid">
         <StatCard label="Total packages" value={data.stats.total} />
-        <StatCard label="Approved" value={data.stats.approved} />
         <StatCard label="Published" value={data.stats.published} />
-        <StatCard label="Avg. trust score" value={data.stats.avg_trust} />
+        <StatCard label="Active batches" value={data.stats.active_batches} />
+        <StatCard label="Scheduled items" value={data.stats.scheduled_items} />
+      </div>
+
+      <div className="quick-actions card">
+        <button onClick={() => navigate('#/batches')}>Plan a 20-Short batch</button>
+        <button className="secondary" onClick={() => navigate('#/calendar')}>Open publishing calendar</button>
+        <button className="secondary" onClick={() => navigate('#/settings/ai')}>Check AI fallback</button>
       </div>
 
       <div className="card">
@@ -131,6 +184,7 @@ function Dashboard() {
                 <div>
                   <h3>{item.topic}</h3>
                   <p>{item.class_level} • {item.subject} • {item.language}</p>
+                  {item.batch_name && <p>Batch: {item.batch_name}</p>}
                 </div>
                 <div className="row-meta">
                   <TrustBadge score={item.trust_score} />
@@ -147,8 +201,13 @@ function Dashboard() {
 
 function CreatePackage() {
   const [form, setForm] = useState(initialForm)
+  const [batches, setBatches] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchBatches().then((result) => setBatches(result.batches || [])).catch(() => setBatches([]))
+  }, [])
 
   function update(name, value) {
     setForm((current) => ({ ...current, [name]: value }))
@@ -159,11 +218,14 @@ function CreatePackage() {
     setLoading(true)
     setError('')
     try {
-      const result = await generateContent({
+      const payload = {
         ...form,
         duration_seconds: Number(form.duration_seconds),
         copied_text_used: Boolean(form.copied_text_used)
-      })
+      }
+      if (form.batch_id) payload.batch_id = Number(form.batch_id)
+      else delete payload.batch_id
+      const result = await generateContent(payload)
       navigate(`#/packages/${result.package.id}`)
     } catch (err) {
       setError(err.message)
@@ -176,7 +238,7 @@ function CreatePackage() {
     <section>
       <Header
         title="Create Shorts package"
-        subtitle="Generate script, storyboard, subtitles, title options, quiz, and review metadata."
+        subtitle="Generate script, storyboard, subtitles, title options, quiz, and review metadata. Assign it to a batch if you are planning a content sprint."
       />
 
       <form className="card form-grid" onSubmit={onSubmit}>
@@ -201,6 +263,12 @@ function CreatePackage() {
           value={form.tone}
           options={['Curious', 'Simple', 'Exam-focused', 'Story-based', 'Mistake correction']}
           onChange={(v) => update('tone', v)}
+        />
+        <Select
+          label="Content batch"
+          value={form.batch_id}
+          options={[{ value: '', label: 'No batch yet' }, ...batches.map((b) => ({ value: String(b.id), label: b.name }))]}
+          onChange={(v) => update('batch_id', v)}
         />
 
         <Input label="Source name" value={form.source_name} onChange={(v) => update('source_name', v)} />
@@ -228,11 +296,341 @@ function CreatePackage() {
   )
 }
 
+function BatchesPage() {
+  const [data, setData] = useState(null)
+  const [form, setForm] = useState(initialBatch)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  function load() {
+    setError('')
+    fetchBatches().then(setData).catch((err) => setError(err.message))
+  }
+
+  useEffect(load, [])
+
+  function update(name, value) {
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setMessage('')
+    setError('')
+    try {
+      await createBatch({ ...form, planned_count: Number(form.planned_count) })
+      setForm(initialBatch)
+      setMessage('Batch created. Now create packages and assign them to this batch.')
+      load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (error && !data) return <ErrorCard title="Could not load batches" message={error} />
+  if (!data) return <Loading />
+
+  return (
+    <section>
+      <Header
+        title="Content batch planner"
+        subtitle="Plan 20-30 Shorts at a time so the project supports consistent publishing instead of random one-off generation."
+        action={<button onClick={() => navigate('#/new')}>Create package</button>}
+      />
+
+      {message && <div className="success-banner">{message}</div>}
+      {error && <div className="form-error">{error}</div>}
+
+      <form className="card form-grid" onSubmit={submit}>
+        <Input label="Batch name" value={form.name} onChange={(v) => update('name', v)} />
+        <Input label="Niche" value={form.niche} onChange={(v) => update('niche', v)} />
+        <Input label="Target audience" value={form.target_audience} onChange={(v) => update('target_audience', v)} />
+        <Input type="date" label="Start date" value={form.start_date} onChange={(v) => update('start_date', v)} />
+        <Input type="date" label="End date" value={form.end_date} onChange={(v) => update('end_date', v)} />
+        <Input type="number" label="Planned count" value={form.planned_count} onChange={(v) => update('planned_count', v)} />
+        <Select label="Status" value={form.status} options={['planning', 'active', 'completed', 'paused']} onChange={(v) => update('status', v)} />
+        <TextArea label="Notes" value={form.notes} onChange={(v) => update('notes', v)} rows={4} wide />
+        <div className="form-actions wide"><button type="submit">Create batch</button></div>
+      </form>
+
+      <div className="card">
+        <div className="card-header">
+          <h2>Batches</h2>
+          <span>{data.batches.length} total</span>
+        </div>
+        {data.batches.length === 0 ? (
+          <p className="muted">No batches yet. Create your first 20-Short batch above.</p>
+        ) : (
+          <div className="package-list">
+            {data.batches.map((batch) => (
+              <button key={batch.id} className="package-row" onClick={() => navigate(`#/batches/${batch.id}`)}>
+                <div>
+                  <h3>{batch.name}</h3>
+                  <p>{batch.niche} • {batch.target_audience}</p>
+                  <p>{batch.completed_count}/{batch.planned_count} packages • {batch.scheduled_count} scheduled • {batch.published_count} published</p>
+                </div>
+                <div className="row-meta"><StatusBadge status={batch.status} /></div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2>Unassigned packages</h2>
+          <span>{data.unassigned_packages.length} items</span>
+        </div>
+        {data.unassigned_packages.length === 0 ? <p className="muted">All packages are assigned to batches.</p> : (
+          <div className="package-list compact">
+            {data.unassigned_packages.map((item) => (
+              <button key={item.id} className="package-row" onClick={() => navigate(`#/packages/${item.id}`)}>
+                <div><h3>{item.topic}</h3><p>{item.class_level} • {item.subject}</p></div>
+                <div className="row-meta"><TrustBadge score={item.trust_score} /><StatusBadge status={item.review_status} /></div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function BatchDetail({ id }) {
+  const [data, setData] = useState(null)
+  const [form, setForm] = useState(null)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  function load() {
+    setError('')
+    fetchBatch(id)
+      .then((result) => {
+        setData(result)
+        setForm(result.batch)
+      })
+      .catch((err) => setError(err.message))
+  }
+
+  useEffect(load, [id])
+
+  function update(name, value) {
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setMessage('')
+    setError('')
+    try {
+      await updateBatch(id, { ...form, planned_count: Number(form.planned_count) })
+      setMessage('Batch updated.')
+      load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (error && !data) return <ErrorCard title="Could not load batch" message={error} />
+  if (!data || !form) return <Loading />
+
+  return (
+    <section>
+      <Header
+        title={data.batch.name}
+        subtitle={`${data.batch.completed_count}/${data.batch.planned_count} packages • ${data.batch.scheduled_count} scheduled • ${data.batch.published_count} published`}
+        action={<button onClick={() => navigate('#/new')}>Create package for batch</button>}
+      />
+      {message && <div className="success-banner">{message}</div>}
+      {error && <div className="form-error">{error}</div>}
+
+      <form className="card form-grid" onSubmit={submit}>
+        <Input label="Batch name" value={form.name} onChange={(v) => update('name', v)} />
+        <Input label="Niche" value={form.niche} onChange={(v) => update('niche', v)} />
+        <Input label="Target audience" value={form.target_audience} onChange={(v) => update('target_audience', v)} />
+        <Input type="date" label="Start date" value={form.start_date || ''} onChange={(v) => update('start_date', v)} />
+        <Input type="date" label="End date" value={form.end_date || ''} onChange={(v) => update('end_date', v)} />
+        <Input type="number" label="Planned count" value={form.planned_count} onChange={(v) => update('planned_count', v)} />
+        <Select label="Status" value={form.status} options={['planning', 'active', 'completed', 'paused']} onChange={(v) => update('status', v)} />
+        <TextArea label="Notes" value={form.notes || ''} onChange={(v) => update('notes', v)} rows={4} wide />
+        <div className="form-actions wide"><button type="submit">Save batch</button></div>
+      </form>
+
+      <div className="card">
+        <div className="card-header">
+          <h2>Packages in this batch</h2>
+          <span>{data.packages.length} items</span>
+        </div>
+        {data.packages.length === 0 ? <p className="muted">No packages yet. Create a package and select this batch.</p> : (
+          <div className="package-list">
+            {data.packages.map((item) => (
+              <button key={item.id} className="package-row" onClick={() => navigate(`#/packages/${item.id}`)}>
+                <div>
+                  <h3>{item.topic}</h3>
+                  <p>{item.class_level} • {item.subject} • {item.language}</p>
+                  {item.planned_publish_date && <p>Calendar: {item.planned_publish_date} • {item.calendar_status} • {item.platform}</p>}
+                </div>
+                <div className="row-meta"><TrustBadge score={item.trust_score} /><StatusBadge status={item.review_status} /></div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function CalendarPage() {
+  const [data, setData] = useState(null)
+  const [form, setForm] = useState(initialCalendar)
+  const [editing, setEditing] = useState(null)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  function load() {
+    setError('')
+    fetchCalendar().then(setData).catch((err) => setError(err.message))
+  }
+
+  useEffect(load, [])
+
+  function update(name, value) {
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  function startEdit(entry) {
+    setEditing(entry.id)
+    setForm({
+      package_id: String(entry.package_id),
+      planned_publish_date: entry.planned_publish_date || today(),
+      actual_publish_date: entry.actual_publish_date || '',
+      platform: entry.platform || 'YouTube Shorts',
+      status: entry.status || 'planned',
+      playlist_name: entry.playlist_name || '',
+      notes: entry.notes || ''
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function resetForm() {
+    setEditing(null)
+    setForm(initialCalendar)
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setMessage('')
+    setError('')
+    try {
+      const payload = { ...form, package_id: Number(form.package_id) }
+      if (!payload.package_id) throw new Error('Select a package to schedule.')
+      if (editing) {
+        const { package_id, ...updatePayload } = payload
+        await updateCalendarEntry(editing, updatePayload)
+        setMessage('Calendar entry updated.')
+      } else {
+        await createCalendarEntry(payload)
+        setMessage('Package scheduled.')
+      }
+      resetForm()
+      load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function remove(id) {
+    setMessage('')
+    setError('')
+    try {
+      await deleteCalendarEntry(id)
+      setMessage('Calendar entry removed.')
+      load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (error && !data) return <ErrorCard title="Could not load calendar" message={error} />
+  if (!data) return <Loading />
+
+  const packageOptions = [
+    { value: '', label: 'Select package' },
+    ...data.unscheduled_packages.map((p) => ({ value: String(p.id), label: `${p.topic} (${p.review_status})` })),
+    ...data.calendar.map((p) => ({ value: String(p.package_id), label: `${p.topic} (already scheduled)` }))
+  ]
+
+  return (
+    <section>
+      <Header
+        title="Publishing calendar"
+        subtitle="Schedule Shorts manually first. This keeps production moving before YouTube API automation is needed."
+        action={<button onClick={() => navigate('#/new')}>Create package</button>}
+      />
+      {message && <div className="success-banner">{message}</div>}
+      {error && <div className="form-error">{error}</div>}
+
+      <form className="card form-grid" onSubmit={submit}>
+        <Select label="Package" value={form.package_id} options={packageOptions} onChange={(v) => update('package_id', v)} disabled={Boolean(editing)} />
+        <Input type="date" label="Planned publish date" value={form.planned_publish_date} onChange={(v) => update('planned_publish_date', v)} />
+        <Input type="date" label="Actual publish date" value={form.actual_publish_date} onChange={(v) => update('actual_publish_date', v)} />
+        <Input label="Platform" value={form.platform} onChange={(v) => update('platform', v)} />
+        <Select label="Status" value={form.status} options={['planned', 'scheduled', 'published', 'skipped']} onChange={(v) => update('status', v)} />
+        <Input label="Playlist name" value={form.playlist_name} onChange={(v) => update('playlist_name', v)} />
+        <TextArea label="Notes" value={form.notes} onChange={(v) => update('notes', v)} rows={3} wide />
+        <div className="form-actions wide">
+          {editing && <button type="button" className="secondary" onClick={resetForm}>Cancel edit</button>}
+          <button type="submit">{editing ? 'Save calendar entry' : 'Schedule package'}</button>
+        </div>
+      </form>
+
+      <div className="card">
+        <div className="card-header"><h2>Scheduled content</h2><span>{data.calendar.length} items</span></div>
+        {data.calendar.length === 0 ? <p className="muted">No scheduled content yet.</p> : (
+          <div className="calendar-list">
+            {data.calendar.map((entry) => (
+              <div className="calendar-entry" key={entry.id}>
+                <div>
+                  <strong>{entry.planned_publish_date} • {entry.topic}</strong>
+                  <p>{entry.platform} • {entry.playlist_name || 'No playlist'} • {entry.batch_name || 'No batch'}</p>
+                  {entry.notes && <p>{entry.notes}</p>}
+                </div>
+                <div className="row-meta">
+                  <StatusBadge status={entry.status} />
+                  <button className="secondary small" onClick={() => startEdit(entry)}>Edit</button>
+                  <button className="secondary small" onClick={() => remove(entry.id)}>Remove</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="card-header"><h2>Unscheduled packages</h2><span>{data.unscheduled_packages.length} items</span></div>
+        {data.unscheduled_packages.length === 0 ? <p className="muted">All packages are scheduled.</p> : (
+          <div className="package-list compact">
+            {data.unscheduled_packages.map((item) => (
+              <button key={item.id} className="package-row" onClick={() => setForm({ ...initialCalendar, package_id: String(item.id) })}>
+                <div><h3>{item.topic}</h3><p>{item.class_level} • {item.subject} • {item.batch_name || 'No batch'}</p></div>
+                <div className="row-meta"><TrustBadge score={item.trust_score} /><StatusBadge status={item.review_status} /></div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 function PackageDetail({ id }) {
   const [data, setData] = useState(null)
+  const [batches, setBatches] = useState([])
   const [scriptText, setScriptText] = useState('')
   const [reviewStatus, setReviewStatus] = useState('draft')
   const [reviewerNotes, setReviewerNotes] = useState('')
+  const [selectedBatchId, setSelectedBatchId] = useState('')
+  const [audioGenerating, setAudioGenerating] = useState(false)
   const [analytics, setAnalytics] = useState({
     platform: 'YouTube Shorts',
     entry_date: today(),
@@ -248,7 +646,7 @@ function PackageDetail({ id }) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  function load() {
     setData(null)
     fetchPackage(id)
       .then((result) => {
@@ -256,23 +654,55 @@ function PackageDetail({ id }) {
         setScriptText(result.package.script_text || '')
         setReviewStatus(result.package.review_status || 'draft')
         setReviewerNotes(result.package.reviewer_notes || '')
+        setSelectedBatchId(result.package.batch_id ? String(result.package.batch_id) : '')
       })
       .catch((err) => setError(err.message))
-  }, [id])
+    fetchBatches().then((result) => setBatches(result.batches || [])).catch(() => setBatches([]))
+  }
+
+  useEffect(load, [id])
 
   async function saveReview() {
     setMessage('')
     setError('')
     try {
-      const result = await updateReview(id, {
-        review_status: reviewStatus,
-        script_text: scriptText,
-        reviewer_notes: reviewerNotes
-      })
+      const result = await updateReview(id, { review_status: reviewStatus, script_text: scriptText, reviewer_notes: reviewerNotes })
       setData((current) => ({ ...current, package: result.package }))
       setMessage('Review saved.')
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  async function saveBatch() {
+    setMessage('')
+    setError('')
+    try {
+      const result = await assignPackageBatch(id, { batch_id: selectedBatchId ? Number(selectedBatchId) : null })
+      setData((current) => ({ ...current, package: result.package }))
+      setMessage('Batch assignment saved.')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+
+
+  async function createNarrationAudio() {
+    setMessage('')
+    setError('')
+    setAudioGenerating(true)
+    try {
+      const result = await generateAudio(id)
+      setData((current) => ({
+        ...current,
+        audio_assets: [result.audio_asset, ...(current.audio_assets || [])]
+      }))
+      setMessage(result.audio_asset.status === 'generated' ? 'Narration audio generated.' : 'Manual recording guide created.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setAudioGenerating(false)
     }
   }
 
@@ -315,16 +745,8 @@ function PackageDetail({ id }) {
 
       <div className="detail-grid">
         <div className="card stack">
-          <div className="card-header">
-            <h2>Review</h2>
-            <TrustBadge score={pkg.trust_score} />
-          </div>
-          <Select
-            label="Review status"
-            value={reviewStatus}
-            options={['draft', 'approved', 'edit_required', 'rejected', 'published']}
-            onChange={setReviewStatus}
-          />
+          <div className="card-header"><h2>Review</h2><TrustBadge score={pkg.trust_score} /></div>
+          <Select label="Review status" value={reviewStatus} options={['draft', 'approved', 'edit_required', 'rejected', 'published']} onChange={setReviewStatus} />
           <TextArea label="Script editor" value={scriptText} onChange={setScriptText} rows={12} />
           <TextArea label="Reviewer notes" value={reviewerNotes} onChange={setReviewerNotes} rows={4} />
           <div className="button-row">
@@ -345,26 +767,75 @@ function PackageDetail({ id }) {
       </div>
 
       <div className="detail-grid">
-        <TextCard title="Storyboard" value={pkg.storyboard_markdown} />
-        <TextCard title="Visual prompts" value={pkg.visual_prompts_markdown} />
-        <TextCard title="Subtitles (.srt)" value={pkg.subtitle_srt} />
+        <div className="card stack">
+          <h2>Batch & calendar</h2>
+          <Select
+            label="Content batch"
+            value={selectedBatchId}
+            options={[{ value: '', label: 'No batch' }, ...batches.map((b) => ({ value: String(b.id), label: b.name }))]}
+            onChange={setSelectedBatchId}
+          />
+          <button onClick={saveBatch}>Save batch assignment</button>
+          {data.calendar ? (
+            <InfoBlock title="Calendar" value={`${data.calendar.planned_publish_date} • ${data.calendar.platform} • ${data.calendar.status}`} />
+          ) : (
+            <p className="muted">Not scheduled yet. Use the Calendar page to plan a publish date.</p>
+          )}
+        </div>
         <div className="card stack">
           <h2>AI provider attempts</h2>
           <p className="muted">The app works without Ollama because the template provider is always available.</p>
           <div className="attempt-list">
-            {pkg.provider_attempts_list.length === 0 ? (
-              <span className="muted">No provider attempts recorded.</span>
-            ) : (
-              pkg.provider_attempts_list.map((attempt, index) => (
-                <div className="attempt" key={`${attempt.provider}-${index}`}>
-                  <strong>{attempt.provider}</strong>
-                  <span>{attempt.success ? 'success' : 'skipped/failed'}</span>
-                  <p>{attempt.message}</p>
-                </div>
-              ))
-            )}
+            {pkg.provider_attempts_list.length === 0 ? <span className="muted">No provider attempts recorded.</span> : pkg.provider_attempts_list.map((attempt, index) => (
+              <div className="attempt" key={`${attempt.provider}-${index}`}>
+                <strong>{attempt.provider}</strong>
+                <span>{attempt.success ? 'success' : 'skipped/failed'}</span>
+                <p>{attempt.message}</p>
+              </div>
+            ))}
           </div>
         </div>
+      </div>
+
+
+      <div className="card stack">
+        <div className="card-header">
+          <div>
+            <h2>Narration audio</h2>
+            <p className="muted">Generate offline narration when possible. If no local TTS is ready, the system creates a manual recording guide.</p>
+          </div>
+          <button onClick={createNarrationAudio} disabled={audioGenerating}>
+            {audioGenerating ? 'Generating...' : 'Generate narration'}
+          </button>
+        </div>
+        {!data.audio_assets || data.audio_assets.length === 0 ? (
+          <p className="muted">No narration asset yet. Use browser voice preview or generate a backend asset.</p>
+        ) : (
+          <div className="audio-list">
+            {data.audio_assets.map((asset) => (
+              <div className="audio-entry" key={asset.id}>
+                <div>
+                  <strong>{asset.file_name}</strong>
+                  <p>{asset.status} • {asset.provider_used} • estimated {asset.duration_seconds}s</p>
+                  {asset.provider_notes && <p>{asset.provider_notes}</p>}
+                </div>
+                <div className="row-meta">
+                  <StatusBadge status={asset.status} />
+                  {asset.mime_type === 'audio/wav' && (
+                    <audio controls src={audioDownloadUrl(id, asset.id)} />
+                  )}
+                  <a className="button-link small" href={audioDownloadUrl(id, asset.id)}>Download</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="detail-grid">
+        <TextCard title="Storyboard" value={pkg.storyboard_markdown} />
+        <TextCard title="Visual prompts" value={pkg.visual_prompts_markdown} />
+        <TextCard title="Subtitles (.srt)" value={pkg.subtitle_srt} />
       </div>
 
       <div className="card stack">
@@ -410,17 +881,11 @@ function AiSettings() {
 
   return (
     <section>
-      <Header
-        title="AI fallback status"
-        subtitle="Ollama and Transformers are optional. Template fallback keeps the app usable on your laptop."
-      />
+      <Header title="AI fallback status" subtitle="Ollama and Transformers are optional. Template fallback keeps the app usable on your laptop." />
       <div className="card provider-grid">
         {data.providers.map((provider) => (
           <div className="provider-card" key={provider.name}>
-            <div className="provider-top">
-              <h2>{provider.name}</h2>
-              <StatusBadge status={provider.available ? 'available' : 'disabled'} />
-            </div>
+            <div className="provider-top"><h2>{provider.name}</h2><StatusBadge status={provider.available ? 'available' : 'disabled'} /></div>
             <p>{provider.message}</p>
             <span className="muted">In chain: {provider.in_chain ? 'yes' : 'no'}</span>
           </div>
@@ -435,55 +900,77 @@ function AiSettings() {
   )
 }
 
+
+function AudioSettings() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchAudioSettings().then(setData).catch((err) => setError(err.message))
+  }, [])
+
+  if (error) return <ErrorCard title="Could not load audio settings" message={error} />
+  if (!data) return <Loading />
+
+  return (
+    <section>
+      <Header
+        title="Audio fallback status"
+        subtitle="Backend narration can use Windows SAPI or pyttsx3 when available. Manual recording fallback always works."
+      />
+      <div className="card provider-grid">
+        {data.providers.map((provider) => (
+          <div className="provider-card" key={provider.name}>
+            <div className="provider-top"><h2>{provider.name}</h2><StatusBadge status={provider.available ? 'available' : 'disabled'} /></div>
+            <p>{provider.message}</p>
+            <span className="muted">Enabled: {provider.enabled ? 'yes' : 'no'} • In chain: {provider.in_chain ? 'yes' : 'no'}</span>
+          </div>
+        ))}
+      </div>
+      <div className="card stack">
+        <h2>Recommended laptop setting</h2>
+        <pre>{`TTS_PROVIDER_CHAIN=windows_sapi,manual_recording
+USE_WINDOWS_SAPI_TTS=true
+USE_PYTTSX3_TTS=false`}</pre>
+        <p className="muted">On Windows, this can use built-in speech. If it fails, the app creates a manual recording guide so publishing does not stop.</p>
+      </div>
+    </section>
+  )
+}
+
 function Header({ title, subtitle, action }) {
   return (
     <div className="page-header">
-      <div>
-        <p className="eyebrow">Edu Content Platform MVP</p>
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
-      </div>
+      <div><p className="eyebrow">Edu Content Platform MVP</p><h1>{title}</h1><p>{subtitle}</p></div>
       {action && <div>{action}</div>}
     </div>
   )
 }
 
 function StatCard({ label, value }) {
-  return (
-    <div className="stat-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  )
+  return <div className="stat-card"><span>{label}</span><strong>{value}</strong></div>
 }
 
-function Input({ label, value, onChange, type = 'text' }) {
+function Input({ label, value, onChange, type = 'text', disabled = false }) {
+  return <label className="field"><span>{label}</span><input type={type} value={value ?? ''} disabled={disabled} onChange={(event) => onChange(event.target.value)} /></label>
+}
+
+function Select({ label, value, options, onChange, disabled = false }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  )
-}
-
-function Select({ label, value, options, onChange }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        {options.map((option) => <option value={option} key={option}>{option}</option>)}
+      <select value={value ?? ''} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => {
+          const obj = typeof option === 'string' ? { value: option, label: option } : option
+          return <option value={obj.value} key={obj.value}>{obj.label}</option>
+        })}
       </select>
     </label>
   )
 }
 
 function TextArea({ label, value, onChange, rows = 5, wide = false }) {
-  return (
-    <label className={`field ${wide ? 'wide' : ''}`}>
-      <span>{label}</span>
-      <textarea rows={rows} value={value} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  )
+  return <label className={`field ${wide ? 'wide' : ''}`}><span>{label}</span><textarea rows={rows} value={value ?? ''} onChange={(event) => onChange(event.target.value)} /></label>
 }
 
 function TrustBadge({ score }) {
@@ -496,15 +983,10 @@ function StatusBadge({ status }) {
 }
 
 function InfoBlock({ title, value }) {
-  return (
-    <div className="info-block">
-      <strong>{title}</strong>
-      <p>{value}</p>
-    </div>
-  )
+  return <div className="info-block"><strong>{title}</strong><p>{value}</p></div>
 }
 
-function InfoList({ title, values, inline = false }) {
+function InfoList({ title, values = [], inline = false }) {
   return (
     <div className="info-block">
       <strong>{title}</strong>
@@ -518,10 +1000,7 @@ function InfoList({ title, values, inline = false }) {
 function TextCard({ title, value }) {
   return (
     <div className="card stack">
-      <div className="card-header">
-        <h2>{title}</h2>
-        <button className="secondary small" onClick={() => copyText(value)}>Copy</button>
-      </div>
+      <div className="card-header"><h2>{title}</h2><button className="secondary small" onClick={() => copyText(value)}>Copy</button></div>
       <pre>{value}</pre>
     </div>
   )
@@ -532,23 +1011,11 @@ function Loading() {
 }
 
 function EmptyState() {
-  return (
-    <div className="empty-state">
-      <h3>No packages yet</h3>
-      <p>Create your first Shorts package using the sample Science topic.</p>
-      <button onClick={() => navigate('#/new')}>Create first package</button>
-    </div>
-  )
+  return <div className="empty-state"><h3>No packages yet</h3><p>Create your first Shorts package using the sample Science topic.</p><button onClick={() => navigate('#/new')}>Create first package</button></div>
 }
 
 function ErrorCard({ title, message }) {
-  return (
-    <div className="card error-card">
-      <h2>{title}</h2>
-      <p>{message}</p>
-      <p className="muted">Make sure the FastAPI backend is running at http://127.0.0.1:8000.</p>
-    </div>
-  )
+  return <div className="card error-card"><h2>{title}</h2><p>{message}</p><p className="muted">Make sure the FastAPI backend is running at http://127.0.0.1:8000.</p></div>
 }
 
 async function copyText(text) {

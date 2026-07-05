@@ -46,11 +46,78 @@ export function updateReview(id, payload) {
   })
 }
 
+export function assignPackageBatch(id, payload) {
+  return request(`/api/content/${id}/batch`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
+}
+
 export function addAnalytics(id, payload) {
   return request(`/api/content/${id}/analytics`, {
     method: 'POST',
     body: JSON.stringify(payload)
   })
+}
+
+export function fetchBatches() {
+  return request('/api/batches')
+}
+
+export function createBatch(payload) {
+  return request('/api/batches', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function fetchBatch(id) {
+  return request(`/api/batches/${id}`)
+}
+
+export function updateBatch(id, payload) {
+  return request(`/api/batches/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function fetchCalendar() {
+  return request('/api/calendar')
+}
+
+export function createCalendarEntry(payload) {
+  return request('/api/calendar', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateCalendarEntry(id, payload) {
+  return request(`/api/calendar/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function deleteCalendarEntry(id) {
+  return request(`/api/calendar/${id}`, {
+    method: 'DELETE'
+  })
+}
+
+export function generateAudio(id) {
+  return request(`/api/content/${id}/audio`, {
+    method: 'POST'
+  })
+}
+
+export function fetchAudioSettings() {
+  return request('/api/settings/audio')
+}
+
+export function audioDownloadUrl(packageId, assetId) {
+  return `${API_BASE_URL}/content/${packageId}/audio/${assetId}/download`
 }
 
 export function fetchAiSettings() {

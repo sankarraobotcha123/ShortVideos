@@ -11,8 +11,23 @@ from app.core.config import settings
 SCHEMA_SQL = """
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS content_batches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    niche TEXT NOT NULL DEFAULT '',
+    target_audience TEXT NOT NULL DEFAULT '',
+    start_date TEXT DEFAULT '',
+    end_date TEXT DEFAULT '',
+    planned_count INTEGER NOT NULL DEFAULT 20,
+    status TEXT NOT NULL DEFAULT 'planning',
+    notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS content_packages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id INTEGER,
     board_source TEXT NOT NULL,
     class_level TEXT NOT NULL,
     subject TEXT NOT NULL,
@@ -46,7 +61,40 @@ CREATE TABLE IF NOT EXISTS content_packages (
     review_status TEXT NOT NULL DEFAULT 'draft',
     reviewer_notes TEXT DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(batch_id) REFERENCES content_batches(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS publishing_calendar (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER NOT NULL UNIQUE,
+    planned_publish_date TEXT NOT NULL,
+    actual_publish_date TEXT DEFAULT '',
+    platform TEXT NOT NULL DEFAULT 'YouTube Shorts',
+    status TEXT NOT NULL DEFAULT 'planned',
+    playlist_name TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS audio_assets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER NOT NULL,
+    provider_used TEXT NOT NULL DEFAULT 'manual_recording',
+    status TEXT NOT NULL DEFAULT 'manual_required',
+    file_path TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL DEFAULT 'text/plain',
+    voice_id TEXT DEFAULT '',
+    duration_seconds REAL DEFAULT 0,
+    script_snapshot TEXT NOT NULL,
+    provider_notes TEXT DEFAULT '',
+    provider_attempts TEXT DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS manual_analytics (
@@ -71,6 +119,7 @@ CREATE TABLE IF NOT EXISTS manual_analytics (
 def ensure_storage() -> None:
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
     settings.export_dir.mkdir(parents=True, exist_ok=True)
+    settings.audio_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -101,10 +150,73 @@ def init_db() -> None:
         _apply_lightweight_migrations(conn)
 
 
+def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, alter_sql: str) -> None:
+    columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        conn.execute(alter_sql)
+
+
 def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
-    """Add missing columns for users who already created an MVP database."""
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(content_packages)").fetchall()}
+    """Add missing tables/columns for users who already created an MVP database."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS content_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            niche TEXT NOT NULL DEFAULT '',
+            target_audience TEXT NOT NULL DEFAULT '',
+            start_date TEXT DEFAULT '',
+            end_date TEXT DEFAULT '',
+            planned_count INTEGER NOT NULL DEFAULT 20,
+            status TEXT NOT NULL DEFAULT 'planning',
+            notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS publishing_calendar (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL UNIQUE,
+            planned_publish_date TEXT NOT NULL,
+            actual_publish_date TEXT DEFAULT '',
+            platform TEXT NOT NULL DEFAULT 'YouTube Shorts',
+            status TEXT NOT NULL DEFAULT 'planned',
+            playlist_name TEXT DEFAULT '',
+            notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS audio_assets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL,
+            provider_used TEXT NOT NULL DEFAULT 'manual_recording',
+            status TEXT NOT NULL DEFAULT 'manual_required',
+            file_path TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            mime_type TEXT NOT NULL DEFAULT 'text/plain',
+            voice_id TEXT DEFAULT '',
+            duration_seconds REAL DEFAULT 0,
+            script_snapshot TEXT NOT NULL,
+            provider_notes TEXT DEFAULT '',
+            provider_attempts TEXT DEFAULT '[]',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     additions = {
+        "batch_id": "ALTER TABLE content_packages ADD COLUMN batch_id INTEGER REFERENCES content_batches(id) ON DELETE SET NULL",
         "provider_used": "ALTER TABLE content_packages ADD COLUMN provider_used TEXT NOT NULL DEFAULT 'template'",
         "generation_mode": "ALTER TABLE content_packages ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'deterministic_template'",
         "provider_chain": "ALTER TABLE content_packages ADD COLUMN provider_chain TEXT NOT NULL DEFAULT 'template'",
@@ -112,5 +224,4 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
         "provider_attempts": "ALTER TABLE content_packages ADD COLUMN provider_attempts TEXT DEFAULT '[]'",
     }
     for column, sql in additions.items():
-        if column not in columns:
-            conn.execute(sql)
+        _add_column_if_missing(conn, "content_packages", column, sql)

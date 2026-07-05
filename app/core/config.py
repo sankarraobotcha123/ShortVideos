@@ -28,13 +28,15 @@ def _bool_env(name: str, default: str = "false") -> bool:
 class Settings:
     """Small settings object to avoid extra dependencies in the MVP.
 
-    The app runs without npm, Ollama, or Transformers. Optional providers are
-    enabled only when their environment variables and local tools are ready.
+    The app runs without npm, Ollama, Transformers, or a TTS engine. Optional
+    providers are enabled only when their environment variables and local tools
+    are ready. Template/manual fallbacks keep the workflow moving.
     """
 
     app_name: str = os.getenv("APP_NAME", "Edu Content Platform MVP")
     database_path: Path = Path(os.getenv("DATABASE_PATH", "storage/app.db"))
     export_dir: Path = Path(os.getenv("EXPORT_DIR", "storage/exports"))
+    audio_dir: Path = Path(os.getenv("AUDIO_DIR", "storage/audio"))
 
     # AI provider chain. The system tries each provider in order and falls back
     # safely to the built-in template provider.
@@ -53,7 +55,20 @@ class Settings:
     transformers_model: str = os.getenv("TRANSFORMERS_MODEL", "distilgpt2")
     transformers_max_new_tokens: int = int(os.getenv("TRANSFORMERS_MAX_NEW_TOKENS", "220"))
 
-    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "3")
+    # TTS/audio provider chain. Windows SAPI is useful on Windows laptops without
+    # Ollama. pyttsx3 is optional. manual_recording always works and creates a
+    # recording guide when no speech engine is ready.
+    tts_provider_chain: list[str] = [
+        item.strip().lower()
+        for item in os.getenv("TTS_PROVIDER_CHAIN", "windows_sapi,pyttsx3,manual_recording").split(",")
+        if item.strip()
+    ]
+    use_windows_sapi: bool = _bool_env("USE_WINDOWS_SAPI_TTS", "true")
+    use_pyttsx3: bool = _bool_env("USE_PYTTSX3_TTS", "false")
+    tts_voice_id: str = os.getenv("TTS_VOICE_ID", "default")
+    tts_rate: int = int(os.getenv("TTS_RATE", "165"))
+
+    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "5")
 
     cors_origins: list[str] = [
         item.strip()
