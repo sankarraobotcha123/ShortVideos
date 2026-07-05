@@ -91,7 +91,7 @@ python scripts/build_release_package.py
 Default output:
 
 ```text
-dist_release/edu-content-platform-mvp-v33.zip
+dist_release/edu-content-platform-mvp-v34.zip
 ```
 
 Preview included files without creating the ZIP:
@@ -111,7 +111,7 @@ python scripts/build_release_package.py --output dist_release/my-release.zip
 ```bash
 git status
 python scripts/setup_project.py --check-only
-python -m pytest
+python scripts/run_tests.py
 npm run frontend:install
 npm run frontend:build
 python scripts/pre_push_check.py

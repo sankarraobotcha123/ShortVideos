@@ -699,7 +699,7 @@ def test_release_checklist_api_available(tmp_path):
     response = client.get("/api/release/checklist")
     assert response.status_code == 200
     body = response.json()["release"]
-    assert body["commit_message"] == "Finalize MVP bug fixes and UI polish"
+    assert body["commit_message"] == "Add final project audit and test stability tools"
     assert "git status" in body["git_commands"]
     assert body["report_markdown"].startswith("# Production Cleanup")
 
@@ -932,7 +932,7 @@ def test_final_polish_report_api(tmp_path):
     response = client.get("/api/final-polish/report")
     assert response.status_code == 200
     body = response.json()["final_polish"]
-    assert body["summary"]["commit_message"] == "Finalize MVP bug fixes and UI polish"
+    assert body["summary"]["commit_message"] == "Add final project audit and test stability tools"
     assert body["summary"]["mvp_final_ready"] is True
     assert "credentials=include" in body["report_markdown"] or "credentials: 'include'" in body["report_markdown"]
 

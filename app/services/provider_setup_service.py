@@ -84,7 +84,7 @@ PROVIDER_PROFILES = [
 
 TEST_COMMANDS = [
     "python scripts/setup_project.py --check-only",
-    "python -m pytest",
+    "python scripts/run_tests.py",
     "uvicorn app.main:app --reload",
     "Open http://127.0.0.1:5173/#/provider-setup",
     "Open http://127.0.0.1:5173/#/settings/ai",
@@ -94,7 +94,7 @@ TEST_COMMANDS = [
 GIT_COMMANDS = [
     "git status",
     "python scripts/setup_project.py --check-only",
-    "python -m pytest",
+    "python scripts/run_tests.py",
     "npm run frontend:build",
     "python scripts/pre_push_check.py",
     "git status",

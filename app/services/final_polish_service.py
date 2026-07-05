@@ -4,13 +4,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-COMMIT_MESSAGE = "Finalize MVP bug fixes and UI polish"
-VERSION = "0.33.0"
+COMMIT_MESSAGE = "Add final project audit and test stability tools"
+VERSION = "0.34.0"
 
 GIT_COMMANDS = [
     "git status",
     "python scripts/setup_project.py --check-only",
-    "python -m pytest",
+    "python scripts/run_tests.py",
     "npm run frontend:install",
     "npm run frontend:build",
     "python scripts/pre_push_check.py",
@@ -88,7 +88,19 @@ POLISH_WORK_ITEMS = [
         "key": "release_packaging",
         "title": "Clean release packaging",
         "status": "pass",
-        "detail": "Release builder now targets v33 and continues excluding databases, node_modules, OAuth secrets, generated media, caches, and logs.",
+        "detail": "Release builder now targets v34 and continues excluding databases, node_modules, OAuth secrets, generated media, caches, and logs.",
+    },
+    {
+        "key": "stable_test_runner",
+        "title": "Stable backend test runner",
+        "status": "pass",
+        "detail": "Added scripts/run_tests.py to run pytest with third-party plugin autoload disabled for stable laptop and CI test runs.",
+    },
+    {
+        "key": "local_artifact_cleanup",
+        "title": "Safe local artifact cleanup",
+        "status": "pass",
+        "detail": "Added scripts/clean_local_artifacts.py to preview or remove cache/build outputs before Git pushes without deleting project data.",
     },
     {
         "key": "manual_qa",
@@ -158,6 +170,24 @@ def _build_project_checks(root: Path) -> list[dict[str, str]]:
             "docs/FINAL_MVP_POLISH.md",
             "Final polish documentation found" if (root / "docs/FINAL_MVP_POLISH.md").exists() else "Final polish documentation missing",
             "Create docs/FINAL_MVP_POLISH.md.",
+        ),
+        _project_check(
+            "pass" if (root / "scripts/run_tests.py").exists() else "fail",
+            "scripts/run_tests.py",
+            "Stable test runner found" if (root / "scripts/run_tests.py").exists() else "Stable test runner missing",
+            "Create scripts/run_tests.py for stable backend test execution.",
+        ),
+        _project_check(
+            "pass" if (root / "scripts/clean_local_artifacts.py").exists() else "fail",
+            "scripts/clean_local_artifacts.py",
+            "Local cleanup helper found" if (root / "scripts/clean_local_artifacts.py").exists() else "Local cleanup helper missing",
+            "Create scripts/clean_local_artifacts.py for cache/build cleanup before Git pushes.",
+        ),
+        _project_check(
+            "pass" if (root / "docs/PROJECT_AUDIT_V34.md").exists() else "fail",
+            "docs/PROJECT_AUDIT_V34.md",
+            "Project audit documentation found" if (root / "docs/PROJECT_AUDIT_V34.md").exists() else "Project audit documentation missing",
+            "Create docs/PROJECT_AUDIT_V34.md.",
         ),
         _project_check(
             "pass" if "storage/youtube_oauth/*" in gitignore_text and "dist_release/" in gitignore_text else "warn",
@@ -262,7 +292,7 @@ def build_final_polish_report(conn=None, project_root: str | Path = ".") -> dict
     pass_count = sum(1 for item in project_checks if item["status"] == "pass")
 
     recommendations = [
-        "Run the backend tests and frontend build on your machine before pushing.",
+        "Run backend tests through `scripts/run_tests.py` and the frontend build on your machine before pushing.",
         "Keep AUTH_REQUIRED=false only for solo local development; set AUTH_REQUIRED=true for demos or shared usage.",
         "Use the YouTube publishing checklist for manual upload until the API upload adapter is fully implemented and tested.",
         "Do one browser QA pass at desktop and mobile width before submitting the final MVP.",

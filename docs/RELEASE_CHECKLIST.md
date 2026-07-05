@@ -7,7 +7,7 @@ Use this checklist before pushing code to GitHub or sharing a project zip.
 ```bash
 python scripts/init_db.py
 python scripts/seed_demo_data.py
-python -m pytest
+python scripts/run_tests.py
 npm run frontend:build
 python scripts/pre_push_check.py
 git status

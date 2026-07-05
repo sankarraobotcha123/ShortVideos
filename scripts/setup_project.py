@@ -69,6 +69,8 @@ def check_status() -> int:
         "scripts/init_db.py",
         "scripts/seed_demo_data.py",
         "scripts/setup_project.py",
+        "scripts/run_tests.py",
+        "scripts/clean_local_artifacts.py",
     ]
     missing = [item for item in required if not (ROOT / item).exists()]
     print("Fresh-clone setup check")

@@ -39,6 +39,8 @@ REQUIRED_FILES = [
     "scripts/init_db.py",
     "scripts/seed_demo_data.py",
     "scripts/setup_project.py",
+    "scripts/run_tests.py",
+    "scripts/clean_local_artifacts.py",
     "setup_windows.bat",
     "setup_windows.ps1",
     "docs/FRESH_CLONE_SETUP.md",
@@ -53,6 +55,7 @@ REQUIRED_FILES = [
     "app/services/final_polish_service.py",
     "scripts/build_release_package.py",
     "docs/FINAL_MVP_POLISH.md",
+    "docs/PROJECT_AUDIT_V34.md",
 ]
 
 REQUIRED_DIRS = [
@@ -127,7 +130,7 @@ PROTECTED_PATHS = [
 GIT_COMMANDS = [
     "git status",
     "python scripts/setup_project.py --check-only",
-    "python -m pytest",
+    "python scripts/run_tests.py",
     "npm run frontend:install",
     "npm run frontend:build",
     "python scripts/pre_push_check.py",
@@ -135,7 +138,7 @@ GIT_COMMANDS = [
     "git status",
     "git add .",
     "git status",
-    "git commit -m \"Finalize MVP bug fixes and UI polish\"",
+    "git commit -m \"Add final project audit and test stability tools\"",
     "git push",
 ]
 
@@ -211,7 +214,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         )
 
     command_checks = [
-        _check("manual", "Backend tests", "Run `python -m pytest` before each push.", "Fix failing tests before committing."),
+        _check("manual", "Backend tests", "Run `python scripts/run_tests.py` before each push.", "Fix failing tests before committing."),
         _check("manual", "Frontend build", "Run `npm run frontend:build` before release.", "Fix Vite/React build errors before committing."),
         _check("manual", "Git status", "Run `git status` before and after `git add .`.", "Remove generated files from staging if they appear."),
     ]
@@ -227,8 +230,8 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
     if warn_count:
         recommendations.append("Review warnings. Some may be acceptable, but confirm before release.")
     recommendations.append("Do not commit generated media, local databases, virtual environments, node_modules, or .env files.")
-    recommendations.append("Run backend tests and frontend build before pushing a release commit.")
-    recommendations.append("Use the exact commit message for this step: Finalize MVP bug fixes and UI polish")
+    recommendations.append("Run backend tests through `scripts/run_tests.py` and frontend build before pushing a release commit.")
+    recommendations.append("Use the exact commit message for this step: Add final project audit and test stability tools")
 
     report_markdown = build_release_report_markdown(
         pass_count=pass_count,
@@ -243,7 +246,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
     )
 
     return {
-        "version": "0.33.0",
+        "version": "0.34.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "pass_count": pass_count,
@@ -258,7 +261,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         "manual_command_checks": command_checks,
         "protected_paths": PROTECTED_PATHS,
         "git_commands": GIT_COMMANDS,
-        "commit_message": "Finalize MVP bug fixes and UI polish",
+        "commit_message": "Add final project audit and test stability tools",
         "recommendations": recommendations,
         "report_markdown": report_markdown,
         "settings_snapshot": {

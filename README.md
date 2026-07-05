@@ -1,21 +1,36 @@
-# Edu Content Platform MVP — v33
+# Edu Content Platform MVP — v34
 
-Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, content idea backlog, series planner, multilingual planning, YouTube manual publishing preparation, deployment packaging guidance, and final MVP polish checks.
+Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, content idea backlog, series planner, multilingual planning, YouTube manual publishing preparation, deployment packaging guidance, final MVP polish checks, and local audit/test-stability tools.
 
-## What is new in v33
+## What is new in v34
 
-- Finished **Final MVP Bug-fix and UI Polish Pass**.
-- Fixed frontend auth/session stability for the React + FastAPI two-port setup by using `credentials: 'include'` in the shared API request helper.
-- Added new React page: `#/final-polish`.
-- Added new backend service: `app/services/final_polish_service.py`.
-- Added API endpoints:
-  - `GET /api/final-polish/report`
-  - `GET /final-polish/report/download`
-- Added `docs/FINAL_MVP_POLISH.md`.
-- Added keyboard focus visibility and narrow-screen UI polish in `frontend/src/styles.css`.
-- Updated clean release ZIP builder to create `edu-content-platform-mvp-v33.zip`.
-- Updated version to `0.33.0` and frontend asset version to `33`.
-- Updated release checklist and pre-push flow for the final MVP commit.
+- Completed a full uploaded-folder audit after the project was pushed to Git.
+- Added stable backend test runner:
+  - `scripts/run_tests.py`
+- Added safe local artifact cleanup helper:
+  - `scripts/clean_local_artifacts.py`
+- Updated pre-push and release checklist commands to use the stable test runner.
+- Updated clean release ZIP builder to create `edu-content-platform-mvp-v34.zip`.
+- Updated version to `0.34.0` and frontend asset version to `34`.
+- Kept generated/local files out of the clean release package: `.env`, local DBs, generated media, caches, `node_modules`, frontend build output, and release output.
+
+## Audit result from this pass
+
+Backend checks passed:
+
+```bash
+python scripts/setup_project.py --check-only
+python scripts/run_tests.py
+python scripts/pre_push_check.py
+python scripts/build_release_package.py
+```
+
+The React/Vite build could not run inside this sandbox because the uploaded folder does not include `frontend/node_modules`, so `vite` is not installed here. On your laptop run:
+
+```bash
+npm run frontend:install
+npm run frontend:build
+```
 
 ## Default local login
 
@@ -74,6 +89,22 @@ Frontend:
 http://127.0.0.1:5173
 ```
 
+## Local cleanup before Git push
+
+Preview removable cache/build artifacts:
+
+```bash
+python scripts/clean_local_artifacts.py
+```
+
+Actually remove them:
+
+```bash
+python scripts/clean_local_artifacts.py --apply
+```
+
+This removes local caches and build/release outputs only. It does not delete your `.env`, database, uploaded media, or generated content storage.
+
 ## Test the final polish page
 
 ```text
@@ -89,7 +120,7 @@ Open http://127.0.0.1:5173/#/final-polish
 
 ```bash
 python scripts/setup_project.py --check-only
-python -m pytest
+python scripts/run_tests.py
 npm run frontend:install
 npm run frontend:build
 python scripts/pre_push_check.py
@@ -99,7 +130,7 @@ python scripts/build_release_package.py
 Default release output:
 
 ```text
-dist_release/edu-content-platform-mvp-v33.zip
+dist_release/edu-content-platform-mvp-v34.zip
 ```
 
 The package builder excludes `.env`, local databases, generated media, OAuth secrets, virtual environments, node_modules, frontend build output, caches, and logs.
@@ -124,7 +155,7 @@ YOUTUBE_DRY_RUN=true
 ```bash
 git status
 python scripts/setup_project.py --check-only
-python -m pytest
+python scripts/run_tests.py
 npm run frontend:install
 npm run frontend:build
 python scripts/pre_push_check.py
@@ -132,7 +163,7 @@ python scripts/build_release_package.py
 git status
 git add .
 git status
-git commit -m "Finalize MVP bug fixes and UI polish"
+git commit -m "Add final project audit and test stability tools"
 git push
 ```
 
@@ -176,6 +207,13 @@ git push
 - Updated release package output to v33.
 - Suggested commit: `Finalize MVP bug fixes and UI polish`.
 
+### v34 — Final Project Audit and Test Stability
+
+- Added stable test runner for backend tests.
+- Added safe local cleanup helper for caches/build artifacts.
+- Updated release checklist, Git commands, and release output to v34.
+- Suggested commit: `Add final project audit and test stability tools`.
+
 ## Current roadmap status
 
-The four major post-v29 roadmap items are complete. Future work should come from real testing and usage feedback rather than more foundation steps.
+The four major post-v29 roadmap items are complete. The project now also has a final audit/test-stability pass. Future work should come from real testing and usage feedback rather than more foundation steps.

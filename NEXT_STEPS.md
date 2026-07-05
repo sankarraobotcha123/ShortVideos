@@ -1,35 +1,47 @@
 # Next Steps
 
-Current version: `0.33.0`
+Current version: `0.34.0`
 
-## Completed in v33
+## Completed in v34
 
-- Finished the **Final MVP bug-fix and UI polish pass**.
-- Fixed frontend API credential behavior for React/FastAPI cross-port auth sessions.
-- Added final polish page at `#/final-polish`.
-- Added backend final polish endpoints:
-  - `GET /api/final-polish/report`
-  - `GET /final-polish/report/download`
-- Added final polish service:
-  - `app/services/final_polish_service.py`
-- Added final guide:
-  - `docs/FINAL_MVP_POLISH.md`
-- Added keyboard focus and mobile/narrow-screen polish in `frontend/src/styles.css`.
-- Updated clean release builder to output v33 ZIP.
-- Updated release checklist and Git flow with the final commit message.
+- Audited the uploaded laptop project folder.
+- Confirmed backend setup, tests, pre-push checks, and clean release packaging are passing.
+- Added stable test runner:
+  - `scripts/run_tests.py`
+- Added safe local cleanup helper:
+  - `scripts/clean_local_artifacts.py`
+- Updated release checklist and Git flow to use the stable test runner.
+- Updated clean release builder to output v34 ZIP.
+- Updated package versions to `0.34.0`.
 
 ## Recommended next step
 
-Start using the MVP with real sample content and fix only issues found during actual testing.
-
-Suggested commit message:
+Run the frontend dependency install/build on your laptop because `frontend/node_modules` is intentionally not included in Git or the ZIP.
 
 ```bash
-git commit -m "Finalize MVP bug fixes and UI polish"
+npm run frontend:install
+npm run frontend:build
 ```
 
-## Remaining suggested major steps after v33
+Then push this final audit commit:
+
+```bash
+git status
+python scripts/setup_project.py --check-only
+python scripts/run_tests.py
+npm run frontend:install
+npm run frontend:build
+python scripts/pre_push_check.py
+python scripts/build_release_package.py
+git status
+git add .
+git status
+git commit -m "Add final project audit and test stability tools"
+git push
+```
+
+## Remaining suggested major steps after v34
 
 No major foundation steps remain from the v29 roadmap.
 
-The strong MVP roadmap is now complete. Future work should be based on real usage feedback, such as improving generated script quality, adding real provider adapters, or preparing YouTube API upload only after the manual publishing workflow is proven.
+Future enhancements should be based on real usage feedback, such as improving generated script quality, adding real provider adapters, or preparing YouTube API upload only after the manual publishing workflow is proven.

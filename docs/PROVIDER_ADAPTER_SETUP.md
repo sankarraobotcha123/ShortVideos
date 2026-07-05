@@ -103,7 +103,7 @@ Rules:
 
 ```bash
 python scripts/setup_project.py --check-only
-python -m pytest
+python scripts/run_tests.py
 npm run frontend:build
 python scripts/pre_push_check.py
 ```

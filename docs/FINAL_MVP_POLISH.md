@@ -1,17 +1,17 @@
 # Final MVP Bug-fix and UI Polish Report
 
-Version: `0.33.0`
+Version: `0.34.0`
 
 This final pass closes the strong MVP roadmap after the provider adapter setup guide, YouTube publishing checklist, and deployment packaging guide. It focuses on small stability fixes, browser usability, responsive layout polish, and the final manual QA flow before pushing to GitHub or sharing the ZIP.
 
-## Completed in v33
+## Completed in v34
 
 - Fixed cross-port auth cookie behavior by changing the shared frontend request helper from `credentials: 'same-origin'` to `credentials: 'include'`.
 - Added a final MVP polish page at `#/final-polish`.
 - Added a final polish API report endpoint and downloadable markdown report.
 - Added visible keyboard focus rings for links, buttons, inputs, selects, textareas, and package rows.
 - Improved narrow-screen behavior for sidebar navigation, cards, action rows, preformatted command blocks, and compact statistics.
-- Updated release packaging to produce `edu-content-platform-mvp-v33.zip`.
+- Updated release packaging to produce `edu-content-platform-mvp-v34.zip`.
 - Updated the release checklist and pre-push flow with the final commit message.
 
 ## Why the auth cookie fix matters
@@ -62,7 +62,7 @@ The app still sends the bearer token from local storage for normal JSON API call
 ```bash
 git status
 python scripts/setup_project.py --check-only
-python -m pytest
+python scripts/run_tests.py
 npm run frontend:install
 npm run frontend:build
 python scripts/pre_push_check.py
@@ -70,7 +70,7 @@ python scripts/build_release_package.py
 git status
 git add .
 git status
-git commit -m "Finalize MVP bug fixes and UI polish"
+git commit -m "Add final project audit and test stability tools"
 git push
 ```
 

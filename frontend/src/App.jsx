@@ -4414,8 +4414,8 @@ function FinalPolishPage() {
 
       <div className="card stack">
         <div className="card-header"><h2>Commit message</h2><StatusBadge status="commit" /></div>
-        <pre>{`git commit -m "${report.commit_message || 'Finalize MVP bug fixes and UI polish'}"`}</pre>
-        <button className="secondary" onClick={() => copyText(`git commit -m "${report.commit_message || 'Finalize MVP bug fixes and UI polish'}"`)}>Copy commit command</button>
+        <pre>{`git commit -m "${report.commit_message || 'Add final project audit and test stability tools'}"`}</pre>
+        <button className="secondary" onClick={() => copyText(`git commit -m "${report.commit_message || 'Add final project audit and test stability tools'}"`)}>Copy commit command</button>
       </div>
 
       <div className="card stack">

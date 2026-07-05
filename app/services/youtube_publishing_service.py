@@ -115,7 +115,7 @@ API_SAFETY_BOUNDARIES = [
 
 TEST_COMMANDS = [
     "python scripts/setup_project.py --check-only",
-    "python -m pytest",
+    "python scripts/run_tests.py",
     "npm run frontend:build",
     "uvicorn app.main:app --reload",
     "Open http://127.0.0.1:5173/#/youtube-publishing",
@@ -125,7 +125,7 @@ TEST_COMMANDS = [
 GIT_COMMANDS = [
     "git status",
     "python scripts/setup_project.py --check-only",
-    "python -m pytest",
+    "python scripts/run_tests.py",
     "npm run frontend:build",
     "python scripts/pre_push_check.py",
     "git status",

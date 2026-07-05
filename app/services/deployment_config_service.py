@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 COMMIT_MESSAGE = "Add deployment packaging and production configuration guide"
-VERSION = "0.33.0"
+VERSION = "0.34.0"
 
 REQUIRED_FILES = [
     ".env.example",
@@ -79,7 +79,7 @@ PRODUCTION_ENV_KEYS = [
 
 PACKAGING_COMMANDS = [
     "python scripts/setup_project.py --check-only",
-    "python -m pytest",
+    "python scripts/run_tests.py",
     "npm run frontend:install",
     "npm run frontend:build",
     "python scripts/pre_push_check.py",
@@ -89,7 +89,7 @@ PACKAGING_COMMANDS = [
 GIT_COMMANDS = [
     "git status",
     "python scripts/setup_project.py --check-only",
-    "python -m pytest",
+    "python scripts/run_tests.py",
     "npm run frontend:install",
     "npm run frontend:build",
     "python scripts/pre_push_check.py",
@@ -267,7 +267,7 @@ def _build_guide_markdown(
             "python scripts/build_release_package.py",
             "```",
             "",
-            "The default output is `dist_release/edu-content-platform-mvp-v33.zip`. The `dist_release/` folder is local output and should not be committed.",
+            "The default output is `dist_release/edu-content-platform-mvp-v34.zip`. The `dist_release/` folder is local output and should not be committed.",
             "",
             "## 4. Deployment options",
             "",
