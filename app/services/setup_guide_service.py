@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-COMMIT_MESSAGE = "Add lightweight multilingual planning workflow and improve sidebar active state"
+COMMIT_MESSAGE = "Add real provider adapter setup guide"
 
 WINDOWS_SETUP_COMMANDS = [
     "git clone YOUR_GITHUB_REPO_URL short_videos",
@@ -48,6 +48,7 @@ REQUIRED_SETUP_FILES = [
     "setup_windows.bat",
     "setup_windows.ps1",
     "docs/FRESH_CLONE_SETUP.md",
+    "docs/PROVIDER_ADAPTER_SETUP.md",
     ".env.example",
     "requirements.txt",
     "package.json",

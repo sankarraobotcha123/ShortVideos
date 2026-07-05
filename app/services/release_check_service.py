@@ -40,8 +40,10 @@ REQUIRED_FILES = [
     "setup_windows.bat",
     "setup_windows.ps1",
     "docs/FRESH_CLONE_SETUP.md",
+    "docs/PROVIDER_ADAPTER_SETUP.md",
     "app/routes/auth.py",
     "app/services/auth_service.py",
+    "app/services/provider_setup_service.py",
 ]
 
 REQUIRED_DIRS = [
@@ -62,6 +64,10 @@ REQUIRED_ENV_KEYS = [
     "AI_PROVIDER_CHAIN",
     "USE_OLLAMA",
     "USE_TRANSFORMERS",
+    "USE_HOSTED_LLM",
+    "HOSTED_LLM_PROVIDER",
+    "HOSTED_LLM_API_KEY",
+    "HOSTED_LLM_MODEL",
     "TTS_PROVIDER_CHAIN",
     "USE_WINDOWS_SAPI_TTS",
     "USE_PYTTSX3_TTS",
@@ -101,7 +107,7 @@ GIT_COMMANDS = [
     "git status",
     "git add .",
     "git status",
-    "git commit -m \"Add lightweight multilingual planning workflow and improve sidebar active state\"",
+    "git commit -m \"Add real provider adapter setup guide\"",
     "git push",
 ]
 
@@ -194,7 +200,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         recommendations.append("Review warnings. Some may be acceptable, but confirm before release.")
     recommendations.append("Do not commit generated media, local databases, virtual environments, node_modules, or .env files.")
     recommendations.append("Run backend tests and frontend build before pushing a release commit.")
-    recommendations.append("Use the exact commit message for this step: Add lightweight multilingual planning workflow and improve sidebar active state")
+    recommendations.append("Use the exact commit message for this step: Add real provider adapter setup guide")
 
     report_markdown = build_release_report_markdown(
         pass_count=pass_count,
@@ -224,7 +230,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         "manual_command_checks": command_checks,
         "protected_paths": PROTECTED_PATHS,
         "git_commands": GIT_COMMANDS,
-        "commit_message": "Add lightweight multilingual planning workflow and improve sidebar active state",
+        "commit_message": "Add real provider adapter setup guide",
         "recommendations": recommendations,
         "report_markdown": report_markdown,
         "settings_snapshot": {

@@ -62,6 +62,15 @@ class Settings:
     transformers_model: str = os.getenv("TRANSFORMERS_MODEL", "distilgpt2")
     transformers_max_new_tokens: int = int(os.getenv("TRANSFORMERS_MAX_NEW_TOKENS", "220"))
 
+    # Hosted LLM settings are placeholders for a future adapter. Keep disabled
+    # until the content workflow has enough results to justify paid/API usage.
+    use_hosted_llm: bool = _bool_env("USE_HOSTED_LLM", "false")
+    hosted_llm_provider: str = os.getenv("HOSTED_LLM_PROVIDER", "disabled")
+    hosted_llm_base_url: str = os.getenv("HOSTED_LLM_BASE_URL", "")
+    hosted_llm_model: str = os.getenv("HOSTED_LLM_MODEL", "")
+    hosted_llm_api_key: str = os.getenv("HOSTED_LLM_API_KEY", "")
+    hosted_llm_timeout_seconds: int = int(os.getenv("HOSTED_LLM_TIMEOUT_SECONDS", "60"))
+
     # TTS/audio provider chain. Windows SAPI is useful on Windows laptops without
     # Ollama. pyttsx3 is optional. manual_recording always works and creates a
     # recording guide when no speech engine is ready.
@@ -75,7 +84,7 @@ class Settings:
     tts_voice_id: str = os.getenv("TTS_VOICE_ID", "default")
     tts_rate: int = int(os.getenv("TTS_RATE", "165"))
 
-    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "29")
+    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "30")
 
     # Authentication is a foundation layer for role-based review/publishing workflows.
     # Keep AUTH_REQUIRED=false during local MVP work if you do not want to block older routes yet.

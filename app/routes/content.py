@@ -27,6 +27,7 @@ from app.services.provider_log_service import build_provider_log_summary, list_p
 from app.services.demo_seed_service import build_system_readiness, seed_demo_data
 from app.services.release_check_service import build_release_checklist
 from app.services.setup_guide_service import build_setup_guide
+from app.services.provider_setup_service import build_provider_setup_guide
 from app.services.prompt_template_service import (
     apply_script_prompt_template,
     build_prompt_preview,
@@ -1259,6 +1260,21 @@ def download_setup_guide(_: dict[str, Any] = Depends(require_permission("content
         guide["guide_markdown"],
         media_type="text/markdown",
         headers={"Content-Disposition": "attachment; filename=fresh_clone_setup_guide.md"},
+    )
+
+
+@router.get("/api/provider-setup/guide")
+def api_provider_setup_guide() -> dict[str, Any]:
+    return {"provider_setup": build_provider_setup_guide()}
+
+
+@router.get("/provider-setup/guide/download")
+def download_provider_setup_guide(_: dict[str, Any] = Depends(require_permission("content:view"))):
+    guide = build_provider_setup_guide()
+    return PlainTextResponse(
+        guide["guide_markdown"],
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=real_provider_adapter_setup_guide.md"},
     )
 
 @router.get("/api/release/checklist")

@@ -44,6 +44,7 @@ import {
   fetchMultilingualPlans,
   fetchCurrentUser,
   fetchProviderLogs,
+  fetchProviderSetupGuide,
   fetchProductionBoard,
   fetchReleaseChecklist,
   fetchSetupGuide,
@@ -75,6 +76,7 @@ import {
   fetchPromptTemplates,
   previewPromptTemplate,
   publishingApprovalDownloadUrl,
+  providerSetupGuideDownloadUrl,
   releaseChecklistDownloadUrl,
   setupGuideDownloadUrl,
   productionBoardDownloadUrl,
@@ -301,6 +303,7 @@ const ROUTE_ACCESS = {
   templates: { permission: 'templates:manage' },
   analytics: { permission: 'analytics:view' },
   providerLogs: { permission: 'analytics:view' },
+  providerSetup: { permission: 'content:view' },
   demo: { permission: 'content:create' },
   users: { role: 'super_admin' },
   authHardening: { role: 'super_admin' }
@@ -404,6 +407,7 @@ function routeDisplayName(route) {
     templates: 'Prompt templates',
     analytics: 'Analytics insights',
     providerLogs: 'Provider logs',
+    providerSetup: 'Provider setup guide',
     demo: 'MVP demo setup',
     release: 'Release checklist',
     setup: 'Fresh clone setup',
@@ -480,6 +484,7 @@ function App() {
           <div className="nav-section-title">Review</div>
           {navCan('analytics:view') && <NavItem route={route} active={route.name === 'analytics'} href="#/analytics">Analytics insights</NavItem>}
           {navCan('analytics:view') && <NavItem route={route} active={route.name === 'providerLogs'} href="#/provider-logs">Provider logs</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'providerSetup'} href="#/provider-setup">Provider setup guide</NavItem>}
           <NavItem route={route} active={route.name === 'settings'} href="#/settings/ai">AI fallback status</NavItem>
           <NavItem route={route} active={route.name === 'audioSettings'} href="#/settings/audio">Audio fallback status</NavItem>
 
@@ -521,6 +526,7 @@ function App() {
           {route.name === 'templates' && <PromptTemplatesPage />}
           {route.name === 'analytics' && <AnalyticsInsightsPage />}
           {route.name === 'providerLogs' && <ProviderLogsPage />}
+          {route.name === 'providerSetup' && <ProviderSetupGuidePage />}
           {route.name === 'demo' && <DemoSetupPage />}
           {route.name === 'release' && <ReleaseChecklistPage />}
           {route.name === 'setup' && <FreshCloneSetupPage />}
@@ -557,6 +563,7 @@ function parseRoute(hash) {
   if (parts[0] === 'templates') return { name: 'templates' }
   if (parts[0] === 'analytics') return { name: 'analytics' }
   if (parts[0] === 'provider-logs') return { name: 'providerLogs' }
+  if (parts[0] === 'provider-setup') return { name: 'providerSetup' }
   if (parts[0] === 'demo') return { name: 'demo' }
   if (parts[0] === 'release') return { name: 'release' }
   if (parts[0] === 'setup') return { name: 'setup' }
@@ -4364,6 +4371,126 @@ function FreshCloneSetupPage() {
         <button onClick={() => downloadMarkdown('fresh_clone_setup_guide.md', setup.guide_markdown || '')}>Download markdown from browser</button>
         <button className="secondary" onClick={() => navigate('#/release')}>Open release checklist</button>
         <button className="secondary" onClick={() => navigate('#/demo')}>Open MVP demo setup</button>
+      </div>
+    </section>
+  )
+}
+
+
+
+function ProviderSetupGuidePage() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchProviderSetupGuide().then(setData).catch((err) => setError(err.message))
+  }, [])
+
+  if (error) return <ErrorCard title="Could not load provider setup guide" message={error} />
+  if (!data) return <Loading />
+
+  const guide = data.provider_setup || {}
+  const summary = guide.summary || {}
+  const currentStatus = guide.current_status || []
+  const profiles = guide.provider_profiles || []
+  const envProfiles = guide.env_profiles || []
+  const envChecks = guide.env_checks || []
+
+  return (
+    <section>
+      <Header
+        title="Real provider adapter setup guide"
+        subtitle="Keep this laptop safe with template fallback now, then test Ollama/Transformers/hosted APIs later without breaking the Shorts workflow."
+        action={<a className="button-link" href={providerSetupGuideDownloadUrl()} target="_blank" rel="noreferrer">Download guide</a>}
+      />
+
+      <div className="stats-grid">
+        <StatCard label="Recommended mode" value={summary.recommended_current_mode || 'Laptop-safe'} />
+        <StatCard label="Env checks passed" value={summary.env_checks_passed || 0} />
+        <StatCard label="Warnings" value={summary.env_checks_warnings || 0} />
+        <StatCard label="Provider steps left" value={summary.remaining_provider_steps || 0} />
+      </div>
+
+      <div className="card stack success-card">
+        <div className="card-header"><h2>Current recommendation</h2><StatusBadge status="safe" /></div>
+        <p>For your current laptop, keep Ollama and Transformers disabled and let the template provider generate content packages reliably.</p>
+        <pre>{`AI_PROVIDER_CHAIN=transformers,template\nUSE_OLLAMA=false\nUSE_TRANSFORMERS=false\nUSE_HOSTED_LLM=false`}</pre>
+        <div className="quick-actions">
+          <button className="secondary" onClick={() => navigate('#/settings/ai')}>Open AI fallback status</button>
+          <button className="secondary" onClick={() => navigate('#/provider-logs')}>Open provider logs</button>
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Current provider status</h2><span>{currentStatus.length} providers</span></div>
+        <div className="provider-grid">
+          {currentStatus.map((provider) => (
+            <div className="provider-card" key={provider.name}>
+              <div className="provider-top"><h2>{provider.name}</h2><StatusBadge status={provider.available ? 'available' : 'disabled'} /></div>
+              <p>{provider.message}</p>
+              <span className="muted">In chain: {provider.in_chain ? 'yes' : 'no'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="detail-grid">
+        {profiles.map((profile) => (
+          <div className="card stack" key={profile.key}>
+            <div className="card-header"><h2>{profile.name}</h2><StatusBadge status={profile.recommended_now ? 'recommended' : 'later'} /></div>
+            <p><strong>Best for:</strong> {profile.best_for}</p>
+            <p><strong>Install difficulty:</strong> {profile.install_difficulty}</p>
+            <p><strong>Risk:</strong> {profile.risk}</p>
+            <p className="muted">{profile.notes}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Environment profiles</h2><span>{envProfiles.length} profiles</span></div>
+        <div className="detail-grid">
+          {envProfiles.map((profile) => (
+            <div className="card nested-card stack" key={profile.key}>
+              <h3>{profile.title}</h3>
+              <p>{profile.when_to_use}</p>
+              <pre>{profile.env}</pre>
+              <button className="secondary" onClick={() => copyText(profile.env)}>Copy env profile</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>.env.example provider keys</h2><span>{envChecks.length} checks</span></div>
+        <div className="performance-table release-table">
+          <div className="performance-head"><span>Status</span><span>Key</span><span>Detail</span></div>
+          {envChecks.map((item) => (
+            <div className="performance-row" key={item.key}>
+              <StatusBadge status={item.status} />
+              <strong>{item.key}</strong>
+              <span>{item.detail}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Provider test commands</h2><StatusBadge status="test" /></div>
+        <pre>{(guide.test_commands || []).join('\n')}</pre>
+        <button className="secondary" onClick={() => copyText((guide.test_commands || []).join('\n'))}>Copy test commands</button>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Git commands for this step</h2><StatusBadge status="git" /></div>
+        <pre>{(guide.git_commands || []).join('\n')}</pre>
+        <button className="secondary" onClick={() => copyText((guide.git_commands || []).join('\n'))}>Copy Git commands</button>
+      </div>
+
+      <TextCard title="Provider adapter setup guide markdown" value={guide.guide_markdown || ''} />
+      <div className="quick-actions">
+        <button onClick={() => downloadMarkdown('real_provider_adapter_setup_guide.md', guide.guide_markdown || '')}>Download markdown from browser</button>
+        <button className="secondary" onClick={() => navigate('#/provider-logs')}>Open provider logs</button>
+        <button className="secondary" onClick={() => navigate('#/settings/ai')}>Open AI fallback status</button>
       </div>
     </section>
   )

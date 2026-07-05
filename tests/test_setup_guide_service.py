@@ -3,7 +3,7 @@ from app.services.setup_guide_service import build_setup_guide
 
 def test_setup_guide_contains_fresh_clone_commands():
     guide = build_setup_guide()
-    assert guide["commit_message"] == "Add lightweight multilingual planning workflow and improve sidebar active state"
+    assert guide["commit_message"] == "Add real provider adapter setup guide"
     assert "setup_windows.bat" in guide["guide_markdown"]
     assert "python scripts/setup_project.py --seed-demo" in guide["guide_markdown"]
     assert "git status" in guide["git_commands"]

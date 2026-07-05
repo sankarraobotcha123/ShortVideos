@@ -1474,3 +1474,13 @@ th {
   background: #e0f2fe;
   color: #0369a1;
 }
+
+
+.nested-card {
+  background: var(--panel-soft);
+  border: 1px dashed var(--line);
+}
+
+.nested-card h3 {
+  margin: 0;
+}

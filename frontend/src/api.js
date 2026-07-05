@@ -440,6 +440,15 @@ export function seedDemoData(resetDemo = false) {
   })
 }
 
+
+export function fetchProviderSetupGuide() {
+  return request('/api/provider-setup/guide')
+}
+
+export function providerSetupGuideDownloadUrl() {
+  return `${API_BASE_URL}/provider-setup/guide/download`
+}
+
 export function fetchReleaseChecklist() {
   return request('/api/release/checklist')
 }

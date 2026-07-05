@@ -110,3 +110,15 @@ git commit -m "Add lightweight multilingual planning workflow and improve sideba
 - Added package-linked or standalone language plans with glossary, cultural notes, voice/subtitle strategy, reviewer, checklist, and readiness score.
 - Added clearer sidebar active-page highlighting and current-page chip so Dashboard/current route is visible.
 - Suggested commit: `Add lightweight multilingual planning workflow and improve sidebar active state`.
+
+## v30 — Real Provider Adapter Setup Guide
+
+- Added provider setup guide page at `#/provider-setup`.
+- Added backend service `app/services/provider_setup_service.py`.
+- Added API endpoints:
+  - `GET /api/provider-setup/guide`
+  - `GET /provider-setup/guide/download`
+- Added `docs/PROVIDER_ADAPTER_SETUP.md`.
+- Added hosted API placeholder environment keys while keeping hosted APIs disabled by default.
+- Added environment profiles for laptop-safe template fallback, Ollama desktop mode, Transformers local experiments, and future hosted API mode.
+- Suggested commit: `Add real provider adapter setup guide`.
