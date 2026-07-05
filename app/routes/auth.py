@@ -8,8 +8,10 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.services.auth_service import (
     ROLE_PERMISSIONS,
+    auth_hardening_report,
     auth_status,
     authenticate_user,
+    change_password,
     create_session,
     create_user,
     current_user_optional,
@@ -17,6 +19,7 @@ from app.services.auth_service import (
     list_users,
     permission_matrix,
     require_role,
+    revoke_expired_sessions,
     revoke_session,
     update_user,
 )
@@ -44,6 +47,11 @@ class UpdateUserRequest(BaseModel):
     password: str | None = Field(default=None, min_length=8, max_length=200)
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8, max_length=200)
+
+
 @router.get("/status")
 def api_auth_status() -> dict[str, Any]:
     return auth_status()
@@ -57,8 +65,8 @@ def api_login(payload: LoginRequest, response: Response) -> dict[str, Any]:
         key=settings.auth_cookie_name,
         value=session["access_token"],
         httponly=True,
-        samesite="lax",
-        secure=False,
+        samesite=settings.auth_cookie_samesite,
+        secure=settings.auth_cookie_secure,
         max_age=settings.auth_token_ttl_hours * 60 * 60,
     )
     return {**session, "user": user}
@@ -94,6 +102,25 @@ def api_roles() -> dict[str, Any]:
 @router.get("/permissions")
 def api_permissions() -> dict[str, Any]:
     return {"auth_required": settings.auth_required, "roles": permission_matrix()}
+
+
+@router.get("/hardening")
+def api_auth_hardening(_: dict[str, Any] = Depends(require_role("super_admin"))) -> dict[str, Any]:
+    return auth_hardening_report()
+
+
+@router.post("/sessions/cleanup")
+def api_cleanup_sessions(_: dict[str, Any] = Depends(require_role("super_admin"))) -> dict[str, Any]:
+    return revoke_expired_sessions()
+
+
+@router.post("/change-password")
+def api_change_password(
+    payload: ChangePasswordRequest,
+    current_user: dict[str, Any] = Depends(current_user_required),
+) -> dict[str, Any]:
+    change_password(int(current_user["id"]), payload.current_password, payload.new_password)
+    return {"password_changed": True, "sessions_revoked": True}
 
 
 @router.get("/users")

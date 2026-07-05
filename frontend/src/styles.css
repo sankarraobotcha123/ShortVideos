@@ -1203,3 +1203,24 @@ th {
   display: block;
   margin-bottom: 4px;
 }
+
+.warning-list {
+  border: 1px solid #f4c976;
+  background: #fff8e6;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.warning-list h3 {
+  margin: 0 0 8px;
+}
+
+.warning-list ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.success-text {
+  color: #047857;
+  font-weight: 700;
+}

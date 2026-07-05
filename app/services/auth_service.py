@@ -45,6 +45,23 @@ PASSWORD_ITERATIONS = 120_000
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def validate_password_strength(password: str) -> None:
+    """MVP production guardrail for user-created passwords.
+
+    This is intentionally simple and local-friendly: long enough, contains
+    upper/lower/numeric characters, and rejects the documented sample password
+    when strict auth is enabled.
+    """
+    if not password or len(password) < 8:
+        raise ValueError("Password must be at least 8 characters long")
+    if not any(char.islower() for char in password):
+        raise ValueError("Password must include at least one lowercase letter")
+    if not any(char.isupper() for char in password):
+        raise ValueError("Password must include at least one uppercase letter")
+    if not any(char.isdigit() for char in password):
+        raise ValueError("Password must include at least one number")
+
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -54,8 +71,7 @@ def utc_timestamp(dt: datetime | None = None) -> str:
 
 
 def hash_password(password: str, salt: str | None = None) -> str:
-    if not password or len(password) < 8:
-        raise ValueError("Password must be at least 8 characters long")
+    validate_password_strength(password)
     salt = salt or secrets.token_hex(16)
     digest = hashlib.pbkdf2_hmac(
         "sha256",
@@ -129,10 +145,54 @@ def authenticate_user(email: str, password: str) -> dict[str, Any]:
         return user
 
 
+def cleanup_expired_sessions(conn=None) -> int:
+    """Revoke expired sessions and return how many rows were changed."""
+    now = utc_timestamp()
+    if conn is not None:
+        before = conn.total_changes
+        conn.execute(
+            """
+            UPDATE auth_sessions
+               SET revoked_at = CURRENT_TIMESTAMP
+             WHERE (revoked_at IS NULL OR revoked_at = '')
+               AND expires_at <= ?
+            """,
+            (now,),
+        )
+        return conn.total_changes - before
+    with db_session() as local_conn:
+        return cleanup_expired_sessions(local_conn)
+
+
+def enforce_session_limit(conn, user_id: int) -> int:
+    """Keep only the newest N active sessions for a user."""
+    max_sessions = max(int(settings.auth_max_active_sessions_per_user or 1), 1)
+    rows = conn.execute(
+        """
+        SELECT id
+          FROM auth_sessions
+         WHERE user_id = ?
+           AND (revoked_at IS NULL OR revoked_at = '')
+           AND expires_at > ?
+         ORDER BY created_at DESC, id DESC
+        """,
+        (user_id, utc_timestamp()),
+    ).fetchall()
+    stale_ids = [row["id"] for row in rows[max_sessions:]]
+    if stale_ids:
+        placeholders = ",".join("?" for _ in stale_ids)
+        conn.execute(
+            f"UPDATE auth_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE id IN ({placeholders})",
+            stale_ids,
+        )
+    return len(stale_ids)
+
+
 def create_session(user_id: int) -> dict[str, Any]:
     token = secrets.token_urlsafe(40)
     expires_at = utc_timestamp(utc_now() + timedelta(hours=settings.auth_token_ttl_hours))
     with db_session() as conn:
+        cleanup_expired_sessions(conn)
         conn.execute(
             """
             INSERT INTO auth_sessions (user_id, token, expires_at)
@@ -140,6 +200,7 @@ def create_session(user_id: int) -> dict[str, Any]:
             """,
             (user_id, token, expires_at),
         )
+        enforce_session_limit(conn, user_id)
     return {"access_token": token, "token_type": "bearer", "expires_at": expires_at}
 
 
@@ -319,11 +380,95 @@ def update_user(
         return serialize_user(row)
 
 
+
+
+def change_password(user_id: int, current_password: str, new_password: str) -> None:
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM user_accounts WHERE id = ?", (user_id,)).fetchone()
+        if row is None or not verify_password(current_password, row["password_hash"]):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+        conn.execute(
+            "UPDATE user_accounts SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (hash_password(new_password), user_id),
+        )
+        conn.execute(
+            "UPDATE auth_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND (revoked_at IS NULL OR revoked_at = '')",
+            (user_id,),
+        )
+
+
+def auth_hardening_report() -> dict[str, Any]:
+    with db_session() as conn:
+        cleanup_expired_sessions(conn)
+        active_sessions = conn.execute(
+            """
+            SELECT COUNT(*) AS count
+              FROM auth_sessions
+             WHERE (revoked_at IS NULL OR revoked_at = '')
+               AND expires_at > ?
+            """,
+            (utc_timestamp(),),
+        ).fetchone()["count"]
+        expired_or_revoked = conn.execute(
+            """
+            SELECT COUNT(*) AS count
+              FROM auth_sessions
+             WHERE revoked_at IS NOT NULL AND revoked_at != ''
+            """
+        ).fetchone()["count"]
+        users_total = conn.execute("SELECT COUNT(*) AS count FROM user_accounts").fetchone()["count"]
+        inactive_users = conn.execute("SELECT COUNT(*) AS count FROM user_accounts WHERE active = 0").fetchone()["count"]
+
+    warnings: list[str] = []
+    recommendations: list[str] = []
+    if not settings.auth_required:
+        warnings.append("AUTH_REQUIRED is false; local MVP mode is permissive.")
+        recommendations.append("Set AUTH_REQUIRED=true before testing production-style review and publishing controls.")
+    if settings.default_admin_password == "ChangeMe123!":
+        warnings.append("Default admin password still uses the sample value from the documentation.")
+        recommendations.append("Change DEFAULT_ADMIN_PASSWORD in .env, recreate the local DB, or update the admin password from the UI.")
+    if settings.auth_required and not settings.auth_cookie_secure:
+        warnings.append("AUTH_COOKIE_SECURE is false while strict auth is enabled.")
+        recommendations.append("Set AUTH_COOKIE_SECURE=true when serving over HTTPS.")
+    if settings.auth_token_ttl_hours > 168:
+        warnings.append("Auth token TTL is longer than 7 days.")
+        recommendations.append("Use a shorter AUTH_TOKEN_TTL_HOURS value for production-like environments.")
+
+    checklist = [
+        {"item": "Strict auth enabled", "passed": bool(settings.auth_required)},
+        {"item": "Default password changed", "passed": settings.default_admin_password != "ChangeMe123!"},
+        {"item": "Session limit configured", "passed": settings.auth_max_active_sessions_per_user <= 10},
+        {"item": "Cookie SameSite configured", "passed": settings.auth_cookie_samesite in {"lax", "strict", "none"}},
+        {"item": "Secure cookie ready for HTTPS", "passed": bool(settings.auth_cookie_secure) or not settings.auth_required},
+    ]
+    return {
+        "auth_required": settings.auth_required,
+        "cookie_secure": settings.auth_cookie_secure,
+        "cookie_samesite": settings.auth_cookie_samesite,
+        "token_ttl_hours": settings.auth_token_ttl_hours,
+        "max_active_sessions_per_user": settings.auth_max_active_sessions_per_user,
+        "active_sessions": active_sessions,
+        "expired_or_revoked_sessions": expired_or_revoked,
+        "users_total": users_total,
+        "inactive_users": inactive_users,
+        "warnings": warnings,
+        "recommendations": recommendations,
+        "checklist": checklist,
+    }
+
+
+def revoke_expired_sessions() -> dict[str, Any]:
+    count = cleanup_expired_sessions()
+    return {"revoked_expired_sessions": count}
+
 def auth_status() -> dict[str, Any]:
     return {
         "auth_required": settings.auth_required,
         "cookie_name": settings.auth_cookie_name,
         "token_ttl_hours": settings.auth_token_ttl_hours,
+        "cookie_secure": settings.auth_cookie_secure,
+        "cookie_samesite": settings.auth_cookie_samesite,
+        "max_active_sessions_per_user": settings.auth_max_active_sessions_per_user,
         "roles": permission_matrix(),
         "default_admin_email": settings.default_admin_email,
         "note": "Default admin is created only when the database has no users.",

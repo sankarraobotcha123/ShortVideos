@@ -98,7 +98,7 @@ GIT_COMMANDS = [
     "git status",
     "git add .",
     "git status",
-    "git commit -m \"Add permission aware frontend action guards\"",
+    "git commit -m \"Harden auth flow and frontend route guards\"",
     "git push",
 ]
 
@@ -191,7 +191,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         recommendations.append("Review warnings. Some may be acceptable, but confirm before release.")
     recommendations.append("Do not commit generated media, local databases, virtual environments, node_modules, or .env files.")
     recommendations.append("Run backend tests and frontend build before pushing a release commit.")
-    recommendations.append("Use the exact commit message for this step: Add permission aware frontend action guards")
+    recommendations.append("Use the exact commit message for this step: Harden auth flow and frontend route guards")
 
     report_markdown = build_release_report_markdown(
         pass_count=pass_count,
@@ -221,7 +221,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         "manual_command_checks": command_checks,
         "protected_paths": PROTECTED_PATHS,
         "git_commands": GIT_COMMANDS,
-        "commit_message": "Add permission aware frontend action guards",
+        "commit_message": "Harden auth flow and frontend route guards",
         "recommendations": recommendations,
         "report_markdown": report_markdown,
         "settings_snapshot": {

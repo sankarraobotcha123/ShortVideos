@@ -74,13 +74,16 @@ class Settings:
     tts_voice_id: str = os.getenv("TTS_VOICE_ID", "default")
     tts_rate: int = int(os.getenv("TTS_RATE", "165"))
 
-    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "21")
+    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "22")
 
     # Authentication is a foundation layer for role-based review/publishing workflows.
     # Keep AUTH_REQUIRED=false during local MVP work if you do not want to block older routes yet.
     auth_required: bool = _bool_env("AUTH_REQUIRED", "false")
     auth_token_ttl_hours: int = int(os.getenv("AUTH_TOKEN_TTL_HOURS", "72"))
     auth_cookie_name: str = os.getenv("AUTH_COOKIE_NAME", "edu_content_session")
+    auth_cookie_secure: bool = _bool_env("AUTH_COOKIE_SECURE", "false")
+    auth_cookie_samesite: str = os.getenv("AUTH_COOKIE_SAMESITE", "lax").lower()
+    auth_max_active_sessions_per_user: int = int(os.getenv("AUTH_MAX_ACTIVE_SESSIONS_PER_USER", "8"))
     default_admin_name: str = os.getenv("DEFAULT_ADMIN_NAME", "Local Admin")
     default_admin_email: str = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@example.com")
     default_admin_password: str = os.getenv("DEFAULT_ADMIN_PASSWORD", "ChangeMe123!")

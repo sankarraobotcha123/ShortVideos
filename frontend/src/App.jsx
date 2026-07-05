@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   addAnalytics,
+  changeAuthPassword,
+  cleanupAuthSessions,
   clearAuthToken,
   createAuthUser,
   audioDownloadUrl,
@@ -13,6 +15,7 @@ import {
   fetchAuthStatus,
   fetchAuthUsers,
   fetchAuthPermissions,
+  fetchAuthHardening,
   exportUrl,
   fetchAiSettings,
   fetchAnalyticsInsights,
@@ -133,6 +136,22 @@ const ACTION_LABELS = {
   'learning_outputs:generate': 'generate notes, quizzes, and worksheets'
 }
 
+const ROUTE_ACCESS = {
+  dashboard: { permission: 'content:view' },
+  new: { permission: 'content:create' },
+  package: { permission: 'content:view' },
+  batches: { permission: 'content:view' },
+  batch: { permission: 'content:view' },
+  calendar: { permission: 'content:view' },
+  assets: { permission: 'content:view' },
+  templates: { permission: 'templates:manage' },
+  analytics: { permission: 'analytics:view' },
+  providerLogs: { permission: 'analytics:view' },
+  demo: { permission: 'content:create' },
+  users: { role: 'super_admin' },
+  authHardening: { role: 'super_admin' }
+}
+
 const AuthContext = createContext({ user: null, status: null })
 
 function useAuthContext() {
@@ -222,6 +241,12 @@ function App() {
   useEffect(() => {
     fetchAuthStatus().then(setAuthStatus).catch(() => setAuthStatus(null))
     fetchCurrentUser().then((data) => setAuthUser(data.user || null)).catch(() => setAuthUser(null))
+    const onExpired = () => {
+      setAuthUser(null)
+      if (window.location.hash !== '#/login') navigate('#/login')
+    }
+    window.addEventListener('auth:expired', onExpired)
+    return () => window.removeEventListener('auth:expired', onExpired)
   }, [])
 
   async function handleLogout() {
@@ -265,6 +290,7 @@ function App() {
           <a className={route.name === 'release' ? 'active' : ''} href="#/release">Release checklist</a>
           <a className={route.name === 'setup' ? 'active' : ''} href="#/setup">Fresh clone setup</a>
           <a className={route.name === 'permissions' ? 'active' : ''} href="#/permissions">Permissions</a>
+          {authUser?.role === 'super_admin' && <a className={route.name === 'authHardening' ? 'active' : ''} href="#/auth-hardening">Auth hardening</a>}
           {authUser?.role === 'super_admin' && <a className={route.name === 'users' ? 'active' : ''} href="#/users">Users & roles</a>}
           <a className={route.name === 'login' ? 'active' : ''} href="#/login">{authUser ? 'Account' : 'Login'}</a>
           <a href="http://127.0.0.1:8000" target="_blank" rel="noreferrer">Legacy Jinja UI</a>
@@ -279,24 +305,27 @@ function App() {
       </aside>
 
       <main className="main-area">
-        {route.name === 'dashboard' && <Dashboard />}
-        {route.name === 'new' && <CreatePackage />}
-        {route.name === 'package' && <PackageDetail id={route.id} />}
-        {route.name === 'batches' && <BatchesPage />}
-        {route.name === 'batch' && <BatchDetail id={route.id} />}
-        {route.name === 'calendar' && <CalendarPage />}
-        {route.name === 'assets' && <VisualAssetsPage />}
-        {route.name === 'templates' && <PromptTemplatesPage />}
-        {route.name === 'analytics' && <AnalyticsInsightsPage />}
-        {route.name === 'providerLogs' && <ProviderLogsPage />}
-        {route.name === 'demo' && <DemoSetupPage />}
-        {route.name === 'release' && <ReleaseChecklistPage />}
-        {route.name === 'setup' && <FreshCloneSetupPage />}
-        {route.name === 'login' && <LoginPage authUser={authUser} authStatus={authStatus} onLogin={setAuthUser} onLogout={handleLogout} />}
-        {route.name === 'users' && <UserManagementPage currentUser={authUser} />}
-        {route.name === 'permissions' && <PermissionMatrixPage authStatus={authStatus} authUser={authUser} />}
-        {route.name === 'settings' && <AiSettings />}
-        {route.name === 'audioSettings' && <AudioSettings />}
+        <RouteGate route={route}>
+          {route.name === 'dashboard' && <Dashboard />}
+          {route.name === 'new' && <CreatePackage />}
+          {route.name === 'package' && <PackageDetail id={route.id} />}
+          {route.name === 'batches' && <BatchesPage />}
+          {route.name === 'batch' && <BatchDetail id={route.id} />}
+          {route.name === 'calendar' && <CalendarPage />}
+          {route.name === 'assets' && <VisualAssetsPage />}
+          {route.name === 'templates' && <PromptTemplatesPage />}
+          {route.name === 'analytics' && <AnalyticsInsightsPage />}
+          {route.name === 'providerLogs' && <ProviderLogsPage />}
+          {route.name === 'demo' && <DemoSetupPage />}
+          {route.name === 'release' && <ReleaseChecklistPage />}
+          {route.name === 'setup' && <FreshCloneSetupPage />}
+          {route.name === 'login' && <LoginPage authUser={authUser} authStatus={authStatus} onLogin={setAuthUser} onLogout={handleLogout} />}
+          {route.name === 'users' && <UserManagementPage currentUser={authUser} />}
+          {route.name === 'authHardening' && <AuthHardeningPage />}
+          {route.name === 'permissions' && <PermissionMatrixPage authStatus={authStatus} authUser={authUser} />}
+          {route.name === 'settings' && <AiSettings />}
+          {route.name === 'audioSettings' && <AudioSettings />}
+        </RouteGate>
       </main>
     </div>
     </AuthContext.Provider>
@@ -321,14 +350,60 @@ function parseRoute(hash) {
   if (parts[0] === 'setup') return { name: 'setup' }
   if (parts[0] === 'login') return { name: 'login' }
   if (parts[0] === 'users') return { name: 'users' }
+  if (parts[0] === 'auth-hardening') return { name: 'authHardening' }
   if (parts[0] === 'permissions') return { name: 'permissions' }
   if (parts[0] === 'settings' && parts[1] === 'ai') return { name: 'settings' }
   if (parts[0] === 'settings' && parts[1] === 'audio') return { name: 'audioSettings' }
   return { name: 'dashboard' }
 }
 
+function routeAccessRule(route) {
+  return ROUTE_ACCESS[route.name] || null
+}
+
+function RouteGate({ route, children }) {
+  const { user, status } = useAuthContext()
+  const rule = routeAccessRule(route)
+
+  if (!rule || route.name === 'login') return children
+  if (status === null) return <Loading />
+  if (status && status.auth_required === false) return children
+
+  if (!user) {
+    return (
+      <ErrorCard
+        title="Login required"
+        message="This page is protected when AUTH_REQUIRED=true. Login with a role that has access to continue."
+        action={<button onClick={() => navigate('#/login')}>Go to login</button>}
+      />
+    )
+  }
+
+  if (rule.role && user.role !== rule.role) {
+    return (
+      <ErrorCard
+        title="Role required"
+        message={`This page requires the ${rule.role.replaceAll('_', ' ')} role. Your current role is ${user.role.replaceAll('_', ' ')}.`}
+        action={<button className="secondary" onClick={() => navigate('#/permissions')}>View permissions</button>}
+      />
+    )
+  }
+
+  if (rule.permission && !canUsePermission(user, status, rule.permission)) {
+    return (
+      <ErrorCard
+        title="Permission required"
+        message={`This page requires permission to ${permissionLabel(rule.permission)}.`}
+        action={<button className="secondary" onClick={() => navigate('#/permissions')}>View permissions</button>}
+      />
+    )
+  }
+
+  return children
+}
+
 function LoginPage({ authUser, authStatus, onLogin, onLogout }) {
-  const [form, setForm] = useState({ email: authStatus?.default_admin_email || 'admin@example.com', password: 'ChangeMe123!' })
+  const [form, setForm] = useState({ email: authStatus?.default_admin_email || 'admin@example.com', password: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -386,14 +461,14 @@ function LoginPage({ authUser, authStatus, onLogin, onLogout }) {
         {error && <p className="error-text wide">{error}</p>}
         <div className="wide button-row">
           <button disabled={busy}>{busy ? 'Logging in...' : 'Login'}</button>
-          <button type="button" className="secondary" onClick={() => setForm({ email: authStatus?.default_admin_email || 'admin@example.com', password: 'ChangeMe123!' })}>Use local admin sample</button>
+          <button type="button" className="secondary" onClick={() => setForm({ email: authStatus?.default_admin_email || 'admin@example.com', password: 'ChangeMe123!' })}>Fill local sample password</button>
         </div>
       </form>
       <div className="card stack">
         <h2>Auth foundation status</h2>
         <InfoBlock title="Auth required" value={String(Boolean(authStatus?.auth_required))} />
         <InfoBlock title="Default admin email" value={authStatus?.default_admin_email || 'admin@example.com'} />
-        <p className="muted">For now, AUTH_REQUIRED can stay false while you build. Later, set it true and wire permission dependencies into sensitive routes.</p>
+        <p className="muted">For now, AUTH_REQUIRED can stay false while you build. Before strict testing, change the sample password and review the Auth hardening page.</p>
       </div>
     </section>
   )
@@ -454,6 +529,123 @@ function PermissionMatrixPage({ authStatus, authUser }) {
         <p className="muted">When you are ready to test real permissions, set this in your local .env and restart FastAPI:</p>
         <pre>{`AUTH_REQUIRED=true`}</pre>
         <p className="muted">Then login as different roles and confirm create/review/publish actions are blocked or allowed correctly.</p>
+      </div>
+    </section>
+  )
+}
+
+function AuthHardeningPage() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({ current_password: '', new_password: '' })
+  const [message, setMessage] = useState('')
+
+  function load() {
+    setError('')
+    fetchAuthHardening().then(setData).catch((err) => setError(err.message))
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  async function cleanupSessions() {
+    setBusy(true)
+    setMessage('')
+    setError('')
+    try {
+      const result = await cleanupAuthSessions()
+      setMessage(`Revoked ${result.revoked_expired_sessions || 0} expired sessions.`)
+      load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function submitPassword(event) {
+    event.preventDefault()
+    setBusy(true)
+    setMessage('')
+    setError('')
+    try {
+      await changeAuthPassword(passwordForm)
+      clearAuthToken()
+      setMessage('Password changed. Sessions were revoked. Please login again with the new password.')
+      setPasswordForm({ current_password: '', new_password: '' })
+      setTimeout(() => navigate('#/login'), 600)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (error && !data) return <ErrorCard title="Could not load auth hardening" message={error} />
+  if (!data) return <Loading />
+
+  return (
+    <section>
+      <Header
+        title="Auth hardening"
+        subtitle="Check production-style login settings, clean expired sessions, and rotate the local admin password before stricter testing."
+      />
+      <div className="metric-grid">
+        <Metric label="Auth required" value={data.auth_required ? 'Strict' : 'Permissive'} />
+        <Metric label="Active sessions" value={data.active_sessions} />
+        <Metric label="Users" value={data.users_total} />
+        <Metric label="Token TTL" value={`${data.token_ttl_hours}h`} />
+      </div>
+
+      <div className="card stack">
+        <div className="card-header">
+          <h2>Hardening checklist</h2>
+          <button className="secondary small" onClick={load}>Refresh</button>
+        </div>
+        <div className="current-permission-grid">
+          {(data.checklist || []).map((item) => (
+            <div className={`permission-card ${item.passed ? 'allowed' : 'blocked'}`} key={item.item}>
+              <strong>{item.passed ? 'Passed' : 'Needs attention'}</strong>
+              <span>{item.item}</span>
+            </div>
+          ))}
+        </div>
+        {data.warnings?.length > 0 && (
+          <div className="warning-list">
+            <h3>Warnings</h3>
+            <ul>{data.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+          </div>
+        )}
+        {data.recommendations?.length > 0 && (
+          <div className="warning-list">
+            <h3>Recommended fixes</h3>
+            <ul>{data.recommendations.map((recommendation) => <li key={recommendation}>{recommendation}</li>)}</ul>
+          </div>
+        )}
+        {message && <p className="success-text">{message}</p>}
+        {error && <p className="error-text">{error}</p>}
+        <div className="button-row">
+          <button className="secondary" disabled={busy} onClick={cleanupSessions}>Clean expired sessions</button>
+          <button className="secondary" onClick={() => navigate('#/permissions')}>View permission matrix</button>
+        </div>
+      </div>
+
+      <form className="card form-grid" onSubmit={submitPassword}>
+        <div className="wide">
+          <h2>Change current password</h2>
+          <p className="muted">After password change, all sessions for this account are revoked. You will need to login again.</p>
+        </div>
+        <Input label="Current password" type="password" value={passwordForm.current_password} onChange={(value) => setPasswordForm({ ...passwordForm, current_password: value })} />
+        <Input label="New password" type="password" value={passwordForm.new_password} onChange={(value) => setPasswordForm({ ...passwordForm, new_password: value })} />
+        <div className="wide button-row"><button disabled={busy}>Change password and revoke sessions</button></div>
+      </form>
+
+      <div className="card stack">
+        <h2>Suggested strict testing settings</h2>
+        <pre>{`AUTH_REQUIRED=true\nAUTH_COOKIE_SECURE=false\nAUTH_COOKIE_SAMESITE=lax\nAUTH_TOKEN_TTL_HOURS=24\nAUTH_MAX_ACTIVE_SESSIONS_PER_USER=4`}</pre>
+        <p className="muted">Use AUTH_COOKIE_SECURE=true only when serving through HTTPS.</p>
       </div>
     </section>
   )
@@ -2905,8 +3097,15 @@ function EmptyState() {
   return <div className="empty-state"><h3>No packages yet</h3><p>Create your first Shorts package using the sample Science topic.</p><GuardedButton permission="content:create" onClick={() => navigate('#/new')}>Create first package</GuardedButton></div>
 }
 
-function ErrorCard({ title, message }) {
-  return <div className="card error-card"><h2>{title}</h2><p>{message}</p><p className="muted">Make sure the FastAPI backend is running at http://127.0.0.1:8000.</p></div>
+function ErrorCard({ title, message, action = null }) {
+  return (
+    <div className="card error-card">
+      <h2>{title}</h2>
+      <p>{message}</p>
+      {action && <div className="button-row">{action}</div>}
+      <p className="muted">Make sure the FastAPI backend is running at http://127.0.0.1:8000.</p>
+    </div>
+  )
 }
 
 async function copyText(text) {

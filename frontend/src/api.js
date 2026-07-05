@@ -27,6 +27,7 @@ function authHeaders() {
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
       ...authHeaders(),
@@ -36,6 +37,10 @@ async function request(path, options = {}) {
   })
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearAuthToken()
+      window.dispatchEvent(new CustomEvent('auth:expired'))
+    }
     let message = `Request failed with status ${response.status}`
     try {
       const body = await response.json()
@@ -86,6 +91,21 @@ export function fetchAuthStatus() {
 
 export function fetchAuthPermissions() {
   return request('/api/auth/permissions')
+}
+
+export function fetchAuthHardening() {
+  return request('/api/auth/hardening')
+}
+
+export function cleanupAuthSessions() {
+  return request('/api/auth/sessions/cleanup', { method: 'POST' })
+}
+
+export function changeAuthPassword(payload) {
+  return request('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
 }
 
 export function fetchAuthUsers() {
@@ -239,6 +259,7 @@ export function fetchVisualAssets() {
 export async function uploadVisualAsset(formData) {
   const response = await fetch(`${API_BASE_URL}/api/assets`, {
     method: 'POST',
+    credentials: 'same-origin',
     headers: authHeaders(),
     body: formData
   })

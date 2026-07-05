@@ -125,3 +125,47 @@ def test_strict_permission_enforcement_blocks_and_allows_creator_actions(tmp_pat
         assert allowed_review.status_code == 200
     finally:
         settings.auth_required = False
+
+
+def test_auth_hardening_and_password_rotation(tmp_path):
+    settings.database_path = tmp_path / "auth-hardening-test.db"
+    settings.export_dir = tmp_path / "exports"
+    settings.default_admin_email = "admin@example.com"
+    settings.default_admin_password = "ChangeMe123!"
+    settings.auth_required = False
+    init_db()
+
+    client = TestClient(app)
+    blocked = client.get("/api/auth/hardening")
+    assert blocked.status_code == 401
+
+    login = client.post("/api/auth/login", json={"email": "admin@example.com", "password": "ChangeMe123!"})
+    assert login.status_code == 200
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    report = client.get("/api/auth/hardening", headers=headers)
+    assert report.status_code == 200
+    assert "checklist" in report.json()
+    assert report.json()["active_sessions"] >= 1
+
+    cleanup = client.post("/api/auth/sessions/cleanup", headers=headers)
+    assert cleanup.status_code == 200
+    assert "revoked_expired_sessions" in cleanup.json()
+
+    changed = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "ChangeMe123!", "new_password": "BetterPass123"},
+        headers=headers,
+    )
+    assert changed.status_code == 200
+
+    old_token_me = client.get("/api/auth/me", headers=headers)
+    assert old_token_me.status_code == 200
+    assert old_token_me.json()["authenticated"] is False
+
+    old_password = client.post("/api/auth/login", json={"email": "admin@example.com", "password": "ChangeMe123!"})
+    assert old_password.status_code == 401
+
+    new_password = client.post("/api/auth/login", json={"email": "admin@example.com", "password": "BetterPass123"})
+    assert new_password.status_code == 200

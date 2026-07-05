@@ -369,7 +369,7 @@ def add_analytics(
 
 
 @router.get("/content/{package_id}/export")
-def export_content(package_id: int):
+def export_content(package_id: int, _: dict[str, Any] = Depends(require_permission("content:publish"))):
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         audio_assets = conn.execute("SELECT * FROM audio_assets WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
@@ -666,7 +666,7 @@ def api_setup_guide() -> dict[str, Any]:
 
 
 @router.get("/setup/guide/download")
-def download_setup_guide():
+def download_setup_guide(_: dict[str, Any] = Depends(require_permission("content:view"))):
     guide = build_setup_guide()
     return PlainTextResponse(
         guide["guide_markdown"],
@@ -680,7 +680,7 @@ def api_release_checklist() -> dict[str, Any]:
 
 
 @router.get("/release/checklist/download")
-def download_release_checklist():
+def download_release_checklist(_: dict[str, Any] = Depends(require_permission("content:view"))):
     checklist = build_release_checklist()
     return PlainTextResponse(
         checklist["report_markdown"],
@@ -1037,7 +1037,7 @@ def api_delete_visual_asset(asset_id: int, _: dict[str, Any] = Depends(require_p
 
 
 @router.get("/assets/{asset_id}/download")
-def download_visual_asset(asset_id: int):
+def download_visual_asset(asset_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))):
     with db_session() as conn:
         asset = conn.execute("SELECT * FROM visual_assets WHERE id = ?", (asset_id,)).fetchone()
     if asset is None:
@@ -1204,7 +1204,7 @@ def api_list_assembly_plans(package_id: int, _: dict[str, Any] = Depends(require
 
 
 @router.get("/content/{package_id}/assembly/{plan_id}/download")
-def download_assembly_plan(package_id: int, plan_id: int):
+def download_assembly_plan(package_id: int, plan_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))):
     from fastapi.responses import Response
 
     with db_session() as conn:
@@ -1264,7 +1264,7 @@ def api_list_audio(package_id: int, _: dict[str, Any] = Depends(require_permissi
 
 
 @router.get("/content/{package_id}/audio/{asset_id}/download")
-def download_audio_asset(package_id: int, asset_id: int):
+def download_audio_asset(package_id: int, asset_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))):
     with db_session() as conn:
         row = conn.execute(
             "SELECT * FROM audio_assets WHERE id = ? AND package_id = ?",
@@ -1404,7 +1404,7 @@ def api_list_thumbnail_guides(package_id: int, _: dict[str, Any] = Depends(requi
 
 
 @router.get("/content/{package_id}/thumbnail/{guide_id}/download")
-def download_thumbnail_guide(package_id: int, guide_id: int):
+def download_thumbnail_guide(package_id: int, guide_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))):
     with db_session() as conn:
         row = conn.execute(
             "SELECT * FROM thumbnail_guides WHERE id = ? AND package_id = ?",
@@ -1467,7 +1467,7 @@ def api_list_source_safety_reviews(package_id: int, _: dict[str, Any] = Depends(
 
 
 @router.get("/content/{package_id}/source-safety/{review_id}/download")
-def download_source_safety_review(package_id: int, review_id: int):
+def download_source_safety_review(package_id: int, review_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))):
     with db_session() as conn:
         row = conn.execute(
             "SELECT * FROM source_safety_reviews WHERE id = ? AND package_id = ?",
@@ -1610,7 +1610,7 @@ def api_update_trust_review(package_id: int, review_id: int, payload: TrustRevie
 
 
 @router.get("/content/{package_id}/trust-review/{review_id}/download")
-def download_trust_review(package_id: int, review_id: int):
+def download_trust_review(package_id: int, review_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))):
     with db_session() as conn:
         row = conn.execute(
             "SELECT * FROM teacher_trust_reviews WHERE id = ? AND package_id = ?",
@@ -1670,7 +1670,7 @@ def api_list_learning_outputs(package_id: int, _: dict[str, Any] = Depends(requi
 
 
 @router.get("/content/{package_id}/learning-output/{output_id}/download")
-def download_learning_output(package_id: int, output_id: int):
+def download_learning_output(package_id: int, output_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))):
     with db_session() as conn:
         row = conn.execute(
             "SELECT * FROM learning_outputs WHERE id = ? AND package_id = ?",
@@ -1739,7 +1739,7 @@ def api_list_video_drafts(package_id: int, _: dict[str, Any] = Depends(require_p
 
 
 @router.get("/content/{package_id}/video-draft/{draft_id}/download")
-def download_video_draft(package_id: int, draft_id: int):
+def download_video_draft(package_id: int, draft_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))):
     with db_session() as conn:
         row = conn.execute(
             "SELECT * FROM video_drafts WHERE id = ? AND package_id = ?",

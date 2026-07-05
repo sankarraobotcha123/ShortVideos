@@ -1,17 +1,18 @@
-# Edu Content Platform MVP — v21
+# Edu Content Platform MVP — v22
 
-Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, setup automation, and role-based permissions.
+Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, setup automation, role-based permissions, and hardened auth/route-guard polish.
 
-## What is new in v21
+## What is new in v22
 
-- Added permission-aware frontend action guards on top of the existing backend permission checks.
-- Added shared frontend auth context and reusable `GuardedButton`, `GuardedLink`, and `PermissionNotice` components.
-- Sensitive UI actions now lock with clear permission messages before the API call is attempted.
-- Sidebar navigation hides role-restricted destinations when strict auth is enabled.
-- Protected create package, batch, calendar, visual asset, prompt template, review, source safety, trust review, audio, assembly, video draft, learning output, analytics, and demo seed workflows in the UI.
-- Role Permissions page now shows current-user allowed/blocked action cards.
-- Kept local development unblocked: when `AUTH_REQUIRED=false`, frontend actions stay permissive for solo MVP work.
-- Updated version to `0.21.0` and frontend asset version to `21`.
+- Added production auth hardening checks for strict-mode readiness.
+- Added an **Auth hardening** page for super admins.
+- Added expired-session cleanup and active-session limit enforcement.
+- Added current-user password rotation that revokes existing sessions.
+- Added stricter frontend route guards, so protected pages show friendly login/permission messages instead of partially loading.
+- Added auth-aware API behavior that clears stale local tokens after `401` responses.
+- Added secure-cookie configuration options for HTTPS deployments.
+- Protected generated artifact download/export routes with permission checks.
+- Updated version to `0.22.0` and frontend asset version to `22`.
 
 ## Default local login
 
@@ -39,6 +40,14 @@ For normal local development, keep:
 ```env
 AUTH_REQUIRED=false
 ```
+
+Before strict/demo production testing, open:
+
+```text
+http://127.0.0.1:5173/#/auth-hardening
+```
+
+Then change the default password and check the hardening checklist.
 
 ## Run backend
 
@@ -84,7 +93,7 @@ python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Add permission aware frontend action guards"
+git commit -m "Harden auth flow and frontend route guards"
 git push
 ```
 
@@ -111,10 +120,10 @@ __pycache__/
 
 ## Next recommended step
 
-Feature polish for protected workflows: show permission-aware disabled actions in the frontend and add stricter publish approval rules.
+Add final publishing approval gates so export/publish actions warn or block when source safety, trust review, and review status are not ready.
 
 Suggested next commit message:
 
 ```bash
-git commit -m "Add permission aware frontend action guards"
+git commit -m "Add publishing approval gate workflow"
 ```
