@@ -20,9 +20,11 @@ import {
   generateAssembly,
   generateAudio,
   generateContent,
+  generateSourceSafetyReview,
   generateThumbnailGuide,
   generateVideoDraft,
   thumbnailGuideDownloadUrl,
+  sourceSafetyDownloadUrl,
   updateBatch,
   uploadVisualAsset,
   updateCalendarEntry,
@@ -788,6 +790,7 @@ function PackageDetail({ id }) {
   const [assemblyGenerating, setAssemblyGenerating] = useState(false)
   const [videoDraftGenerating, setVideoDraftGenerating] = useState(false)
   const [thumbnailGenerating, setThumbnailGenerating] = useState(false)
+  const [sourceSafetyGenerating, setSourceSafetyGenerating] = useState(false)
   const [analytics, setAnalytics] = useState({
     platform: 'YouTube Shorts',
     entry_date: today(),
@@ -901,6 +904,26 @@ function PackageDetail({ id }) {
   }
 
 
+  async function createSourceSafetyReview() {
+    setMessage('')
+    setError('')
+    setSourceSafetyGenerating(true)
+    try {
+      const result = await generateSourceSafetyReview(id)
+      setData((current) => ({
+        ...current,
+        source_safety_reviews: [result.source_safety_review, ...(current.source_safety_reviews || [])]
+      }))
+      const review = result.source_safety_review
+      setMessage(`Source safety review generated. Risk: ${review.risk_level}. Similarity: ${review.similarity_score}%.`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSourceSafetyGenerating(false)
+    }
+  }
+
+
   async function createVideoDraft() {
     setMessage('')
     setError('')
@@ -977,6 +1000,75 @@ function PackageDetail({ id }) {
           <InfoList title="Hashtags" values={pkg.hashtags_list} inline />
           <InfoBlock title="Quiz question" value={pkg.quiz_question} />
         </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header">
+          <div>
+            <h2>Thumbnail helper</h2>
+            <p className="muted">Generate thumbnail text ideas, a manual layout guide, and a Canva/CapCut prompt for this Short.</p>
+          </div>
+          <button onClick={createThumbnailGuide} disabled={thumbnailGenerating}>
+            {thumbnailGenerating ? 'Generating...' : 'Generate thumbnail helper'}
+          </button>
+        </div>
+        {!data.thumbnail_guides || data.thumbnail_guides.length === 0 ? (
+          <p className="muted">No thumbnail helper yet. Generate one before creating the final YouTube/Shorts thumbnail.</p>
+        ) : (
+          <div className="thumbnail-guide-list">
+            {data.thumbnail_guides.map((guide, index) => (
+              <div className="thumbnail-guide-entry" key={guide.id}>
+                <div>
+                  <strong>{guide.file_name}</strong>
+                  <p>{guide.status} • {guide.thumbnail_mode}</p>
+                  {index === 0 && <p className="muted">Latest guide is included in the export ZIP as thumbnail_guide.md.</p>}
+                </div>
+                <div className="row-meta">
+                  <StatusBadge status={guide.status} />
+                  <a className="button-link small" href={thumbnailGuideDownloadUrl(id, guide.id)}>Download guide</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {data.thumbnail_guides && data.thumbnail_guides.length > 0 && (
+          <TextCard title="Latest thumbnail layout guide" value={data.thumbnail_guides[0].layout_guide} />
+        )}
+      </div>
+
+      <div className="card stack">
+        <div className="card-header">
+          <div>
+            <h2>Source safety & originality</h2>
+            <p className="muted">Run this before publishing. It checks source metadata, copied-text flag, transformation notes, and similarity between source notes and script.</p>
+          </div>
+          <button onClick={createSourceSafetyReview} disabled={sourceSafetyGenerating}>
+            {sourceSafetyGenerating ? 'Checking...' : 'Generate source safety review'}
+          </button>
+        </div>
+        {!data.source_safety_reviews || data.source_safety_reviews.length === 0 ? (
+          <p className="muted">No source safety review yet. Generate one before approving or publishing this Short.</p>
+        ) : (
+          <div className="source-safety-list">
+            {data.source_safety_reviews.map((review, index) => (
+              <div className="source-safety-entry" key={review.id}>
+                <div>
+                  <strong>Review #{review.id}</strong>
+                  <p>Risk: {review.risk_level} • Similarity: {review.similarity_score}% • Status: {review.status}</p>
+                  <p>{review.recommendation}</p>
+                  {index === 0 && <p className="muted">Latest review is included in the export ZIP as source_safety_review.md.</p>}
+                </div>
+                <div className="row-meta">
+                  <StatusBadge status={review.risk_level} />
+                  <a className="button-link small" href={sourceSafetyDownloadUrl(id, review.id)}>Download review</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {data.source_safety_reviews && data.source_safety_reviews.length > 0 && (
+          <TextCard title="Latest source safety review" value={data.source_safety_reviews[0].review_markdown} />
+        )}
       </div>
 
       <div className="detail-grid">

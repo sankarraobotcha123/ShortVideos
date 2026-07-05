@@ -365,3 +365,49 @@ def test_thumbnail_helper_workflow_and_export(tmp_path):
     exported = client.get(f"/content/{package_id}/export")
     assert exported.status_code == 200
     assert exported.headers["content-type"] == "application/zip"
+
+
+def test_source_safety_workflow_and_export(tmp_path):
+    settings.database_path = tmp_path / "source-safety-test.db"
+    settings.export_dir = tmp_path / "exports"
+    settings.source_safety_dir = tmp_path / "source_safety"
+    init_db()
+
+    client = TestClient(app)
+    payload = {
+        "board_source": "Self-written",
+        "class_level": "Class 7",
+        "subject": "Science",
+        "topic": "Why are leaves green?",
+        "audience": "School students",
+        "language": "English",
+        "duration_seconds": 60,
+        "output_type": "Short",
+        "tone": "Curious",
+        "source_notes": "Leaves contain chlorophyll. Chlorophyll reflects green light.",
+        "source_name": "Self notes",
+        "source_license_type": "Original",
+        "page_or_section_reference": "Self-written concept note",
+        "transformation_notes": "Original analogy, example, and visual flow added.",
+    }
+    created = client.post("/api/content/generate", json=payload)
+    assert created.status_code == 201
+    package_id = created.json()["package"]["id"]
+
+    review = client.post(f"/api/content/{package_id}/source-safety")
+    assert review.status_code == 201
+    item = review.json()["source_safety_review"]
+    assert item["risk_level"] in {"low", "medium", "high"}
+    assert item["file_name"].endswith("source-safety-review.md")
+
+    detail = client.get(f"/api/content/{package_id}")
+    assert detail.status_code == 200
+    assert len(detail.json()["source_safety_reviews"]) == 1
+
+    download = client.get(f"/content/{package_id}/source-safety/{item['id']}/download")
+    assert download.status_code == 200
+    assert b"Source Safety" in download.content
+
+    exported = client.get(f"/content/{package_id}/export")
+    assert exported.status_code == 200
+    assert exported.headers["content-type"] == "application/zip"

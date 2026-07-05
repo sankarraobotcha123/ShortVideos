@@ -182,6 +182,16 @@ export function visualAssetUrl(id) {
   return `${API_BASE_URL}/assets/${id}/download`
 }
 
+export function generateSourceSafetyReview(id) {
+  return request(`/api/content/${id}/source-safety`, {
+    method: 'POST'
+  })
+}
+
+export function sourceSafetyDownloadUrl(packageId, reviewId) {
+  return `${API_BASE_URL}/content/${packageId}/source-safety/${reviewId}/download`
+}
+
 export function fetchAiSettings() {
   return request('/api/settings/ai')
 }

@@ -1,22 +1,21 @@
-# Next Steps After v9
+# Next Steps After v10
 
-## What changed in v9
+## What changed in v10
 
-- Added **Thumbnail Helper workflow**.
-- Added backend service `thumbnail_service.py`.
-- Added `thumbnail_guides` database table.
+- Added **Source Safety + Originality Review workflow**.
+- Added backend service `source_safety_service.py`.
+- Added `source_safety_reviews` database table.
 - Added API endpoints:
-  - `POST /api/content/{package_id}/thumbnail`
-  - `GET /api/content/{package_id}/thumbnails`
-  - `GET /content/{package_id}/thumbnail/{guide_id}/download`
-- Added React package-detail section: **Thumbnail helper**.
+  - `POST /api/content/{package_id}/source-safety`
+  - `GET /api/content/{package_id}/source-safety`
+  - `GET /content/{package_id}/source-safety/{review_id}/download`
+- Added React package-detail section: **Source safety & originality**.
 - Export ZIP now includes:
-  - `thumbnail_guides.json`
-  - `thumbnail_guide.md`
-  - `thumbnail_canva_prompt.txt`
-  - downloaded thumbnail guide markdown files
-- Added `THUMBNAIL_DIR=storage/thumbnails` to `.env.example`.
-- Added thumbnail storage to `.gitignore`.
+  - `source_safety_review.md`
+  - `source_safety_checklist.json`
+  - `source_safety_reviews.json`
+- Added `SOURCE_SAFETY_DIR=storage/source_safety` to `.env.example`.
+- Added source safety storage to `.gitignore`.
 
 ---
 
@@ -49,23 +48,23 @@ http://127.0.0.1:5173
 Test:
 
 1. Create/open a package.
-2. Review the script and title options.
-3. Click **Generate thumbnail helper**.
-4. Check thumbnail text ideas, layout guide, and Canva/CapCut prompt.
-5. Download the guide or export ZIP.
-6. Use `thumbnail_canva_prompt.txt` in Canva/CapCut while creating the thumbnail.
+2. Check that source name, license/type, source notes, and transformation notes are filled.
+3. Click **Generate source safety review**.
+4. Review risk level, similarity score, checklist, and recommendation.
+5. If risk is high, rewrite the script and generate another review.
+6. Export ZIP and check `source_safety_review.md`.
 
 ---
 
 ## Git commands for this step
 
-Use this commit message exactly for the v9 change:
+Use this commit message exactly for the v10 change:
 
 ```bash
 git status
 git add .
 git status
-git commit -m "Add thumbnail helper workflow for Shorts packages"
+git commit -m "Add source safety and originality review workflow"
 git push
 ```
 
@@ -82,6 +81,7 @@ storage/audio/
 storage/video_drafts/
 storage/asset_library/
 storage/thumbnails/
+storage/source_safety/
 __pycache__/
 .pytest_cache/
 ```
@@ -90,12 +90,12 @@ __pycache__/
 
 ## Recommended next feature
 
-Next build: **Source Safety + Originality Check**.
+Next build: **Teacher Trust Score Improvements**.
 
-Reason: before publishing regularly, every Short should have source/license tracking and a copied-text warning. This protects trust and reduces content risk.
+Reason: source safety tells whether the content is safe/original enough. The next step should make approval stronger by separating trust into factual accuracy, age appropriateness, simplicity, visual clarity, and reviewer confidence.
 
 Suggested next commit message:
 
 ```bash
-git commit -m "Add source safety and originality review workflow"
+git commit -m "Improve teacher trust score review workflow"
 ```

@@ -1,11 +1,11 @@
-# Edu Content Platform MVP v9
+# Edu Content Platform MVP v10
 
 Shorts-first educational content creator assistant.
 
-This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds a **Thumbnail Helper workflow** on top of the reusable visual asset library. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, stronger TTS providers, or advanced video generation without changing the business workflow.
+This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds a **Source Safety + Originality Review workflow** on top of thumbnail helper and reusable visual assets. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, stronger TTS providers, or advanced video generation without changing the business workflow.
 
 ```text
-Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Reusable Visual Assets → Thumbnail Helper → Vertical MP4 Draft → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics
+Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Reusable Visual Assets → Thumbnail Helper → Source Safety Review → Vertical MP4 Draft → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics
 ```
 
 ---
@@ -37,6 +37,12 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
   - Creates a manual layout guide
   - Creates Canva/CapCut thumbnail prompt
   - Exports thumbnail guide files in each package ZIP
+- Source Safety + Originality Review workflow:
+  - Checks source name/license/page metadata
+  - Warns when copied text is marked
+  - Estimates similarity between source notes and generated script
+  - Produces risk level, checklist, recommendation, and downloadable markdown review
+  - Exports source safety review files in each package ZIP
 - Simple vertical MP4 draft generator:
   - Creates 9:16 scene-card video drafts
   - Uses matched reusable visual assets when tags match the scene
@@ -62,6 +68,7 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 - Package detail/review screen
 - Suggested visual assets on package detail
 - Thumbnail helper section on package detail
+- Source safety/originality review section on package detail
 - Narration audio generation section
 - CapCut/manual assembly plan section
 - Vertical MP4 draft generation section
@@ -82,7 +89,7 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 ## Folder structure
 
 ```text
-edu-content-platform-mvp-v9/
+edu-content-platform-mvp-v10/
 ├── app/                    # FastAPI backend
 │   ├── core/
 │   ├── db/
@@ -116,6 +123,25 @@ edu-content-platform-mvp-v9/
 ```
 
 ---
+
+
+## Source safety workflow
+
+After creating a package:
+
+1. Open the package detail page.
+2. Click **Generate source safety review**.
+3. Check the risk level, similarity score, checklist, and recommendation.
+4. If the risk is high, rewrite the script before approving.
+5. Export the package ZIP and verify these files are included:
+
+```text
+source_safety_review.md
+source_safety_checklist.json
+source_safety_reviews.json
+```
+
+This is not a legal verdict or full plagiarism scanner. It is an MVP publishing guardrail to prevent copied textbook-style Shorts from entering your workflow.
 
 ## Run backend
 
@@ -179,7 +205,7 @@ This means:
 
 ---
 
-## How to test the full v9 workflow
+## How to test the full v10 workflow
 
 1. Start backend.
 2. Start frontend.

@@ -22,6 +22,7 @@ def export_package(
     video_drafts: Sequence[Mapping] | None = None,
     visual_assets: Sequence[Mapping] | None = None,
     thumbnail_guides: Sequence[Mapping] | None = None,
+    source_safety_reviews: Sequence[Mapping] | None = None,
 ) -> Path:
     settings.export_dir.mkdir(parents=True, exist_ok=True)
     package_id = row["id"]
@@ -36,6 +37,7 @@ def export_package(
     video_drafts = list(video_drafts or [])
     visual_assets = list(visual_assets or [])
     thumbnail_guides = list(thumbnail_guides or [])
+    source_safety_reviews = list(source_safety_reviews or [])
 
     asset_summary = "No reusable visual assets saved yet. Upload assets in the Visual Assets page to reuse icons/diagrams in MP4 drafts."
     if visual_assets:
@@ -77,6 +79,15 @@ def export_package(
         thumbnail_summary = (
             f"Latest guide: {latest_thumbnail.get('file_name')} | "
             f"{latest_thumbnail.get('thumbnail_mode', 'manual_canva_capcut_guide')}"
+        )
+
+    source_safety_summary = "No source safety review generated yet. Use the app's Generate source safety review button before publishing."
+    latest_source_safety = source_safety_reviews[0] if source_safety_reviews else None
+    if latest_source_safety:
+        source_safety_summary = (
+            f"Latest review: risk={latest_source_safety.get('risk_level')} | "
+            f"similarity={latest_source_safety.get('similarity_score')}% | "
+            f"status={latest_source_safety.get('status')}"
         )
 
     markdown = f"""# Content Package: {row['topic']}
@@ -127,6 +138,10 @@ def export_package(
 ## Thumbnail Helper
 
 {thumbnail_summary}
+
+## Source Safety & Originality Review
+
+{source_safety_summary}
 
 ## Title Options
 
@@ -224,12 +239,19 @@ def export_package(
         (package_dir / "thumbnail_canva_prompt.txt").write_text(str(latest_thumbnail.get("canva_prompt") or ""), encoding="utf-8")
     (package_dir / "thumbnail_guides.json").write_text(json.dumps(thumbnail_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    source_safety_manifest = [dict(review) for review in source_safety_reviews]
+    if latest_source_safety:
+        (package_dir / "source_safety_review.md").write_text(str(latest_source_safety.get("review_markdown") or ""), encoding="utf-8")
+        (package_dir / "source_safety_checklist.json").write_text(str(latest_source_safety.get("checklist_json") or "[]"), encoding="utf-8")
+    (package_dir / "source_safety_reviews.json").write_text(json.dumps(source_safety_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
     payload = dict(row)
     payload["audio_assets"] = audio_manifest
     payload["assembly_plans"] = assembly_manifest
     payload["video_drafts"] = video_manifest
     payload["visual_assets"] = visual_asset_manifest
     payload["thumbnail_guides"] = thumbnail_manifest
+    payload["source_safety_reviews"] = source_safety_manifest
     (package_dir / "package.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
     zip_path = settings.export_dir / f"package-{package_id}-{slug}.zip"

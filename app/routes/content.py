@@ -17,6 +17,7 @@ from app.services.audio_service import audio_provider_status, generate_audio_ass
 from app.services.assembly_service import generate_assembly_plan
 from app.services.video_draft_service import generate_video_draft
 from app.services.thumbnail_service import generate_thumbnail_guide
+from app.services.source_safety_service import generate_source_safety_review
 from app.services.asset_library_service import save_uploaded_asset, normalize_tags, rank_assets_for_scene
 
 router = APIRouter()
@@ -353,6 +354,7 @@ def export_content(package_id: int):
         assembly_plans = conn.execute("SELECT * FROM assembly_plans WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         video_drafts = conn.execute("SELECT * FROM video_drafts WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         thumbnail_guides = conn.execute("SELECT * FROM thumbnail_guides WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+        source_safety_reviews = conn.execute("SELECT * FROM source_safety_reviews WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
@@ -363,6 +365,7 @@ def export_content(package_id: int):
         [dict(item) for item in video_drafts],
         [dict(item) for item in visual_assets],
         [dict(item) for item in thumbnail_guides],
+        [dict(item) for item in source_safety_reviews],
     )
     return FileResponse(zip_path, filename=Path(zip_path).name, media_type="application/zip")
 
@@ -513,6 +516,10 @@ def api_package(package_id: int) -> dict[str, Any]:
             "SELECT * FROM thumbnail_guides WHERE package_id = ? ORDER BY id DESC",
             (package_id,),
         ).fetchall()
+        source_safety_reviews = conn.execute(
+            "SELECT * FROM source_safety_reviews WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
@@ -524,6 +531,7 @@ def api_package(package_id: int) -> dict[str, Any]:
         "assembly_plans": [dict(item) for item in assembly_plans],
         "video_drafts": [dict(item) for item in video_drafts],
         "thumbnail_guides": [dict(item) for item in thumbnail_guides],
+        "source_safety_reviews": [dict(item) for item in source_safety_reviews],
         "visual_assets": [dict(item) for item in visual_assets],
         "suggested_visual_assets": _suggest_assets_for_package(dict(row), [dict(item) for item in visual_assets]),
     }
@@ -1152,6 +1160,69 @@ def download_thumbnail_guide(package_id: int, guide_id: int):
     path = Path(row["file_path"])
     if not path.exists():
         raise HTTPException(status_code=404, detail="Thumbnail guide file not found on disk")
+    return FileResponse(path, filename=row["file_name"], media_type=row["mime_type"] or "text/markdown")
+
+
+@router.post("/api/content/{package_id}/source-safety", status_code=201)
+def api_generate_source_safety_review(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Package not found")
+        payload = generate_source_safety_review(dict(row))
+        cursor = conn.execute(
+            """
+            INSERT INTO source_safety_reviews (
+                package_id, status, risk_level, similarity_score, sequence_similarity, keyword_overlap,
+                approval_required, copied_text_used, checklist_json, recommendation, review_markdown,
+                file_path, file_name, mime_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                package_id,
+                payload["status"],
+                payload["risk_level"],
+                payload["similarity_score"],
+                payload["sequence_similarity"],
+                payload["keyword_overlap"],
+                payload["approval_required"],
+                payload["copied_text_used"],
+                payload["checklist_json"],
+                payload["recommendation"],
+                payload["review_markdown"],
+                payload["file_path"],
+                payload["file_name"],
+                payload["mime_type"],
+            ),
+        )
+        review_id = int(cursor.lastrowid)
+        review = conn.execute("SELECT * FROM source_safety_reviews WHERE id = ?", (review_id,)).fetchone()
+    return {"source_safety_review": dict(review)}
+
+
+@router.get("/api/content/{package_id}/source-safety")
+def api_list_source_safety_reviews(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        _assert_package_exists(conn, package_id)
+        rows = conn.execute(
+            "SELECT * FROM source_safety_reviews WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
+    return {"source_safety_reviews": [dict(row) for row in rows]}
+
+
+@router.get("/content/{package_id}/source-safety/{review_id}/download")
+def download_source_safety_review(package_id: int, review_id: int):
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM source_safety_reviews WHERE id = ? AND package_id = ?",
+            (review_id, package_id),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Source safety review not found")
+    path = Path(row["file_path"])
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Source safety review file not found on disk")
     return FileResponse(path, filename=row["file_name"], media_type=row["mime_type"] or "text/markdown")
 
 

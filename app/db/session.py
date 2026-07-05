@@ -160,6 +160,30 @@ CREATE TABLE IF NOT EXISTS thumbnail_guides (
     FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
 );
 
+
+CREATE TABLE IF NOT EXISTS source_safety_reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'needs_human_review',
+    risk_level TEXT NOT NULL DEFAULT 'medium',
+    similarity_score REAL NOT NULL DEFAULT 0,
+    sequence_similarity REAL NOT NULL DEFAULT 0,
+    keyword_overlap REAL NOT NULL DEFAULT 0,
+    approval_required INTEGER NOT NULL DEFAULT 1,
+    copied_text_used INTEGER NOT NULL DEFAULT 0,
+    checklist_json TEXT NOT NULL DEFAULT '[]',
+    recommendation TEXT NOT NULL DEFAULT '',
+    review_markdown TEXT NOT NULL DEFAULT '',
+    file_path TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL DEFAULT 'text/markdown',
+    reviewer_decision TEXT NOT NULL DEFAULT 'pending',
+    reviewer_notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -186,6 +210,7 @@ def ensure_storage() -> None:
     settings.video_draft_dir.mkdir(parents=True, exist_ok=True)
     settings.asset_library_dir.mkdir(parents=True, exist_ok=True)
     settings.thumbnail_dir.mkdir(parents=True, exist_ok=True)
+    settings.source_safety_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -361,6 +386,34 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
         """
     )
 
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS source_safety_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'needs_human_review',
+            risk_level TEXT NOT NULL DEFAULT 'medium',
+            similarity_score REAL NOT NULL DEFAULT 0,
+            sequence_similarity REAL NOT NULL DEFAULT 0,
+            keyword_overlap REAL NOT NULL DEFAULT 0,
+            approval_required INTEGER NOT NULL DEFAULT 1,
+            copied_text_used INTEGER NOT NULL DEFAULT 0,
+            checklist_json TEXT NOT NULL DEFAULT '[]',
+            recommendation TEXT NOT NULL DEFAULT '',
+            review_markdown TEXT NOT NULL DEFAULT '',
+            file_path TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            mime_type TEXT NOT NULL DEFAULT 'text/markdown',
+            reviewer_decision TEXT NOT NULL DEFAULT 'pending',
+            reviewer_notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     additions = {
         "batch_id": "ALTER TABLE content_packages ADD COLUMN batch_id INTEGER REFERENCES content_batches(id) ON DELETE SET NULL",
         "provider_used": "ALTER TABLE content_packages ADD COLUMN provider_used TEXT NOT NULL DEFAULT 'template'",
@@ -371,3 +424,4 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
     }
     for column, sql in additions.items():
         _add_column_if_missing(conn, "content_packages", column, sql)
+
