@@ -43,6 +43,7 @@ class Settings:
     source_safety_dir: Path = Path(os.getenv("SOURCE_SAFETY_DIR", "storage/source_safety"))
     trust_review_dir: Path = Path(os.getenv("TRUST_REVIEW_DIR", "storage/trust_reviews"))
     learning_output_dir: Path = Path(os.getenv("LEARNING_OUTPUT_DIR", "storage/learning_outputs"))
+    handoff_dir: Path = Path(os.getenv("HANDOFF_DIR", "storage/handoffs"))
 
     # AI provider chain. The system tries each provider in order and falls back
     # safely to the built-in template provider.
@@ -74,7 +75,7 @@ class Settings:
     tts_voice_id: str = os.getenv("TTS_VOICE_ID", "default")
     tts_rate: int = int(os.getenv("TTS_RATE", "165"))
 
-    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "27")
+    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "28")
 
     # Authentication is a foundation layer for role-based review/publishing workflows.
     # Keep AUTH_REQUIRED=false during local MVP work if you do not want to block older routes yet.

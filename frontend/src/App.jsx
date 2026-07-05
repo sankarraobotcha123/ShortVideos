@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   addAnalytics,
   bulkScheduleCalendar,
+  batchHandoffDownloadUrl,
+  batchHandoffReportDownloadUrl,
   calendarBulkReportDownloadUrl,
   changeAuthPassword,
   contentIdeasDownloadUrl,
@@ -16,6 +18,7 @@ import {
   assemblyDownloadUrl,
   assignPackageBatch,
   createBatch,
+  createBatchHandoff,
   createCalendarEntry,
   deleteCalendarEntry,
   deleteVisualAsset,
@@ -29,6 +32,7 @@ import {
   fetchAudioSettings,
   fetchBatch,
   fetchBatches,
+  fetchBatchHandoffs,
   fetchCalendar,
   fetchCalendarBulkRuns,
   fetchPackage,
@@ -146,6 +150,15 @@ const initialBulkCalendar = {
   apply: false
 }
 
+const initialBatchHandoff = {
+  handoff_name: 'Science Shorts Production Handoff',
+  batch_id: '',
+  ready_only: true,
+  limit_count: 50,
+  created_by: '',
+  notes: 'Export ready packages for CapCut/Canva editing and publisher handoff.'
+}
+
 const initialVisualAsset = {
   title: 'Leaf chlorophyll diagram',
   tags: 'leaf, chlorophyll, photosynthesis, science',
@@ -255,6 +268,7 @@ const ROUTE_ACCESS = {
   batch: { permission: 'content:view' },
   calendar: { permission: 'content:view' },
   bulkCalendar: { permission: 'content:view' },
+  handoff: { permission: 'content:view' },
   productionBoard: { permission: 'content:view' },
   ideas: { permission: 'content:view' },
   series: { permission: 'content:view' },
@@ -393,6 +407,7 @@ function App() {
           {navCan('content:view') && <a className={route.name === 'batches' || route.name === 'batch' ? 'active' : ''} href="#/batches">Batches</a>}
           {navCan('content:view') && <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>}
           {navCan('content:view') && <a className={route.name === 'bulkCalendar' ? 'active' : ''} href="#/calendar/bulk">Bulk schedule</a>}
+          {navCan('content:view') && <a className={route.name === 'handoff' ? 'active' : ''} href="#/handoff">Batch handoff</a>}
           {navCan('content:view') && <a className={route.name === 'productionBoard' ? 'active' : ''} href="#/production-board">Production board</a>}
           {navCan('content:view') && <a className={route.name === 'ideas' ? 'active' : ''} href="#/ideas">Idea backlog</a>}
           {navCan('content:view') && <a className={route.name === 'series' || route.name === 'seriesDetail' ? 'active' : ''} href="#/series">Series planner</a>}
@@ -433,6 +448,7 @@ function App() {
           {route.name === 'batch' && <BatchDetail id={route.id} />}
           {route.name === 'calendar' && <CalendarPage />}
           {route.name === 'bulkCalendar' && <BulkScheduleCalendarPage />}
+          {route.name === 'handoff' && <BatchHandoffPage />}
           {route.name === 'productionBoard' && <ProductionBoardPage />}
           {route.name === 'ideas' && <ContentIdeaBacklogPage />}
           {route.name === 'series' && <ContentSeriesPlannerPage />}
@@ -467,6 +483,7 @@ function parseRoute(hash) {
   if (parts[0] === 'batches') return { name: 'batches' }
   if (parts[0] === 'calendar' && parts[1] === 'bulk') return { name: 'bulkCalendar' }
   if (parts[0] === 'calendar') return { name: 'calendar' }
+  if (parts[0] === 'handoff') return { name: 'handoff' }
   if (parts[0] === 'production-board') return { name: 'productionBoard' }
   if (parts[0] === 'ideas') return { name: 'ideas' }
   if (parts[0] === 'series' && parts[1]) return { name: 'seriesDetail', id: parts[1] }
@@ -904,6 +921,7 @@ function Dashboard() {
         <GuardedButton permission="content:create" onClick={() => navigate('#/batches')}>Plan a 20-Short batch</GuardedButton>
         <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/calendar')}>Open publishing calendar</GuardedButton>
         <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/calendar/bulk')}>Bulk schedule calendar</GuardedButton>
+        <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/handoff')}>Batch export handoff</GuardedButton>
         <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/production-board')}>Open production board</GuardedButton>
         <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/ideas')}>Open idea backlog</GuardedButton>
         <GuardedButton permission="assets:manage" className="secondary" onClick={() => navigate('#/assets')}>Upload visual assets</GuardedButton>
@@ -1406,6 +1424,121 @@ function CalendarPage() {
   )
 }
 
+
+
+function BatchHandoffPage() {
+  const canPublish = useCan('content:publish')
+  const [batches, setBatches] = useState([])
+  const [runs, setRuns] = useState([])
+  const [form, setForm] = useState(initialBatchHandoff)
+  const [latest, setLatest] = useState(null)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  function load() {
+    setError('')
+    Promise.all([fetchBatches(), fetchBatchHandoffs()])
+      .then(([batchPayload, runPayload]) => {
+        setBatches(batchPayload.batches || [])
+        setRuns(runPayload.handoff_runs || [])
+      })
+      .catch((err) => setError(err.message))
+  }
+
+  useEffect(load, [])
+
+  function update(name, value) {
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setError('')
+    setMessage('')
+    if (!canPublish) {
+      setError('You do not have permission to create production handoff exports.')
+      return
+    }
+    setBusy(true)
+    try {
+      const payload = {
+        ...form,
+        batch_id: form.batch_id ? Number(form.batch_id) : null,
+        limit_count: Number(form.limit_count || 50),
+        ready_only: Boolean(form.ready_only)
+      }
+      const result = await createBatchHandoff(payload)
+      setLatest(result.handoff_run)
+      setRuns(result.handoff_runs || [])
+      setMessage(`Handoff ready: ${result.handoff_run.package_count} package(s) included, ${result.handoff_run.skipped_count} skipped.`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const batchOptions = [{ value: '', label: 'All packages' }, ...batches.map((b) => ({ value: String(b.id), label: b.name }))]
+
+  return (
+    <section>
+      <Header
+        title="Batch export and production handoff"
+        subtitle="Export many ready Shorts together with manifests, per-package ZIPs, editor README, and skipped-item notes."
+        action={<a className="button secondary" href={batchHandoffReportDownloadUrl()} target="_blank" rel="noreferrer">Download handoff report</a>}
+      />
+      {message && <div className="success-banner">{message}</div>}
+      {error && <div className="form-error">{error}</div>}
+
+      <form className="card form-grid" onSubmit={submit}>
+        <PermissionNotice permission="content:publish" />
+        <Input label="Handoff name" value={form.handoff_name} onChange={(v) => update('handoff_name', v)} />
+        <Select label="Batch/source" value={form.batch_id} options={batchOptions} onChange={(v) => update('batch_id', v)} />
+        <Input type="number" label="Maximum packages" value={form.limit_count} onChange={(v) => update('limit_count', v)} />
+        <Input label="Created by" value={form.created_by} onChange={(v) => update('created_by', v)} />
+        <label className="checkbox-field wide"><input type="checkbox" checked={form.ready_only} onChange={(event) => update('ready_only', event.target.checked)} /> Include only review-ready packages</label>
+        <TextArea wide rows={3} label="Handoff notes" value={form.notes} onChange={(v) => update('notes', v)} />
+        <div className="form-actions wide">
+          <GuardedButton permission="content:publish" disabled={busy}>{busy ? 'Creating handoff...' : 'Create handoff ZIP'}</GuardedButton>
+        </div>
+      </form>
+
+      {latest && (
+        <div className="card stack">
+          <div className="card-header"><h2>Latest handoff</h2><a className="button" href={batchHandoffDownloadUrl(latest.id)} target="_blank" rel="noreferrer">Download ZIP</a></div>
+          <div className="stats-grid compact-stats">
+            <StatCard label="Included" value={latest.package_count} />
+            <StatCard label="Skipped" value={latest.skipped_count} />
+            <StatCard label="Ready-only" value={latest.ready_only ? 'Yes' : 'No'} />
+          </div>
+          <p className="muted">Open the ZIP and start with <strong>README_HANDOFF.md</strong> and <strong>manifest.csv</strong>.</p>
+        </div>
+      )}
+
+      <div className="card">
+        <div className="card-header"><h2>Recent handoff exports</h2><span>{runs.length}</span></div>
+        {runs.length === 0 ? <p className="muted">No handoff exports yet.</p> : (
+          <div className="package-list compact">
+            {runs.map((run) => (
+              <div className="package-row static" key={run.id}>
+                <div>
+                  <h3>#{run.id} — {run.handoff_name}</h3>
+                  <p>{run.batch_name || 'All packages'} • {run.package_count} included • {run.skipped_count} skipped</p>
+                  <p>{run.created_at}</p>
+                </div>
+                <div className="row-meta">
+                  <StatusBadge status={run.ready_only ? 'ready_only' : 'all'} />
+                  <a className="button secondary small" href={batchHandoffDownloadUrl(run.id)} target="_blank" rel="noreferrer">Download</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
 
 function BulkScheduleCalendarPage() {
   const canManageCalendar = useCan('calendar:manage')

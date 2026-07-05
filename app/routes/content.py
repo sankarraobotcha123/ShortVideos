@@ -76,6 +76,11 @@ from app.services.calendar_bulk_service import (
     list_bulk_runs,
     preview_bulk_schedule,
 )
+from app.services.batch_handoff_service import (
+    build_latest_handoff_report,
+    create_batch_handoff,
+    list_batch_handoff_runs,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -584,6 +589,15 @@ class CalendarBulkScheduleRequest(BaseModel):
     order_by: str = "created_at"
     created_by: str = ""
     apply: bool = False
+
+
+class BatchHandoffCreateRequest(BaseModel):
+    handoff_name: str = "Science Shorts Production Handoff"
+    batch_id: int | None = None
+    ready_only: bool = True
+    limit_count: int = Field(default=50, ge=1, le=300)
+    created_by: str = ""
+    notes: str = ""
 
 
 
@@ -1670,6 +1684,56 @@ def download_calendar_bulk_report(_: dict[str, Any] = Depends(require_permission
         markdown,
         media_type="text/markdown",
         headers={"Content-Disposition": "attachment; filename=calendar_bulk_scheduling_report.md"},
+    )
+
+
+@router.get("/api/batch-handoffs")
+def api_batch_handoff_runs(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
+    with db_session() as conn:
+        runs = list_batch_handoff_runs(conn)
+    return {"handoff_runs": runs}
+
+
+@router.post("/api/batch-handoffs", status_code=201)
+def api_create_batch_handoff(payload: BatchHandoffCreateRequest, user: dict[str, Any] = Depends(require_permission("content:publish"))) -> dict[str, Any]:
+    with db_session() as conn:
+        try:
+            created_by = payload.created_by.strip() or str(user.get("email") or user.get("name") or "")
+            run = create_batch_handoff(
+                conn,
+                handoff_name=payload.handoff_name.strip() or "Production Handoff",
+                batch_id=payload.batch_id,
+                ready_only=payload.ready_only,
+                limit_count=payload.limit_count,
+                created_by=created_by,
+                notes=payload.notes,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        runs = list_batch_handoff_runs(conn)
+    return {"handoff_run": run, "handoff_runs": runs}
+
+
+@router.get("/batch-handoffs/{run_id}/download")
+def download_batch_handoff(run_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))):
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM batch_handoff_runs WHERE id = ?", (run_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Batch handoff export not found")
+    path = Path(row["file_path"])
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Batch handoff file not found on disk")
+    return FileResponse(path, filename=row["file_name"], media_type="application/zip")
+
+
+@router.get("/batch-handoffs/download")
+def download_batch_handoff_report(_: dict[str, Any] = Depends(require_permission("content:view"))):
+    with db_session() as conn:
+        markdown = build_latest_handoff_report(conn)
+    return PlainTextResponse(
+        markdown,
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=batch_handoff_report.md"},
     )
 
 

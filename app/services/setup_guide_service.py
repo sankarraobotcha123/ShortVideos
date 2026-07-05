@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-COMMIT_MESSAGE = "Add content production board workflow"
+COMMIT_MESSAGE = "Add batch export and production handoff workflow"
 
 WINDOWS_SETUP_COMMANDS = [
     "git clone YOUR_GITHUB_REPO_URL short_videos",
@@ -164,7 +164,7 @@ def build_setup_guide(project_root: str | Path = ".") -> dict[str, Any]:
     )
 
     return {
-        "version": "0.21.0",
+        "version": "0.28.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "pass_count": pass_count,

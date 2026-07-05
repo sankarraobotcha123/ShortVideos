@@ -404,6 +404,22 @@ CREATE TABLE IF NOT EXISTS content_series_items (
     FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS batch_handoff_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id INTEGER,
+    handoff_name TEXT NOT NULL DEFAULT 'Production Handoff',
+    ready_only INTEGER NOT NULL DEFAULT 1,
+    package_count INTEGER NOT NULL DEFAULT 0,
+    skipped_count INTEGER NOT NULL DEFAULT 0,
+    file_path TEXT NOT NULL DEFAULT '',
+    file_name TEXT NOT NULL DEFAULT '',
+    manifest_json TEXT NOT NULL DEFAULT '{}',
+    created_by TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(batch_id) REFERENCES content_batches(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -433,6 +449,7 @@ def ensure_storage() -> None:
     settings.source_safety_dir.mkdir(parents=True, exist_ok=True)
     settings.trust_review_dir.mkdir(parents=True, exist_ok=True)
     settings.learning_output_dir.mkdir(parents=True, exist_ok=True)
+    settings.handoff_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -806,6 +823,28 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
     )
 
 
+
+
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS batch_handoff_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id INTEGER,
+            handoff_name TEXT NOT NULL DEFAULT 'Production Handoff',
+            ready_only INTEGER NOT NULL DEFAULT 1,
+            package_count INTEGER NOT NULL DEFAULT 0,
+            skipped_count INTEGER NOT NULL DEFAULT 0,
+            file_path TEXT NOT NULL DEFAULT '',
+            file_name TEXT NOT NULL DEFAULT '',
+            manifest_json TEXT NOT NULL DEFAULT '{}',
+            created_by TEXT DEFAULT '',
+            notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(batch_id) REFERENCES content_batches(id) ON DELETE SET NULL
+        )
+        """
+    )
 
     conn.execute(
         """

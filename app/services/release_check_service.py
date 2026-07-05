@@ -20,6 +20,7 @@ REQUIRED_GITIGNORE_PATTERNS = [
     "storage/source_safety/*",
     "storage/trust_reviews/*",
     "storage/learning_outputs/*",
+    "storage/handoffs/*",
     "storage/release_reports/*",
     "__pycache__/",
     ".pytest_cache/",
@@ -69,6 +70,7 @@ REQUIRED_ENV_KEYS = [
     "AUTH_TOKEN_TTL_HOURS",
     "DEFAULT_ADMIN_EMAIL",
     "DEFAULT_ADMIN_PASSWORD",
+    "HANDOFF_DIR",
 ]
 
 PROTECTED_PATHS = [
@@ -85,6 +87,7 @@ PROTECTED_PATHS = [
     "storage/source_safety/",
     "storage/trust_reviews/",
     "storage/learning_outputs/",
+    "storage/handoffs/",
     "__pycache__/",
     ".pytest_cache/",
 ]
@@ -98,7 +101,7 @@ GIT_COMMANDS = [
     "git status",
     "git add .",
     "git status",
-    "git commit -m \"Add content calendar bulk scheduling workflow\"",
+    "git commit -m \"Add batch export and production handoff workflow\"",
     "git push",
 ]
 
@@ -191,7 +194,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         recommendations.append("Review warnings. Some may be acceptable, but confirm before release.")
     recommendations.append("Do not commit generated media, local databases, virtual environments, node_modules, or .env files.")
     recommendations.append("Run backend tests and frontend build before pushing a release commit.")
-    recommendations.append("Use the exact commit message for this step: Add content calendar bulk scheduling workflow")
+    recommendations.append("Use the exact commit message for this step: Add batch export and production handoff workflow")
 
     report_markdown = build_release_report_markdown(
         pass_count=pass_count,
@@ -206,7 +209,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
     )
 
     return {
-        "version": "0.27.0",
+        "version": "0.28.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "pass_count": pass_count,
@@ -221,7 +224,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         "manual_command_checks": command_checks,
         "protected_paths": PROTECTED_PATHS,
         "git_commands": GIT_COMMANDS,
-        "commit_message": "Add content production board workflow",
+        "commit_message": "Add batch export and production handoff workflow",
         "recommendations": recommendations,
         "report_markdown": report_markdown,
         "settings_snapshot": {

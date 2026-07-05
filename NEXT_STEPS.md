@@ -1,34 +1,33 @@
 # Next Steps
 
-Current version: `0.27.0`
+Current version: `0.28.0`
 
-## Completed in v27
+## Completed in v28
 
-- Added Content Calendar Bulk Scheduling workflow.
-- Added schedule preview and apply flow for unscheduled packages.
-- Added filters for all unscheduled packages or one batch.
-- Added videos-per-day and gap-days controls.
-- Added recent bulk scheduling run history.
-- Added downloadable bulk scheduling report.
-- Added React page at `#/calendar/bulk`.
+- Added Batch Export and Production Handoff workflow.
+- Added handoff export page at `#/handoff`.
+- Added ready-only export filtering.
+- Added handoff ZIP creation with package ZIPs, manifest CSV/JSON, editor README, and skipped-package notes.
+- Added handoff run history and downloadable handoff reports.
+- Added `batch_handoff_runs` table.
+- Added `HANDOFF_DIR=storage/handoffs`.
 
 ## Recommended next step
 
-**Batch export and production handoff workflow**
+**Lightweight multilingual planning workflow**
 
 Suggested commit message:
 
 ```bash
-git commit -m "Add batch export and production handoff workflow"
+git commit -m "Add lightweight multilingual planning workflow"
 ```
 
-## Remaining suggested major steps after v27
+## Remaining suggested major steps after v28
 
-1. Batch export and production handoff workflow
-2. Lightweight multilingual planning workflow
-3. Real provider adapter setup guide for Ollama/Transformers/hosted APIs
-4. YouTube manual publishing checklist + optional API integration preparation
-5. Deployment packaging and production configuration guide
-6. Final MVP bug-fix and UI polish pass
+1. Lightweight multilingual planning workflow
+2. Real provider adapter setup guide for Ollama/Transformers/hosted APIs
+3. YouTube manual publishing checklist + optional API integration preparation
+4. Deployment packaging and production configuration guide
+5. Final MVP bug-fix and UI polish pass
 
-After v27, there are **6 remaining major steps** for the strong MVP roadmap.
+After v28, there are **5 remaining major steps** for the strong MVP roadmap.

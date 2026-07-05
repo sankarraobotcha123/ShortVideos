@@ -1,17 +1,23 @@
-# Edu Content Platform MVP — v27
+# Edu Content Platform MVP — v28
 
-Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, content idea backlog, series planner, and bulk publishing calendar scheduling.
+Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, content idea backlog, series planner, bulk publishing calendar scheduling, and batch production handoff exports.
 
-## What is new in v27
+## What is new in v28
 
-- Added **Content Calendar Bulk Scheduling workflow**.
-- Added new React page: `#/calendar/bulk`.
-- Added new backend service: `app/services/calendar_bulk_service.py`.
-- Added new database table: `calendar_bulk_runs`.
-- Added API endpoints to preview/apply bulk schedules and view recent bulk scheduling runs.
-- Added downloadable bulk scheduling report: `/calendar/bulk-schedule/download`.
-- Added sidebar and dashboard links for bulk scheduling.
-- Updated version to `0.27.0` and frontend asset version to `27`.
+- Added **Batch Export and Production Handoff workflow**.
+- Added new React page: `#/handoff`.
+- Added new backend service: `app/services/batch_handoff_service.py`.
+- Added new database table: `batch_handoff_runs`.
+- Added API endpoints to create handoff ZIPs, list runs, download handoff ZIPs, and download the handoff report.
+- Handoff ZIP includes:
+  - `README_HANDOFF.md`
+  - `manifest.csv`
+  - `manifest.json`
+  - `skipped_packages.json`
+  - `packages/package-<id>.zip` for each included content package
+- Added ready-only filtering so weak/unapproved packages can be skipped from editor handoff.
+- Added sidebar and dashboard links for batch handoff.
+- Updated version to `0.28.0` and frontend asset version to `28`.
 
 ## Default local login
 
@@ -70,50 +76,29 @@ Frontend:
 http://127.0.0.1:5173
 ```
 
-## Test the bulk scheduling workflow
+## Test the handoff workflow
 
 ```text
-Open http://127.0.0.1:5173/#/calendar/bulk
-→ Select all unscheduled packages or one batch
-→ Choose start date, videos per day, spacing, playlist, and status
-→ Preview schedule
-→ Apply bulk schedule
-→ Open Calendar to fine-tune individual dates
-→ Download the bulk scheduling report
+Open http://127.0.0.1:5173/#/handoff
+→ Select all packages or one batch
+→ Keep ready-only enabled for production-safe export
+→ Create handoff ZIP
+→ Download ZIP
+→ Open README_HANDOFF.md and manifest.csv
+→ Use package ZIPs for CapCut/Canva/editor handoff
 ```
 
-## Pre-push checklist
+## Test/check before Git push
 
 ```bash
-git status
 python scripts/setup_project.py --check-only
 python -m pytest
 npm run frontend:build
 python scripts/pre_push_check.py
-git status
-git add .
-git status
-git commit -m "Add content calendar bulk scheduling workflow"
-git push
 ```
 
-Do not commit generated/local files:
+## Recommended Git commit
 
-```text
-.env
-.venv/
-frontend/node_modules/
-frontend/dist/
-storage/app.db
-storage/exports/
-storage/audio/
-storage/video_drafts/
-storage/asset_library/
-storage/thumbnails/
-storage/source_safety/
-storage/trust_reviews/
-storage/learning_outputs/
-storage/release_reports/
-__pycache__/
-.pytest_cache/
+```bash
+git commit -m "Add batch export and production handoff workflow"
 ```

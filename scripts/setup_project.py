@@ -22,6 +22,7 @@ STORAGE_DIRS = [
     "storage/trust_reviews",
     "storage/learning_outputs",
     "storage/release_reports",
+    "storage/handoffs",
 ]
 
 

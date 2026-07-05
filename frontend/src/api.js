@@ -223,6 +223,25 @@ export function calendarBulkReportDownloadUrl() {
   return `${API_BASE_URL}/calendar/bulk-schedule/download`
 }
 
+export function fetchBatchHandoffs() {
+  return request('/api/batch-handoffs')
+}
+
+export function createBatchHandoff(payload) {
+  return request('/api/batch-handoffs', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function batchHandoffDownloadUrl(runId) {
+  return `${API_BASE_URL}/batch-handoffs/${runId}/download`
+}
+
+export function batchHandoffReportDownloadUrl() {
+  return `${API_BASE_URL}/batch-handoffs/download`
+}
+
 export function generateAudio(id) {
   return request(`/api/content/${id}/audio`, {
     method: 'POST'
