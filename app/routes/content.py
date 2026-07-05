@@ -34,6 +34,12 @@ from app.services.prompt_template_service import (
     list_prompt_templates,
     seed_default_prompt_templates,
 )
+from app.services.production_board_service import (
+    PRODUCTION_STAGES,
+    build_content_production_board,
+    build_content_production_board_markdown,
+    update_production_card,
+)
 from app.services.publishing_approval_service import (
     create_publishing_approval,
     get_publishing_approval,
@@ -542,6 +548,14 @@ class PublishingApprovalDecisionRequest(BaseModel):
 class DemoSeedRequest(BaseModel):
     reset_demo: bool = False
 
+
+class ProductionCardUpdateRequest(BaseModel):
+    stage: str
+    priority: str = "normal"
+    owner: str = ""
+    due_date: str = ""
+    notes: str = ""
+
 class PromptPreviewRequest(BaseModel):
     board_source: str = "NCERT / Self-written"
     class_level: str = "Class 7"
@@ -696,6 +710,45 @@ def download_publishing_approval(package_id: int, approval_id: int, _: dict[str,
         headers={"Content-Disposition": f"attachment; filename=publishing_approval_{approval_id}.md"},
     )
 
+
+
+
+@router.get("/api/production-board")
+def api_production_board(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
+    with db_session() as conn:
+        board = build_content_production_board(conn)
+    return {"production_board": board}
+
+
+@router.patch("/api/production-board/cards/{package_id}")
+def api_update_production_card(package_id: int, payload: ProductionCardUpdateRequest, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
+    with db_session() as conn:
+        try:
+            card = update_production_card(
+                conn,
+                package_id,
+                stage=payload.stage,
+                priority=payload.priority,
+                owner=payload.owner,
+                due_date=payload.due_date,
+                notes=payload.notes,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        board = build_content_production_board(conn)
+    return {"production_card": card, "production_board": board}
+
+
+@router.get("/production-board/download")
+def download_production_board(_: dict[str, Any] = Depends(require_permission("content:view"))):
+    with db_session() as conn:
+        board = build_content_production_board(conn)
+    markdown = build_content_production_board_markdown(board)
+    return PlainTextResponse(
+        markdown,
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=content_production_board.md"},
+    )
 
 @router.get("/api/analytics/insights")
 def api_analytics_insights(_: dict[str, Any] = Depends(require_permission("analytics:view"))) -> dict[str, Any]:

@@ -421,3 +421,18 @@ export function fetchSetupGuide() {
 export function setupGuideDownloadUrl() {
   return `${API_BASE_URL}/setup/guide/download`
 }
+
+export function fetchProductionBoard() {
+  return request('/api/production-board')
+}
+
+export function updateProductionCard(packageId, payload) {
+  return request(`/api/production-board/cards/${packageId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function productionBoardDownloadUrl() {
+  return `${API_BASE_URL}/production-board/download`
+}

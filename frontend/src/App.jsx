@@ -27,6 +27,7 @@ import {
   fetchPackages,
   fetchCurrentUser,
   fetchProviderLogs,
+  fetchProductionBoard,
   fetchReleaseChecklist,
   fetchSetupGuide,
   fetchSystemReadiness,
@@ -55,6 +56,7 @@ import {
   publishingApprovalDownloadUrl,
   releaseChecklistDownloadUrl,
   setupGuideDownloadUrl,
+  productionBoardDownloadUrl,
   seedDemoData,
   seedPromptTemplates,
   updatePromptTemplate,
@@ -62,6 +64,7 @@ import {
   updateBatch,
   uploadVisualAsset,
   updateCalendarEntry,
+  updateProductionCard,
   updateReview,
   updateTrustReview,
   videoDraftDownloadUrl,
@@ -170,6 +173,7 @@ const ROUTE_ACCESS = {
   batches: { permission: 'content:view' },
   batch: { permission: 'content:view' },
   calendar: { permission: 'content:view' },
+  productionBoard: { permission: 'content:view' },
   assets: { permission: 'content:view' },
   templates: { permission: 'templates:manage' },
   analytics: { permission: 'analytics:view' },
@@ -303,6 +307,7 @@ function App() {
           {navCan('content:create') && <a className={route.name === 'new' ? 'active' : ''} href="#/new">Create package</a>}
           {navCan('content:view') && <a className={route.name === 'batches' || route.name === 'batch' ? 'active' : ''} href="#/batches">Batches</a>}
           {navCan('content:view') && <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>}
+          {navCan('content:view') && <a className={route.name === 'productionBoard' ? 'active' : ''} href="#/production-board">Production board</a>}
           {navCan('content:view') && <a className={route.name === 'assets' ? 'active' : ''} href="#/assets">Visual assets</a>}
           {navCan('templates:manage') && <a className={route.name === 'templates' ? 'active' : ''} href="#/templates">Prompt templates</a>}
 
@@ -339,6 +344,7 @@ function App() {
           {route.name === 'batches' && <BatchesPage />}
           {route.name === 'batch' && <BatchDetail id={route.id} />}
           {route.name === 'calendar' && <CalendarPage />}
+          {route.name === 'productionBoard' && <ProductionBoardPage />}
           {route.name === 'assets' && <VisualAssetsPage />}
           {route.name === 'templates' && <PromptTemplatesPage />}
           {route.name === 'analytics' && <AnalyticsInsightsPage />}
@@ -368,6 +374,7 @@ function parseRoute(hash) {
   if (parts[0] === 'batches' && parts[1]) return { name: 'batch', id: parts[1] }
   if (parts[0] === 'batches') return { name: 'batches' }
   if (parts[0] === 'calendar') return { name: 'calendar' }
+  if (parts[0] === 'production-board') return { name: 'productionBoard' }
   if (parts[0] === 'assets') return { name: 'assets' }
   if (parts[0] === 'templates') return { name: 'templates' }
   if (parts[0] === 'analytics') return { name: 'analytics' }
@@ -799,6 +806,7 @@ function Dashboard() {
       <div className="quick-actions card">
         <GuardedButton permission="content:create" onClick={() => navigate('#/batches')}>Plan a 20-Short batch</GuardedButton>
         <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/calendar')}>Open publishing calendar</GuardedButton>
+        <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/production-board')}>Open production board</GuardedButton>
         <GuardedButton permission="assets:manage" className="secondary" onClick={() => navigate('#/assets')}>Upload visual assets</GuardedButton>
         <GuardedButton permission="templates:manage" className="secondary" onClick={() => navigate('#/templates')}>Manage prompt templates</GuardedButton>
         <GuardedButton permission="analytics:view" className="secondary" onClick={() => navigate('#/analytics')}>View analytics insights</GuardedButton>
@@ -2486,6 +2494,154 @@ function PackageDetail({ id }) {
   )
 }
 
+
+
+function ProductionBoardPage() {
+  const canEdit = useCan('content:edit')
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+  const [savingId, setSavingId] = useState(null)
+  const [editing, setEditing] = useState({})
+
+  function load() {
+    setError('')
+    fetchProductionBoard()
+      .then((result) => {
+        const board = result.production_board
+        setData(board)
+        const nextEditing = {}
+        ;(board.cards || []).forEach((card) => {
+          nextEditing[card.id] = {
+            stage: card.stage || card.derived_stage || 'script_review',
+            priority: card.priority || 'normal',
+            owner: card.owner || '',
+            due_date: card.due_date || '',
+            notes: card.board_notes || ''
+          }
+        })
+        setEditing(nextEditing)
+      })
+      .catch((err) => setError(err.message))
+  }
+
+  useEffect(load, [])
+
+  function editCard(packageId, name, value) {
+    setEditing((current) => ({
+      ...current,
+      [packageId]: { ...(current[packageId] || {}), [name]: value }
+    }))
+  }
+
+  async function saveCard(packageId) {
+    if (!canEdit) {
+      setError('You do not have permission to update production board cards.')
+      return
+    }
+    setSavingId(packageId)
+    setError('')
+    try {
+      const payload = editing[packageId]
+      const result = await updateProductionCard(packageId, payload)
+      setData(result.production_board)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  if (error && !data) return <ErrorCard title="Could not load production board" message={error} />
+  if (!data) return <Loading />
+
+  const stageOptions = data.stages.map((stage) => ({ value: stage.key, label: stage.label }))
+  const priorityOptions = ['urgent', 'high', 'normal', 'low']
+
+  return (
+    <section>
+      <Header
+        title="Content production board"
+        subtitle="Track every Short from script review to publishing and analytics. Use this board to avoid losing work between generation, review, editing, and upload."
+        action={<a className="button-link" href={productionBoardDownloadUrl()}>Download board report</a>}
+      />
+      {error && <div className="form-error">{error}</div>}
+
+      <div className="stats-grid">
+        <StatCard label="Total cards" value={data.summary.total_cards} />
+        <StatCard label="Blocked/revision" value={data.summary.blocked_or_revision} />
+        <StatCard label="Ready/scheduled" value={data.summary.ready_or_scheduled} />
+        <StatCard label="Published" value={data.summary.published} />
+      </div>
+
+      <div className="card stack">
+        <div className="card-header">
+          <h2>Next actions</h2>
+          <button className="secondary small" onClick={load}>Refresh</button>
+        </div>
+        <ul className="recommendation-list">
+          {(data.recommendations || []).map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      </div>
+
+      <div className="production-board">
+        {data.stages.map((stage) => (
+          <div className="production-column" key={stage.key}>
+            <div className="production-column-head">
+              <div>
+                <h2>{stage.label}</h2>
+                <p>{stage.count} cards • avg {stage.avg_progress}%</p>
+              </div>
+            </div>
+            <p className="stage-description">{stage.description}</p>
+            {stage.cards.length === 0 ? (
+              <p className="muted small-text">No Shorts here.</p>
+            ) : (
+              <div className="production-card-list">
+                {stage.cards.map((card) => {
+                  const form = editing[card.id] || {}
+                  return (
+                    <div className={`production-card priority-${card.priority}`} key={card.id}>
+                      <div className="production-card-top">
+                        <button className="link-button" onClick={() => navigate(`#/packages/${card.id}`)}>
+                          #{card.id} {card.topic}
+                        </button>
+                        <span className={`priority-pill ${card.priority}`}>{card.priority}</span>
+                      </div>
+                      <p>{card.class_level} • {card.subject} • {card.tone}</p>
+                      {card.batch_name && <p className="muted">Batch: {card.batch_name}</p>}
+                      <div className="board-progress"><span style={{ width: `${card.progress_score}%` }} /></div>
+                      <div className="board-card-meta">
+                        <span>Progress {card.progress_score}%</span>
+                        <span>Trust {card.overall_trust_score || card.trust_score}</span>
+                        {card.planned_publish_date && <span>Plan {card.planned_publish_date}</span>}
+                        {card.latest_views > 0 && <span>{card.latest_views} views</span>}
+                      </div>
+                      <details>
+                        <summary>Update card</summary>
+                        <div className="board-edit-grid">
+                          <Select label="Stage" value={form.stage || card.stage} options={stageOptions} onChange={(value) => editCard(card.id, 'stage', value)} />
+                          <Select label="Priority" value={form.priority || card.priority} options={priorityOptions} onChange={(value) => editCard(card.id, 'priority', value)} />
+                          <Input label="Owner" value={form.owner || ''} onChange={(value) => editCard(card.id, 'owner', value)} />
+                          <Input type="date" label="Due date" value={form.due_date || ''} onChange={(value) => editCard(card.id, 'due_date', value)} />
+                          <TextArea label="Board notes" value={form.notes || ''} onChange={(value) => editCard(card.id, 'notes', value)} rows={3} wide />
+                          <div className="wide button-row">
+                            <GuardedButton permission="content:edit" className="secondary small" onClick={() => saveCard(card.id)} disabled={savingId === card.id}>
+                              {savingId === card.id ? 'Saving...' : 'Save board card'}
+                            </GuardedButton>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 function AnalyticsInsightsPage() {
   const [data, setData] = useState(null)

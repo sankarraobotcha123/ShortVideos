@@ -699,7 +699,7 @@ def test_release_checklist_api_available(tmp_path):
     response = client.get("/api/release/checklist")
     assert response.status_code == 200
     body = response.json()["release"]
-    assert body["commit_message"] == "Add publishing approval gate workflow and fix prompt templates"
+    assert body["commit_message"] == "Add content production board workflow"
     assert "git status" in body["git_commands"]
     assert body["report_markdown"].startswith("# Production Cleanup")
 
@@ -715,7 +715,7 @@ def test_setup_guide_api(tmp_path):
     client = TestClient(app)
     response = client.get("/api/setup/guide")
     assert response.status_code == 200
-    assert response.json()["setup"]["commit_message"] == "Add publishing approval gate workflow and fix prompt templates"
+    assert response.json()["setup"]["commit_message"] == "Add content production board workflow"
 
     download = client.get("/setup/guide/download")
     assert download.status_code == 200
@@ -816,3 +816,56 @@ def test_publishing_approval_gate_blocks_publish_until_approved(tmp_path):
         },
     )
     assert published.status_code == 200
+
+
+def test_content_production_board_workflow(tmp_path):
+    settings.database_path = tmp_path / "production-board-test.db"
+    settings.export_dir = tmp_path / "exports"
+    init_db()
+
+    client = TestClient(app)
+    payload = {
+        "board_source": "Self-written",
+        "class_level": "Class 7",
+        "subject": "Science",
+        "topic": "Why are leaves green?",
+        "audience": "School students",
+        "language": "English",
+        "duration_seconds": 60,
+        "output_type": "Short",
+        "tone": "Curious",
+        "source_notes": "Leaves contain chlorophyll. Chlorophyll reflects green light.",
+        "source_name": "Self notes",
+        "source_license_type": "Original",
+        "transformation_notes": "Original analogy added.",
+    }
+    created = client.post("/api/content/generate", json=payload)
+    assert created.status_code == 201
+    package_id = created.json()["package"]["id"]
+
+    board = client.get("/api/production-board")
+    assert board.status_code == 200
+    body = board.json()["production_board"]
+    assert body["summary"]["total_cards"] == 1
+    assert any(stage["key"] == "script_review" and stage["count"] == 1 for stage in body["stages"])
+
+    updated = client.patch(
+        f"/api/production-board/cards/{package_id}",
+        json={
+            "stage": "production_assets",
+            "priority": "high",
+            "owner": "Anudeepthi",
+            "due_date": "2026-07-10",
+            "notes": "Prepare first CapCut version.",
+        },
+    )
+    assert updated.status_code == 200
+    updated_board = updated.json()["production_board"]
+    card = next(item for item in updated_board["cards"] if item["id"] == package_id)
+    assert card["stage"] == "production_assets"
+    assert card["priority"] == "high"
+    assert card["owner"] == "Anudeepthi"
+
+    report = client.get("/production-board/download")
+    assert report.status_code == 200
+    assert "Content Production Board" in report.text

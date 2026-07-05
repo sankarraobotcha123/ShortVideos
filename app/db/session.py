@@ -302,6 +302,20 @@ CREATE TABLE IF NOT EXISTS publishing_approvals (
     FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
 );
 
+
+CREATE TABLE IF NOT EXISTS content_production_cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER NOT NULL UNIQUE,
+    stage TEXT NOT NULL DEFAULT 'script_review',
+    priority TEXT NOT NULL DEFAULT 'normal',
+    owner TEXT DEFAULT '',
+    due_date TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -656,6 +670,24 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
             reviewer_decision TEXT NOT NULL DEFAULT 'pending',
             reviewer_name TEXT DEFAULT '',
             reviewer_notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS content_production_cards (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL UNIQUE,
+            stage TEXT NOT NULL DEFAULT 'script_review',
+            priority TEXT NOT NULL DEFAULT 'normal',
+            owner TEXT DEFAULT '',
+            due_date TEXT DEFAULT '',
+            notes TEXT DEFAULT '',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE

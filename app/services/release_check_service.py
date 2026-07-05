@@ -98,7 +98,7 @@ GIT_COMMANDS = [
     "git status",
     "git add .",
     "git status",
-    "git commit -m \"Add publishing approval gate workflow and fix prompt templates\"",
+    "git commit -m \"Add content production board workflow\"",
     "git push",
 ]
 
@@ -191,7 +191,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         recommendations.append("Review warnings. Some may be acceptable, but confirm before release.")
     recommendations.append("Do not commit generated media, local databases, virtual environments, node_modules, or .env files.")
     recommendations.append("Run backend tests and frontend build before pushing a release commit.")
-    recommendations.append("Use the exact commit message for this step: Add publishing approval gate workflow and fix prompt templates")
+    recommendations.append("Use the exact commit message for this step: Add content production board workflow")
 
     report_markdown = build_release_report_markdown(
         pass_count=pass_count,
@@ -221,7 +221,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         "manual_command_checks": command_checks,
         "protected_paths": PROTECTED_PATHS,
         "git_commands": GIT_COMMANDS,
-        "commit_message": "Add publishing approval gate workflow and fix prompt templates",
+        "commit_message": "Add content production board workflow",
         "recommendations": recommendations,
         "report_markdown": report_markdown,
         "settings_snapshot": {

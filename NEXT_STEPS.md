@@ -1,6 +1,6 @@
 # NEXT STEPS — v23
 
-Current version: `0.23.0`
+Current version: `0.24.0`
 
 ## Completed in this step
 
@@ -47,7 +47,7 @@ python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Add publishing approval gate workflow and fix prompt templates"
+git commit -m "Add content production board workflow"
 git push
 ```
 
@@ -59,4 +59,25 @@ Next commit message:
 
 ```bash
 git commit -m "Add content production board workflow"
+```
+
+
+## Completed in v24 — Content Production Board
+
+Added a Kanban-style production board to track Shorts from script review through publishing and analytics. The board supports manual stage overrides, priority, owner, due dates, notes, and a downloadable markdown board report.
+
+Git commit for this step:
+
+```bash
+git commit -m "Add content production board workflow"
+```
+
+## Recommended next step
+
+Add a content idea backlog and topic scoring workflow.
+
+Suggested commit message:
+
+```bash
+git commit -m "Add content idea backlog and topic scoring workflow"
 ```

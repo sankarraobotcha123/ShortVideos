@@ -13,7 +13,7 @@ Shorts-first educational content creator with FastAPI backend, React/Vite fronte
 - Package detail page now shows the latest publishing gate and publisher decision controls.
 - Marking a package or calendar entry as `published` is blocked until a publishing gate is approved.
 - Export ZIP now includes publishing approval reports and checklist JSON.
-- Updated version to `0.23.0` and frontend asset version to `23`.
+- Updated version to `0.24.0` and frontend asset version to `23`.
 
 ## Default local login
 
@@ -98,7 +98,7 @@ python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Add publishing approval gate workflow and fix prompt templates"
+git commit -m "Add content production board workflow"
 git push
 ```
 
@@ -128,6 +128,29 @@ __pycache__/
 Add a final **content production board** that shows every package grouped by workflow status: Draft, Needs source safety, Needs trust review, Needs publishing gate, Ready to publish, Published.
 
 Suggested next commit message:
+
+```bash
+git commit -m "Add content production board workflow"
+```
+
+
+## v24 update — Content Production Board
+
+This version adds a Kanban-style production board for Shorts workflow management. It groups packages into practical production stages:
+
+- Script Review
+- Script Revision
+- Production Assets
+- Source Safety
+- Teacher Trust Review
+- Publishing Gate
+- Ready to Publish
+- Scheduled
+- Published
+
+The board is computed from existing package/review/calendar data and supports manual stage, priority, owner, due date, and board notes. Use it from the React UI at `#/production-board`.
+
+Recommended commit message:
 
 ```bash
 git commit -m "Add content production board workflow"

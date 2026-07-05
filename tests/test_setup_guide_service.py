@@ -3,7 +3,7 @@ from app.services.setup_guide_service import build_setup_guide
 
 def test_setup_guide_contains_fresh_clone_commands():
     guide = build_setup_guide()
-    assert guide["commit_message"] == "Add publishing approval gate workflow and fix prompt templates"
+    assert guide["commit_message"] == "Add content production board workflow"
     assert "setup_windows.bat" in guide["guide_markdown"]
     assert "python scripts/setup_project.py --seed-demo" in guide["guide_markdown"]
     assert "git status" in guide["git_commands"]
