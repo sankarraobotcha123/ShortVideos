@@ -34,6 +34,13 @@ from app.services.prompt_template_service import (
     list_prompt_templates,
     seed_default_prompt_templates,
 )
+from app.services.publishing_approval_service import (
+    create_publishing_approval,
+    get_publishing_approval,
+    has_approved_publishing_gate,
+    list_publishing_approvals,
+    update_publishing_approval_decision,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -379,6 +386,7 @@ def export_content(package_id: int, _: dict[str, Any] = Depends(require_permissi
         source_safety_reviews = conn.execute("SELECT * FROM source_safety_reviews WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         trust_reviews = conn.execute("SELECT * FROM teacher_trust_reviews WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         learning_outputs = conn.execute("SELECT * FROM learning_outputs WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+        publishing_approvals = list_publishing_approvals(conn, package_id)
         provider_logs = conn.execute("SELECT * FROM ai_provider_logs WHERE package_id = ? ORDER BY attempt_order ASC, id ASC", (package_id,)).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
@@ -393,6 +401,7 @@ def export_content(package_id: int, _: dict[str, Any] = Depends(require_permissi
         [dict(item) for item in source_safety_reviews],
         [dict(item) for item in trust_reviews],
         [dict(item) for item in learning_outputs],
+        publishing_approvals,
         [dict(item) for item in provider_logs],
     )
     return FileResponse(zip_path, filename=Path(zip_path).name, media_type="application/zip")
@@ -524,6 +533,12 @@ class PromptTemplateUpdateRequest(BaseModel):
 
 
 
+class PublishingApprovalDecisionRequest(BaseModel):
+    reviewer_decision: str = "pending"
+    reviewer_name: str = ""
+    reviewer_notes: str = ""
+
+
 class DemoSeedRequest(BaseModel):
     reset_demo: bool = False
 
@@ -630,6 +645,56 @@ def api_preview_prompt_template(template_id: int, payload: PromptPreviewRequest,
     if template is None:
         raise HTTPException(status_code=404, detail="Prompt template not found")
     return {"preview": build_prompt_preview(inp, base_package, template)}
+
+
+@router.post("/api/content/{package_id}/publishing-approval", status_code=201)
+def api_create_publishing_approval(package_id: int, _: dict[str, Any] = Depends(require_permission("content:publish"))) -> dict[str, Any]:
+    with db_session() as conn:
+        _assert_package_exists(conn, package_id)
+        approval = create_publishing_approval(conn, package_id)
+    return {"publishing_approval": approval}
+
+
+@router.get("/api/content/{package_id}/publishing-approvals")
+def api_publishing_approvals(package_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
+    with db_session() as conn:
+        _assert_package_exists(conn, package_id)
+        approvals = list_publishing_approvals(conn, package_id)
+    return {"publishing_approvals": approvals}
+
+
+@router.patch("/api/content/{package_id}/publishing-approval/{approval_id}")
+def api_update_publishing_approval(package_id: int, approval_id: int, payload: PublishingApprovalDecisionRequest, _: dict[str, Any] = Depends(require_permission("content:publish"))) -> dict[str, Any]:
+    with db_session() as conn:
+        _assert_package_exists(conn, package_id)
+        existing = get_publishing_approval(conn, approval_id)
+        if existing is None or int(existing["package_id"]) != package_id:
+            raise HTTPException(status_code=404, detail="Publishing approval not found")
+        try:
+            approval = update_publishing_approval_decision(
+                conn,
+                approval_id,
+                reviewer_decision=payload.reviewer_decision,
+                reviewer_name=payload.reviewer_name,
+                reviewer_notes=payload.reviewer_notes,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"publishing_approval": approval}
+
+
+@router.get("/content/{package_id}/publishing-approval/{approval_id}/download")
+def download_publishing_approval(package_id: int, approval_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))):
+    with db_session() as conn:
+        _assert_package_exists(conn, package_id)
+        approval = get_publishing_approval(conn, approval_id)
+    if approval is None or int(approval["package_id"]) != package_id:
+        raise HTTPException(status_code=404, detail="Publishing approval not found")
+    return PlainTextResponse(
+        approval.get("report_markdown") or "",
+        media_type="text/markdown",
+        headers={"Content-Disposition": f"attachment; filename=publishing_approval_{approval_id}.md"},
+    )
 
 
 @router.get("/api/analytics/insights")
@@ -767,6 +832,7 @@ def api_package(package_id: int, _: dict[str, Any] = Depends(require_permission(
             "SELECT * FROM learning_outputs WHERE package_id = ? ORDER BY id DESC",
             (package_id,),
         ).fetchall()
+        publishing_approvals = list_publishing_approvals(conn, package_id)
         provider_logs = conn.execute(
             "SELECT * FROM ai_provider_logs WHERE package_id = ? ORDER BY attempt_order ASC, id ASC",
             (package_id,),
@@ -785,6 +851,7 @@ def api_package(package_id: int, _: dict[str, Any] = Depends(require_permission(
         "source_safety_reviews": [dict(item) for item in source_safety_reviews],
         "trust_reviews": [dict(item) for item in trust_reviews],
         "learning_outputs": [dict(item) for item in learning_outputs],
+        "publishing_approvals": publishing_approvals,
         "provider_logs": [dict(item) for item in provider_logs],
         "visual_assets": [dict(item) for item in visual_assets],
         "suggested_visual_assets": _suggest_assets_for_package(dict(row), [dict(item) for item in visual_assets]),
@@ -1078,6 +1145,8 @@ def api_create_calendar_entry(payload: CalendarCreateRequest, _: dict[str, Any] 
     _validate_calendar_status(payload.status)
     with db_session() as conn:
         _assert_package_exists(conn, payload.package_id)
+        if payload.status == "published" and not has_approved_publishing_gate(conn, payload.package_id):
+            raise HTTPException(status_code=400, detail="Publishing approval gate must be approved before marking the calendar entry as published")
         conn.execute(
             """
             INSERT INTO publishing_calendar (
@@ -1119,9 +1188,11 @@ def api_create_calendar_entry(payload: CalendarCreateRequest, _: dict[str, Any] 
 def api_update_calendar_entry(entry_id: int, payload: CalendarUpdateRequest, _: dict[str, Any] = Depends(require_permission("calendar:manage"))) -> dict[str, Any]:
     _validate_calendar_status(payload.status)
     with db_session() as conn:
-        existing = conn.execute("SELECT id FROM publishing_calendar WHERE id = ?", (entry_id,)).fetchone()
+        existing = conn.execute("SELECT id, package_id FROM publishing_calendar WHERE id = ?", (entry_id,)).fetchone()
         if existing is None:
             raise HTTPException(status_code=404, detail="Calendar entry not found")
+        if payload.status == "published" and not has_approved_publishing_gate(conn, int(existing["package_id"])):
+            raise HTTPException(status_code=400, detail="Publishing approval gate must be approved before marking the calendar entry as published")
         conn.execute(
             """
             UPDATE publishing_calendar
@@ -1313,6 +1384,8 @@ def _update_review_record(package_id: int, review_status: str, script_text: str,
         existing = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         if existing is None:
             raise HTTPException(status_code=404, detail="Package not found")
+        if review_status == "published" and not has_approved_publishing_gate(conn, package_id):
+            raise HTTPException(status_code=400, detail="Publishing approval gate must be approved before marking this package as published")
         conn.execute(
             """
             UPDATE content_packages

@@ -284,6 +284,24 @@ CREATE TABLE IF NOT EXISTS ai_provider_logs (
     FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS publishing_approvals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'blocked',
+    gate_status TEXT NOT NULL DEFAULT 'blocked',
+    required_failures_count INTEGER NOT NULL DEFAULT 0,
+    optional_warnings_count INTEGER NOT NULL DEFAULT 0,
+    checklist_json TEXT NOT NULL DEFAULT '[]',
+    recommendation TEXT NOT NULL DEFAULT '',
+    report_markdown TEXT NOT NULL DEFAULT '',
+    reviewer_decision TEXT NOT NULL DEFAULT 'pending',
+    reviewer_name TEXT DEFAULT '',
+    reviewer_notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -618,6 +636,28 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
             provider_chain TEXT NOT NULL DEFAULT 'template',
             total_generation_duration_ms INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS publishing_approvals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'blocked',
+            gate_status TEXT NOT NULL DEFAULT 'blocked',
+            required_failures_count INTEGER NOT NULL DEFAULT 0,
+            optional_warnings_count INTEGER NOT NULL DEFAULT 0,
+            checklist_json TEXT NOT NULL DEFAULT '[]',
+            recommendation TEXT NOT NULL DEFAULT '',
+            report_markdown TEXT NOT NULL DEFAULT '',
+            reviewer_decision TEXT NOT NULL DEFAULT 'pending',
+            reviewer_name TEXT DEFAULT '',
+            reviewer_notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
         )
         """

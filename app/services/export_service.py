@@ -25,6 +25,7 @@ def export_package(
     source_safety_reviews: Sequence[Mapping] | None = None,
     trust_reviews: Sequence[Mapping] | None = None,
     learning_outputs: Sequence[Mapping] | None = None,
+    publishing_approvals: Sequence[Mapping] | None = None,
     provider_logs: Sequence[Mapping] | None = None,
 ) -> Path:
     settings.export_dir.mkdir(parents=True, exist_ok=True)
@@ -43,6 +44,7 @@ def export_package(
     source_safety_reviews = list(source_safety_reviews or [])
     trust_reviews = list(trust_reviews or [])
     learning_outputs = list(learning_outputs or [])
+    publishing_approvals = list(publishing_approvals or [])
     provider_logs = list(provider_logs or [])
 
     asset_summary = "No reusable visual assets saved yet. Upload assets in the Visual Assets page to reuse icons/diagrams in MP4 drafts."
@@ -111,6 +113,16 @@ def export_package(
         learning_output_summary = (
             f"Latest learning output: {latest_learning_output.get('file_name')} | "
             f"{latest_learning_output.get('output_mode', 'notes_quiz_flashcards_worksheet')}"
+        )
+
+    publishing_approval_summary = "No publishing approval gate generated yet. Generate one before marking this Short as published."
+    latest_publishing_approval = publishing_approvals[0] if publishing_approvals else None
+    if latest_publishing_approval:
+        publishing_approval_summary = (
+            f"Latest gate: status={latest_publishing_approval.get('status')} | "
+            f"gate={latest_publishing_approval.get('gate_status')} | "
+            f"decision={latest_publishing_approval.get('reviewer_decision')} | "
+            f"required failures={latest_publishing_approval.get('required_failures_count', 0)}"
         )
 
     provider_log_summary = "No provider attempt log rows found. Generate this package again after v15 if you need detailed logs."
@@ -204,6 +216,10 @@ def export_package(
 - Status: {row['review_status']}
 - Teacher Trust Score: {row['trust_score']}
 - Reviewer Notes: {row['reviewer_notes'] or ''}
+
+## Publishing Approval Gate
+
+{publishing_approval_summary}
 
 ## AI Provider
 
@@ -328,6 +344,12 @@ def export_package(
         (package_dir / "worksheet.md").write_text(str(latest_learning_output.get("worksheet_markdown") or ""), encoding="utf-8")
     (package_dir / "learning_outputs.json").write_text(json.dumps(learning_output_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    publishing_approval_manifest = [dict(item) for item in publishing_approvals]
+    if latest_publishing_approval:
+        (package_dir / "publishing_approval_gate.md").write_text(str(latest_publishing_approval.get("report_markdown") or ""), encoding="utf-8")
+        (package_dir / "publishing_approval_checklist.json").write_text(str(latest_publishing_approval.get("checklist_json") or "[]"), encoding="utf-8")
+    (package_dir / "publishing_approvals.json").write_text(json.dumps(publishing_approval_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
     provider_log_manifest = [dict(log) for log in provider_logs]
     (package_dir / "ai_provider_logs.json").write_text(json.dumps(provider_log_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     provider_report = "# AI Provider Attempt Log\n\n" + provider_log_summary + "\n"
@@ -342,6 +364,7 @@ def export_package(
     payload["source_safety_reviews"] = source_safety_manifest
     payload["teacher_trust_reviews"] = trust_review_manifest
     payload["learning_outputs"] = learning_output_manifest
+    payload["publishing_approvals"] = publishing_approval_manifest
     payload["ai_provider_logs"] = provider_log_manifest
     (package_dir / "package.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 

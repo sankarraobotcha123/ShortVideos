@@ -331,6 +331,23 @@ export function learningOutputDownloadUrl(packageId, outputId) {
   return `${API_BASE_URL}/content/${packageId}/learning-output/${outputId}/download`
 }
 
+export function generatePublishingApproval(id) {
+  return request(`/api/content/${id}/publishing-approval`, {
+    method: 'POST'
+  })
+}
+
+export function updatePublishingApproval(packageId, approvalId, payload) {
+  return request(`/api/content/${packageId}/publishing-approval/${approvalId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function publishingApprovalDownloadUrl(packageId, approvalId) {
+  return `${API_BASE_URL}/content/${packageId}/publishing-approval/${approvalId}/download`
+}
+
 export function fetchPromptTemplates(taskType = '') {
   const suffix = taskType ? `?task_type=${encodeURIComponent(taskType)}` : ''
   return request(`/api/prompt-templates${suffix}`)

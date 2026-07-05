@@ -1,18 +1,16 @@
-# NEXT STEPS — v22
+# NEXT STEPS — v23
 
-Current version: `0.22.0`
+Current version: `0.23.0`
 
 ## Completed in this step
 
-- Production auth hardening checks.
-- Super-admin Auth hardening page.
-- Expired-session cleanup endpoint.
-- Active-session limit enforcement.
-- Password rotation endpoint that revokes active sessions.
-- Frontend route guards for protected pages.
-- Stale-token cleanup after `401` API responses.
-- Auth cookie settings for HTTPS-ready deployment.
-- Permission protection on generated artifact download/export routes.
+- Fixed Prompt templates page crash caused by missing `initialPromptTemplate`.
+- Added Publishing Approval Gate workflow.
+- Added required publishing checks: script approval, source safety review, source risk, Teacher Trust Score review, and trust score readiness.
+- Added optional readiness checks: thumbnail, assembly plan, narration, video draft, learning outputs, and calendar scheduling.
+- Added publisher decision controls.
+- Blocked `published` status until a publishing gate has been approved.
+- Included publishing approval files in exported ZIP packages.
 
 ## Test now
 
@@ -26,14 +24,16 @@ python scripts/pre_push_check.py
 Manual UI checks:
 
 ```text
-1. Open http://127.0.0.1:5173
-2. Login as admin@example.com / ChangeMe123!
-3. Open #/auth-hardening.
-4. Confirm warnings/checklist appear.
-5. Change the password and confirm you are redirected to login.
-6. Login again with the new password.
-7. Optional: set AUTH_REQUIRED=true and restart backend.
-8. Open restricted pages directly by URL and confirm route guards show login/permission messages.
+1. Open http://127.0.0.1:5173/#/templates.
+2. Confirm Prompt templates opens without a blank page/error.
+3. Create/open a package.
+4. Run source safety review.
+5. Run Teacher Trust Score review.
+6. Save script review as approved.
+7. Generate publishing approval gate.
+8. Save publisher decision as approved when required checks pass.
+9. Confirm Export publish ZIP appears after approval.
+10. Try marking a package as published before gate approval and confirm it is blocked.
 ```
 
 ## Git commands
@@ -47,16 +47,16 @@ python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Harden auth flow and frontend route guards"
+git commit -m "Add publishing approval gate workflow and fix prompt templates"
 git push
 ```
 
 ## Next build recommendation
 
-Add final publishing approval gates so the system helps avoid exporting/publishing a Short before it has passed review, source safety, and trust checks.
+Add a content production board to make daily work easier. It should show packages by workflow status and make it obvious what action is needed next.
 
 Next commit message:
 
 ```bash
-git commit -m "Add publishing approval gate workflow"
+git commit -m "Add content production board workflow"
 ```

@@ -699,7 +699,7 @@ def test_release_checklist_api_available(tmp_path):
     response = client.get("/api/release/checklist")
     assert response.status_code == 200
     body = response.json()["release"]
-    assert body["commit_message"] == "Harden auth flow and frontend route guards"
+    assert body["commit_message"] == "Add publishing approval gate workflow and fix prompt templates"
     assert "git status" in body["git_commands"]
     assert body["report_markdown"].startswith("# Production Cleanup")
 
@@ -715,8 +715,104 @@ def test_setup_guide_api(tmp_path):
     client = TestClient(app)
     response = client.get("/api/setup/guide")
     assert response.status_code == 200
-    assert response.json()["setup"]["commit_message"] == "Harden auth flow and frontend route guards"
+    assert response.json()["setup"]["commit_message"] == "Add publishing approval gate workflow and fix prompt templates"
 
     download = client.get("/setup/guide/download")
     assert download.status_code == 200
     assert "Fresh Clone Setup Guide" in download.text
+
+
+def test_publishing_approval_gate_blocks_publish_until_approved(tmp_path):
+    settings.database_path = tmp_path / "publishing-approval-test.db"
+    settings.export_dir = tmp_path / "exports"
+    settings.source_safety_dir = tmp_path / "source_safety"
+    settings.trust_review_dir = tmp_path / "trust_reviews"
+    init_db()
+
+    client = TestClient(app)
+    payload = {
+        "board_source": "Self-written",
+        "class_level": "Class 7",
+        "subject": "Science",
+        "topic": "Why are leaves green?",
+        "audience": "School students",
+        "language": "English",
+        "duration_seconds": 60,
+        "output_type": "Short",
+        "tone": "Curious",
+        "source_notes": "Leaves contain chlorophyll. Chlorophyll reflects green light.",
+        "source_name": "Self notes",
+        "source_license_type": "Original",
+        "transformation_notes": "Original analogy added.",
+    }
+    created = client.post("/api/content/generate", json=payload)
+    assert created.status_code == 201
+    package = created.json()["package"]
+    package_id = package["id"]
+
+    blocked_publish = client.patch(
+        f"/api/content/{package_id}/review",
+        json={
+            "review_status": "published",
+            "script_text": package["script_text"],
+            "reviewer_notes": "Trying to publish too early.",
+        },
+    )
+    assert blocked_publish.status_code == 400
+
+    approved_review = client.patch(
+        f"/api/content/{package_id}/review",
+        json={
+            "review_status": "approved",
+            "script_text": package["script_text"],
+            "reviewer_notes": "Script approved.",
+        },
+    )
+    assert approved_review.status_code == 200
+
+    source_safety = client.post(f"/api/content/{package_id}/source-safety")
+    assert source_safety.status_code == 201
+    trust = client.post(f"/api/content/{package_id}/trust-review")
+    assert trust.status_code == 201
+    trust_id = trust.json()["trust_review"]["id"]
+    trust_update = client.patch(
+        f"/api/content/{package_id}/trust-review/{trust_id}",
+        json={
+            "factual_accuracy_score": 92,
+            "age_appropriateness_score": 92,
+            "simplicity_score": 92,
+            "visual_clarity_score": 90,
+            "engagement_score": 90,
+            "source_safety_score": 90,
+            "reviewer_confidence_score": 92,
+            "reviewer_decision": "approved",
+            "reviewer_notes": "Ready for publishing gate.",
+        },
+    )
+    assert trust_update.status_code == 200
+
+    gate = client.post(f"/api/content/{package_id}/publishing-approval")
+    assert gate.status_code == 201
+    approval = gate.json()["publishing_approval"]
+    assert approval["gate_status"] == "approved"
+
+    decision = client.patch(
+        f"/api/content/{package_id}/publishing-approval/{approval['id']}",
+        json={
+            "reviewer_decision": "approved",
+            "reviewer_name": "Publisher",
+            "reviewer_notes": "Approved for upload.",
+        },
+    )
+    assert decision.status_code == 200
+    assert decision.json()["publishing_approval"]["status"] == "approved"
+
+    published = client.patch(
+        f"/api/content/{package_id}/review",
+        json={
+            "review_status": "published",
+            "script_text": package["script_text"],
+            "reviewer_notes": "Published after gate approval.",
+        },
+    )
+    assert published.status_code == 200

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-COMMIT_MESSAGE = "Harden auth flow and frontend route guards"
+COMMIT_MESSAGE = "Add publishing approval gate workflow and fix prompt templates"
 
 WINDOWS_SETUP_COMMANDS = [
     "git clone YOUR_GITHUB_REPO_URL short_videos",

@@ -39,17 +39,20 @@ import {
   generateThumbnailGuide,
   generateTrustReview,
   generateLearningOutput,
+  generatePublishingApproval,
   generateVideoDraft,
   loginUser,
   logoutUser,
   thumbnailGuideDownloadUrl,
   sourceSafetyDownloadUrl,
+  updatePublishingApproval,
   trustReviewDownloadUrl,
   learningOutputDownloadUrl,
   createPromptTemplate,
   deletePromptTemplate,
   fetchPromptTemplates,
   previewPromptTemplate,
+  publishingApprovalDownloadUrl,
   releaseChecklistDownloadUrl,
   setupGuideDownloadUrl,
   seedDemoData,
@@ -117,6 +120,29 @@ const initialVisualAsset = {
   notes: 'Use for Class 6-8 science Shorts about plants.'
 }
 
+const initialPromptTemplate = {
+  name: 'Custom Curiosity Short Script',
+  task_type: 'script',
+  style_key: 'custom_curiosity',
+  active: true,
+  notes: 'Use this for a 30-60 second educational Short with a strong hook and simple explanation.',
+  template_text: `{hook}
+
+{simple_meaning}
+
+Example: {analogy}
+
+Remember: {memory_line}
+
+Quick challenge: explain {topic_lower} in one sentence.`
+}
+
+const initialPublishingApprovalDecision = {
+  reviewer_decision: 'pending',
+  reviewer_name: '',
+  reviewer_notes: ''
+}
+
 const ACTION_LABELS = {
   'content:view': 'view content packages',
   'content:create': 'create packages and batches',
@@ -133,7 +159,8 @@ const ACTION_LABELS = {
   'thumbnail:generate': 'generate thumbnail guides',
   'video:generate': 'generate assembly plans and video drafts',
   'audio:generate': 'generate narration audio',
-  'learning_outputs:generate': 'generate notes, quizzes, and worksheets'
+  'learning_outputs:generate': 'generate notes, quizzes, and worksheets',
+  'publish:approve': 'approve publishing gates'
 }
 
 const ROUTE_ACCESS = {
@@ -1631,6 +1658,9 @@ function PackageDetail({ id }) {
   const [sourceSafetyGenerating, setSourceSafetyGenerating] = useState(false)
   const [trustReviewGenerating, setTrustReviewGenerating] = useState(false)
   const [learningOutputGenerating, setLearningOutputGenerating] = useState(false)
+  const [publishingApprovalGenerating, setPublishingApprovalGenerating] = useState(false)
+  const [publishingApprovalSaving, setPublishingApprovalSaving] = useState(false)
+  const [publishingApprovalDecision, setPublishingApprovalDecision] = useState(initialPublishingApprovalDecision)
   const [editingTrustReview, setEditingTrustReview] = useState(null)
   const [trustReviewSaving, setTrustReviewSaving] = useState(false)
   const [analytics, setAnalytics] = useState({
@@ -1878,6 +1908,54 @@ function PackageDetail({ id }) {
   }
 
 
+  async function createPublishingApprovalGate() {
+    setMessage('')
+    setError('')
+    if (!canPublish) {
+      setError('You do not have permission to create publishing approval gates.')
+      return
+    }
+    setPublishingApprovalGenerating(true)
+    try {
+      const result = await generatePublishingApproval(id)
+      setData((current) => ({
+        ...current,
+        publishing_approvals: [result.publishing_approval, ...(current.publishing_approvals || [])]
+      }))
+      setPublishingApprovalDecision({
+        ...initialPublishingApprovalDecision,
+        reviewer_decision: result.publishing_approval.gate_status === 'approved' ? 'approved' : 'changes_required'
+      })
+      setMessage(`Publishing gate generated: ${result.publishing_approval.status}.`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setPublishingApprovalGenerating(false)
+    }
+  }
+
+  async function savePublishingApprovalDecision(approvalId) {
+    setMessage('')
+    setError('')
+    if (!canPublish) {
+      setError('You do not have permission to approve publishing gates.')
+      return
+    }
+    setPublishingApprovalSaving(true)
+    try {
+      const result = await updatePublishingApproval(id, approvalId, publishingApprovalDecision)
+      setData((current) => ({
+        ...current,
+        publishing_approvals: (current.publishing_approvals || []).map((item) => item.id === result.publishing_approval.id ? result.publishing_approval : item)
+      }))
+      setMessage(`Publishing decision saved: ${result.publishing_approval.status}.`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setPublishingApprovalSaving(false)
+    }
+  }
+
   async function createVideoDraft() {
     setMessage('')
     setError('')
@@ -1930,13 +2008,18 @@ function PackageDetail({ id }) {
   if (!data) return <Loading />
 
   const pkg = data.package
+  const latestPublishingApproval = (data.publishing_approvals || [])[0]
+  const publishingGateApproved = latestPublishingApproval?.status === 'approved' && latestPublishingApproval?.reviewer_decision === 'approved'
 
   return (
     <section>
       <Header
         title={pkg.topic}
         subtitle={`${pkg.class_level} • ${pkg.subject} • ${pkg.duration_seconds}s • ${pkg.provider_used}`}
-        action={<GuardedLink permission="content:publish" className="button-link" href={exportUrl(id)}>Export ZIP</GuardedLink>}
+        action={publishingGateApproved
+          ? <GuardedLink permission="content:publish" className="button-link" href={exportUrl(id)}>Export publish ZIP</GuardedLink>
+          : <button className="secondary locked-action" disabled title="Generate and approve the publishing gate before final export">Publish gate required</button>
+        }
       />
       {message && <div className="success-banner">{message}</div>}
       {error && <div className="form-error">{error}</div>}
@@ -2183,6 +2266,59 @@ function PackageDetail({ id }) {
         </div>
       </div>
 
+
+      <div className="card stack">
+        <div className="card-header">
+          <div>
+            <h2>Publishing approval gate</h2>
+            <p className="muted">Final publisher checkpoint before marking this Short as published. Required checks include script approval, source safety, and Teacher Trust Score readiness.</p>
+          </div>
+          <GuardedButton permission="content:publish" onClick={createPublishingApprovalGate} disabled={publishingApprovalGenerating}>
+            {publishingApprovalGenerating ? 'Checking...' : 'Generate publishing gate'}
+          </GuardedButton>
+        </div>
+        {!data.publishing_approvals || data.publishing_approvals.length === 0 ? (
+          <p className="muted">No publishing gate yet. Generate this after source safety and Teacher Trust Score reviews are complete.</p>
+        ) : (
+          <div className="review-list">
+            {data.publishing_approvals.map((approval, index) => (
+              <div className="review-entry" key={approval.id}>
+                <div>
+                  <strong>Gate #{approval.id}</strong>
+                  <p>{approval.status} • gate: {approval.gate_status} • required failures: {approval.required_failures_count} • optional warnings: {approval.optional_warnings_count}</p>
+                  {index === 0 && <p className="muted">Latest gate controls the publish ZIP button above.</p>}
+                  <div className="checklist-mini">
+                    {(approval.checklist || []).slice(0, 6).map((item) => (
+                      <span key={item.key} className={item.passed ? 'passed-check' : 'failed-check'}>{item.passed ? '✓' : '×'} {item.label}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="row-meta">
+                  <StatusBadge status={approval.status} />
+                  <a className="button-link small" href={publishingApprovalDownloadUrl(id, approval.id)}>Download gate</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {latestPublishingApproval && (
+          <div className="approval-editor">
+            <h3>Publisher decision for latest gate</h3>
+            <PermissionNotice permission="content:publish" compact />
+            <Select label="Decision" value={publishingApprovalDecision.reviewer_decision} options={[
+              { value: 'pending', label: 'Pending' },
+              { value: 'approved', label: 'Approved' },
+              { value: 'changes_required', label: 'Changes required' },
+              { value: 'rejected', label: 'Rejected' }
+            ]} onChange={(v) => setPublishingApprovalDecision({ ...publishingApprovalDecision, reviewer_decision: v })} />
+            <Input label="Publisher/reviewer name" value={publishingApprovalDecision.reviewer_name} onChange={(v) => setPublishingApprovalDecision({ ...publishingApprovalDecision, reviewer_name: v })} />
+            <TextArea label="Publisher notes" value={publishingApprovalDecision.reviewer_notes} onChange={(v) => setPublishingApprovalDecision({ ...publishingApprovalDecision, reviewer_notes: v })} rows={3} />
+            <GuardedButton permission="content:publish" onClick={() => savePublishingApprovalDecision(latestPublishingApproval.id)} disabled={publishingApprovalSaving}>
+              {publishingApprovalSaving ? 'Saving...' : 'Save publisher decision'}
+            </GuardedButton>
+          </div>
+        )}
+      </div>
 
       <div className="card stack">
         <div className="card-header">

@@ -1224,3 +1224,36 @@ th {
   color: #047857;
   font-weight: 700;
 }
+
+.checklist-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.checklist-mini span {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.passed-check {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.failed-check {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.approval-editor {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(248, 250, 252, 0.85);
+  display: grid;
+  gap: 12px;
+}

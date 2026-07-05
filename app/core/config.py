@@ -74,7 +74,7 @@ class Settings:
     tts_voice_id: str = os.getenv("TTS_VOICE_ID", "default")
     tts_rate: int = int(os.getenv("TTS_RATE", "165"))
 
-    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "22")
+    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "23")
 
     # Authentication is a foundation layer for role-based review/publishing workflows.
     # Keep AUTH_REQUIRED=false during local MVP work if you do not want to block older routes yet.

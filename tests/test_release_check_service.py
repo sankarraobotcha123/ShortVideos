@@ -3,7 +3,7 @@ from app.services.release_check_service import build_release_checklist
 
 def test_release_checklist_contains_git_commands():
     checklist = build_release_checklist()
-    assert checklist["commit_message"] == "Harden auth flow and frontend route guards"
+    assert checklist["commit_message"] == "Add publishing approval gate workflow and fix prompt templates"
     assert "git status" in checklist["git_commands"]
     assert ".env" in checklist["protected_paths"]
     assert "frontend/node_modules/" in checklist["protected_paths"]
