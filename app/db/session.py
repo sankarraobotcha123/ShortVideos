@@ -420,6 +420,30 @@ CREATE TABLE IF NOT EXISTS batch_handoff_runs (
     FOREIGN KEY(batch_id) REFERENCES content_batches(id) ON DELETE SET NULL
 );
 
+
+CREATE TABLE IF NOT EXISTS multilingual_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER,
+    source_language TEXT NOT NULL DEFAULT 'English',
+    target_language TEXT NOT NULL DEFAULT 'Hindi',
+    status TEXT NOT NULL DEFAULT 'planning',
+    priority TEXT NOT NULL DEFAULT 'medium',
+    translation_goal TEXT DEFAULT '',
+    cultural_notes TEXT DEFAULT '',
+    glossary_terms TEXT DEFAULT '',
+    voice_strategy TEXT NOT NULL DEFAULT 'manual_voice',
+    subtitle_strategy TEXT NOT NULL DEFAULT 'manual_review',
+    reviewer_name TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    needs_human_translation_review INTEGER NOT NULL DEFAULT 1,
+    readiness_score INTEGER NOT NULL DEFAULT 0,
+    recommendation TEXT DEFAULT '',
+    checklist_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -920,6 +944,35 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(series_id) REFERENCES content_series(id) ON DELETE CASCADE,
             FOREIGN KEY(idea_id) REFERENCES content_ideas(id) ON DELETE SET NULL,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS multilingual_plans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER,
+            source_language TEXT NOT NULL DEFAULT 'English',
+            target_language TEXT NOT NULL DEFAULT 'Hindi',
+            status TEXT NOT NULL DEFAULT 'planning',
+            priority TEXT NOT NULL DEFAULT 'medium',
+            translation_goal TEXT DEFAULT '',
+            cultural_notes TEXT DEFAULT '',
+            glossary_terms TEXT DEFAULT '',
+            voice_strategy TEXT NOT NULL DEFAULT 'manual_voice',
+            subtitle_strategy TEXT NOT NULL DEFAULT 'manual_review',
+            reviewer_name TEXT DEFAULT '',
+            notes TEXT DEFAULT '',
+            needs_human_translation_review INTEGER NOT NULL DEFAULT 1,
+            readiness_score INTEGER NOT NULL DEFAULT 0,
+            recommendation TEXT DEFAULT '',
+            checklist_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE SET NULL
         )
         """

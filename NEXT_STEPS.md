@@ -31,3 +31,11 @@ git commit -m "Add lightweight multilingual planning workflow"
 5. Final MVP bug-fix and UI polish pass
 
 After v28, there are **5 remaining major steps** for the strong MVP roadmap.
+
+
+## v29 — Lightweight Multilingual Planning + Sidebar Active State
+
+- Added multilingual planning workflow for target-language Shorts.
+- Added package-linked or standalone language plans with glossary, cultural notes, voice/subtitle strategy, reviewer, checklist, and readiness score.
+- Added clearer sidebar active-page highlighting and current-page chip so Dashboard/current route is visible.
+- Suggested commit: `Add lightweight multilingual planning workflow and improve sidebar active state`.

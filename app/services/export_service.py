@@ -27,6 +27,7 @@ def export_package(
     learning_outputs: Sequence[Mapping] | None = None,
     publishing_approvals: Sequence[Mapping] | None = None,
     provider_logs: Sequence[Mapping] | None = None,
+    multilingual_plans: Sequence[Mapping] | None = None,
 ) -> Path:
     settings.export_dir.mkdir(parents=True, exist_ok=True)
     package_id = row["id"]
@@ -46,6 +47,7 @@ def export_package(
     learning_outputs = list(learning_outputs or [])
     publishing_approvals = list(publishing_approvals or [])
     provider_logs = list(provider_logs or [])
+    multilingual_plans = list(multilingual_plans or [])
 
     asset_summary = "No reusable visual assets saved yet. Upload assets in the Visual Assets page to reuse icons/diagrams in MP4 drafts."
     if visual_assets:
@@ -123,6 +125,14 @@ def export_package(
             f"gate={latest_publishing_approval.get('gate_status')} | "
             f"decision={latest_publishing_approval.get('reviewer_decision')} | "
             f"required failures={latest_publishing_approval.get('required_failures_count', 0)}"
+        )
+
+
+    multilingual_summary = "No multilingual plan created yet. Use the Multilingual plans page before translating this Short."
+    if multilingual_plans:
+        multilingual_summary = "\n".join(
+            f"- {plan.get('target_language')} | {plan.get('status')} | readiness={plan.get('readiness_score')} | voice={plan.get('voice_strategy')} | subtitles={plan.get('subtitle_strategy')}"
+            for plan in multilingual_plans
         )
 
     provider_log_summary = "No provider attempt log rows found. Generate this package again after v15 if you need detailed logs."
@@ -220,6 +230,10 @@ def export_package(
 ## Publishing Approval Gate
 
 {publishing_approval_summary}
+
+## Multilingual Planning
+
+{multilingual_summary}
 
 ## AI Provider
 
@@ -350,6 +364,11 @@ def export_package(
         (package_dir / "publishing_approval_checklist.json").write_text(str(latest_publishing_approval.get("checklist_json") or "[]"), encoding="utf-8")
     (package_dir / "publishing_approvals.json").write_text(json.dumps(publishing_approval_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    multilingual_manifest = [dict(plan) for plan in multilingual_plans]
+    (package_dir / "multilingual_plans.json").write_text(json.dumps(multilingual_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    multilingual_report = "# Multilingual Plans for Package\n\n" + multilingual_summary + "\n"
+    (package_dir / "multilingual_plan.md").write_text(multilingual_report, encoding="utf-8")
+
     provider_log_manifest = [dict(log) for log in provider_logs]
     (package_dir / "ai_provider_logs.json").write_text(json.dumps(provider_log_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     provider_report = "# AI Provider Attempt Log\n\n" + provider_log_summary + "\n"
@@ -366,6 +385,7 @@ def export_package(
     payload["learning_outputs"] = learning_output_manifest
     payload["publishing_approvals"] = publishing_approval_manifest
     payload["ai_provider_logs"] = provider_log_manifest
+    payload["multilingual_plans"] = multilingual_manifest
     (package_dir / "package.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
     zip_path = settings.export_dir / f"package-{package_id}-{slug}.zip"

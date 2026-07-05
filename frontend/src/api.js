@@ -561,3 +561,36 @@ export function deleteSeriesItem(seriesId, itemId) {
 export function contentSeriesDownloadUrl(id = '') {
   return id ? `${API_BASE_URL}/content-series/${id}/download` : `${API_BASE_URL}/content-series/download`
 }
+
+
+export function fetchMultilingualPlans(params = {}) {
+  const query = new URLSearchParams()
+  if (params.target_language) query.set('target_language', params.target_language)
+  if (params.status) query.set('status', params.status)
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  return request(`/api/multilingual-plans${suffix}`)
+}
+
+export function createMultilingualPlan(payload) {
+  return request('/api/multilingual-plans', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateMultilingualPlan(id, payload) {
+  return request(`/api/multilingual-plans/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function deleteMultilingualPlan(id) {
+  return request(`/api/multilingual-plans/${id}`, {
+    method: 'DELETE'
+  })
+}
+
+export function multilingualPlansDownloadUrl() {
+  return `${API_BASE_URL}/multilingual-plans/download`
+}

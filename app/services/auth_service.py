@@ -32,6 +32,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "video:generate",
         "audio:generate",
         "learning_outputs:generate",
+        "multilingual:manage",
     },
     "script_reviewer": {"content:view", "content:review", "source_safety:review", "trust_score:review", "analytics:view"},
     "video_editor": {"content:view", "content:edit", "assets:manage", "video:generate", "audio:generate", "thumbnail:generate"},

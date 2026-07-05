@@ -151,6 +151,28 @@ nav,
   text-transform: uppercase;
 }
 
+.current-page-chip {
+  background: rgba(96, 165, 250, 0.16);
+  border: 1px solid rgba(147, 197, 253, 0.36);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 4px;
+}
+
+.current-page-chip span {
+  color: #bfdbfe;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.current-page-chip strong {
+  color: #ffffff;
+  font-size: 0.98rem;
+}
+
 nav a {
   color: #e2e8f0;
   padding: 9px 11px;
@@ -160,9 +182,42 @@ nav a {
   line-height: 1.2;
 }
 
-nav a:hover,
-nav a.active {
+nav a {
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+nav a:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+nav a.active {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: rgba(96, 165, 250, 0.85);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.24);
+  position: relative;
+}
+
+nav a.active::before {
+  content: "";
+  width: 5px;
+  align-self: stretch;
+  border-radius: 999px;
+  background: #2563eb;
+  margin: -3px 0 -3px -5px;
+}
+
+nav a em {
+  color: #2563eb;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .side-note {

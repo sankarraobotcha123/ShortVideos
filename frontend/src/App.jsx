@@ -10,6 +10,7 @@ import {
   convertContentIdea,
   createContentIdea,
   createContentSeries,
+  createMultilingualPlan,
   createSeriesItem,
   cleanupAuthSessions,
   clearAuthToken,
@@ -40,6 +41,7 @@ import {
   fetchContentIdeas,
   fetchContentSeries,
   fetchContentSeriesDetail,
+  fetchMultilingualPlans,
   fetchCurrentUser,
   fetchProviderLogs,
   fetchProductionBoard,
@@ -67,6 +69,7 @@ import {
   createPromptTemplate,
   deleteContentIdea,
   deleteContentSeries,
+  deleteMultilingualPlan,
   deletePromptTemplate,
   deleteSeriesItem,
   fetchPromptTemplates,
@@ -76,12 +79,14 @@ import {
   setupGuideDownloadUrl,
   productionBoardDownloadUrl,
   contentSeriesDownloadUrl,
+  multilingualPlansDownloadUrl,
   seedDemoData,
   seedPromptTemplates,
   updatePromptTemplate,
   updateAuthUser,
   updateContentIdea,
   updateContentSeries,
+  updateMultilingualPlan,
   updateSeriesItem,
   updateBatch,
   uploadVisualAsset,
@@ -206,6 +211,23 @@ const initialContentIdea = {
   monetization_potential_score: 6
 }
 
+
+const initialMultilingualPlan = {
+  package_id: '',
+  source_language: 'English',
+  target_language: 'Hindi',
+  status: 'planning',
+  priority: 'medium',
+  translation_goal: 'Make this Short understandable for local-language students without changing the meaning.',
+  cultural_notes: 'Use simple local examples and avoid word-for-word textbook translation.',
+  glossary_terms: 'photosynthesis = process plants use to make food; chlorophyll = green pigment in leaves',
+  voice_strategy: 'manual_voice',
+  subtitle_strategy: 'manual_review',
+  reviewer_name: '',
+  notes: 'Plan translation first. Publish only after human language review.',
+  needs_human_translation_review: true
+}
+
 const initialContentSeries = {
   title: 'Why does nature work like this?',
   niche: 'Class 6-8 Science curiosity Shorts',
@@ -257,6 +279,7 @@ const ACTION_LABELS = {
   'learning_outputs:generate': 'generate notes, quizzes, and worksheets',
   'ideas:manage': 'manage content ideas and topic scoring',
   'series:manage': 'manage content series plans',
+  'multilingual:manage': 'manage multilingual planning',
   'publish:approve': 'approve publishing gates'
 }
 
@@ -273,6 +296,7 @@ const ROUTE_ACCESS = {
   ideas: { permission: 'content:view' },
   series: { permission: 'content:view' },
   seriesDetail: { permission: 'content:view' },
+  multilingual: { permission: 'content:view' },
   assets: { permission: 'content:view' },
   templates: { permission: 'templates:manage' },
   analytics: { permission: 'analytics:view' },
@@ -360,6 +384,43 @@ function navigate(hash) {
   window.location.hash = hash
 }
 
+
+function routeDisplayName(route) {
+  const labels = {
+    dashboard: 'Dashboard',
+    new: 'Create package',
+    package: 'Package detail',
+    batches: 'Batches',
+    batch: 'Batch detail',
+    calendar: 'Calendar',
+    bulkCalendar: 'Bulk schedule',
+    handoff: 'Batch handoff',
+    productionBoard: 'Production board',
+    ideas: 'Idea backlog',
+    series: 'Series planner',
+    seriesDetail: 'Series detail',
+    multilingual: 'Multilingual plans',
+    assets: 'Visual assets',
+    templates: 'Prompt templates',
+    analytics: 'Analytics insights',
+    providerLogs: 'Provider logs',
+    demo: 'MVP demo setup',
+    release: 'Release checklist',
+    setup: 'Fresh clone setup',
+    permissions: 'Permissions',
+    authHardening: 'Auth hardening',
+    users: 'Users & roles',
+    login: 'Account / Login',
+    settings: 'AI fallback status',
+    audioSettings: 'Audio fallback status'
+  }
+  return labels[route.name] || 'Dashboard'
+}
+
+function NavItem({ route, active, href, children }) {
+  return <a className={active ? 'active' : ''} aria-current={active ? 'page' : undefined} href={href}><span>{children}</span>{active && <em>Current</em>}</a>
+}
+
 function App() {
   const hash = useHashRoute()
   const route = useMemo(() => parseRoute(hash), [hash])
@@ -400,34 +461,36 @@ function App() {
             <p>React frontend + FastAPI backend</p>
           </div>
         </div>
+        <div className="current-page-chip"><span>Current page</span><strong>{routeDisplayName(route)}</strong></div>
         <nav className="side-nav" aria-label="Primary navigation">
           <div className="nav-section-title">Create</div>
-          <a className={route.name === 'dashboard' ? 'active' : ''} href="#/">Dashboard</a>
-          {navCan('content:create') && <a className={route.name === 'new' ? 'active' : ''} href="#/new">Create package</a>}
-          {navCan('content:view') && <a className={route.name === 'batches' || route.name === 'batch' ? 'active' : ''} href="#/batches">Batches</a>}
-          {navCan('content:view') && <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>}
-          {navCan('content:view') && <a className={route.name === 'bulkCalendar' ? 'active' : ''} href="#/calendar/bulk">Bulk schedule</a>}
-          {navCan('content:view') && <a className={route.name === 'handoff' ? 'active' : ''} href="#/handoff">Batch handoff</a>}
-          {navCan('content:view') && <a className={route.name === 'productionBoard' ? 'active' : ''} href="#/production-board">Production board</a>}
-          {navCan('content:view') && <a className={route.name === 'ideas' ? 'active' : ''} href="#/ideas">Idea backlog</a>}
-          {navCan('content:view') && <a className={route.name === 'series' || route.name === 'seriesDetail' ? 'active' : ''} href="#/series">Series planner</a>}
-          {navCan('content:view') && <a className={route.name === 'assets' ? 'active' : ''} href="#/assets">Visual assets</a>}
-          {navCan('templates:manage') && <a className={route.name === 'templates' ? 'active' : ''} href="#/templates">Prompt templates</a>}
+          <NavItem route={route} active={route.name === 'dashboard'} href="#/">Dashboard</NavItem>
+          {navCan('content:create') && <NavItem route={route} active={route.name === 'new'} href="#/new">Create package</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'batches' || route.name === 'batch'} href="#/batches">Batches</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'calendar'} href="#/calendar">Calendar</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'bulkCalendar'} href="#/calendar/bulk">Bulk schedule</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'handoff'} href="#/handoff">Batch handoff</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'productionBoard'} href="#/production-board">Production board</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'ideas'} href="#/ideas">Idea backlog</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'series' || route.name === 'seriesDetail'} href="#/series">Series planner</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'multilingual'} href="#/multilingual">Multilingual plans</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'assets'} href="#/assets">Visual assets</NavItem>}
+          {navCan('templates:manage') && <NavItem route={route} active={route.name === 'templates'} href="#/templates">Prompt templates</NavItem>}
 
           <div className="nav-section-title">Review</div>
-          {navCan('analytics:view') && <a className={route.name === 'analytics' ? 'active' : ''} href="#/analytics">Analytics insights</a>}
-          {navCan('analytics:view') && <a className={route.name === 'providerLogs' ? 'active' : ''} href="#/provider-logs">Provider logs</a>}
-          <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
-          <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
+          {navCan('analytics:view') && <NavItem route={route} active={route.name === 'analytics'} href="#/analytics">Analytics insights</NavItem>}
+          {navCan('analytics:view') && <NavItem route={route} active={route.name === 'providerLogs'} href="#/provider-logs">Provider logs</NavItem>}
+          <NavItem route={route} active={route.name === 'settings'} href="#/settings/ai">AI fallback status</NavItem>
+          <NavItem route={route} active={route.name === 'audioSettings'} href="#/settings/audio">Audio fallback status</NavItem>
 
           <div className="nav-section-title">System</div>
-          {navCan('content:create') && <a className={route.name === 'demo' ? 'active' : ''} href="#/demo">MVP demo setup</a>}
-          <a className={route.name === 'release' ? 'active' : ''} href="#/release">Release checklist</a>
-          <a className={route.name === 'setup' ? 'active' : ''} href="#/setup">Fresh clone setup</a>
-          <a className={route.name === 'permissions' ? 'active' : ''} href="#/permissions">Permissions</a>
-          {authUser?.role === 'super_admin' && <a className={route.name === 'authHardening' ? 'active' : ''} href="#/auth-hardening">Auth hardening</a>}
-          {authUser?.role === 'super_admin' && <a className={route.name === 'users' ? 'active' : ''} href="#/users">Users & roles</a>}
-          <a className={route.name === 'login' ? 'active' : ''} href="#/login">{authUser ? 'Account' : 'Login'}</a>
+          {navCan('content:create') && <NavItem route={route} active={route.name === 'demo'} href="#/demo">MVP demo setup</NavItem>}
+          <NavItem route={route} active={route.name === 'release'} href="#/release">Release checklist</NavItem>
+          <NavItem route={route} active={route.name === 'setup'} href="#/setup">Fresh clone setup</NavItem>
+          <NavItem route={route} active={route.name === 'permissions'} href="#/permissions">Permissions</NavItem>
+          {authUser?.role === 'super_admin' && <NavItem route={route} active={route.name === 'authHardening'} href="#/auth-hardening">Auth hardening</NavItem>}
+          {authUser?.role === 'super_admin' && <NavItem route={route} active={route.name === 'users'} href="#/users">Users & roles</NavItem>}
+          <NavItem route={route} active={route.name === 'login'} href="#/login">{authUser ? 'Account' : 'Login'}</NavItem>
           <a href="http://127.0.0.1:8000" target="_blank" rel="noreferrer">Legacy Jinja UI</a>
         </nav>
         <div className="side-note">
@@ -453,6 +516,7 @@ function App() {
           {route.name === 'ideas' && <ContentIdeaBacklogPage />}
           {route.name === 'series' && <ContentSeriesPlannerPage />}
           {route.name === 'seriesDetail' && <ContentSeriesDetailPage id={route.id} />}
+          {route.name === 'multilingual' && <MultilingualPlansPage />}
           {route.name === 'assets' && <VisualAssetsPage />}
           {route.name === 'templates' && <PromptTemplatesPage />}
           {route.name === 'analytics' && <AnalyticsInsightsPage />}
@@ -488,6 +552,7 @@ function parseRoute(hash) {
   if (parts[0] === 'ideas') return { name: 'ideas' }
   if (parts[0] === 'series' && parts[1]) return { name: 'seriesDetail', id: parts[1] }
   if (parts[0] === 'series') return { name: 'series' }
+  if (parts[0] === 'multilingual') return { name: 'multilingual' }
   if (parts[0] === 'assets') return { name: 'assets' }
   if (parts[0] === 'templates') return { name: 'templates' }
   if (parts[0] === 'analytics') return { name: 'analytics' }
@@ -3407,6 +3472,157 @@ function ContentSeriesDetailPage({ id }) {
     </section>
   )
 }
+
+
+function MultilingualPlansPage() {
+  const [data, setData] = useState(null)
+  const [form, setForm] = useState(initialMultilingualPlan)
+  const [editingId, setEditingId] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function load() {
+    const payload = await fetchMultilingualPlans()
+    setData(payload)
+  }
+
+  useEffect(() => { load().catch((err) => setError(err.message)) }, [])
+
+  function resetForm() {
+    setEditingId(null)
+    setForm(initialMultilingualPlan)
+  }
+
+  function edit(plan) {
+    setEditingId(plan.id)
+    setForm({
+      package_id: plan.package_id || '',
+      source_language: plan.source_language || 'English',
+      target_language: plan.target_language || 'Hindi',
+      status: plan.status || 'planning',
+      priority: plan.priority || 'medium',
+      translation_goal: plan.translation_goal || '',
+      cultural_notes: plan.cultural_notes || '',
+      glossary_terms: plan.glossary_terms || '',
+      voice_strategy: plan.voice_strategy || 'manual_voice',
+      subtitle_strategy: plan.subtitle_strategy || 'manual_review',
+      reviewer_name: plan.reviewer_name || '',
+      notes: plan.notes || '',
+      needs_human_translation_review: Boolean(plan.needs_human_translation_review)
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    const payload = { ...form, package_id: form.package_id ? Number(form.package_id) : null }
+    try {
+      if (editingId) await updateMultilingualPlan(editingId, payload)
+      else await createMultilingualPlan(payload)
+      resetForm()
+      await load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(id) {
+    if (!window.confirm('Delete this multilingual plan?')) return
+    setBusy(true)
+    try {
+      await deleteMultilingualPlan(id)
+      await load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!data) return <Loading />
+  const summary = data.summary || {}
+  const languageOptions = data.supported_languages || ['English', 'Hindi', 'Telugu']
+  const packageOptions = data.package_options || []
+
+  return (
+    <section>
+      <Header
+        title="Multilingual planning"
+        subtitle="Plan Hindi/Telugu/Tamil/Kannada versions without building full translation automation too early. Use this to prepare glossary, voice, subtitles, and human review before publishing local-language Shorts."
+        action={<a className="button-link secondary" href={multilingualPlansDownloadUrl()}>Download report</a>}
+      />
+
+      <div className="stats-grid">
+        <StatCard label="Plans" value={summary.total || 0} />
+        <StatCard label="Ready" value={summary.ready_count || 0} />
+        <StatCard label="Needs review" value={summary.needs_review_count || 0} />
+        <StatCard label="Languages" value={Object.keys(summary.by_language || {}).length} />
+      </div>
+
+      <form className="card form-grid" onSubmit={submit}>
+        <h2 className="wide">{editingId ? 'Edit multilingual plan' : 'Create multilingual plan'}</h2>
+        <Select label="Package" value={form.package_id} onChange={(value) => setForm({ ...form, package_id: value })} options={[{ value: '', label: 'Standalone plan / no package yet' }, ...packageOptions.map((pkg) => ({ value: String(pkg.id), label: `#${pkg.id} — ${pkg.topic}` }))]} />
+        <Select label="Source language" value={form.source_language} onChange={(value) => setForm({ ...form, source_language: value })} options={languageOptions} />
+        <Select label="Target language" value={form.target_language} onChange={(value) => setForm({ ...form, target_language: value })} options={languageOptions.filter((language) => language !== form.source_language)} />
+        <Select label="Status" value={form.status} onChange={(value) => setForm({ ...form, status: value })} options={data.statuses || []} />
+        <Select label="Priority" value={form.priority} onChange={(value) => setForm({ ...form, priority: value })} options={['high', 'medium', 'low']} />
+        <Select label="Voice strategy" value={form.voice_strategy} onChange={(value) => setForm({ ...form, voice_strategy: value })} options={data.voice_strategies || []} />
+        <Select label="Subtitle strategy" value={form.subtitle_strategy} onChange={(value) => setForm({ ...form, subtitle_strategy: value })} options={data.subtitle_strategies || []} />
+        <Input label="Reviewer name" value={form.reviewer_name} onChange={(value) => setForm({ ...form, reviewer_name: value })} />
+        <TextArea wide label="Translation goal" rows={3} value={form.translation_goal} onChange={(value) => setForm({ ...form, translation_goal: value })} />
+        <TextArea wide label="Cultural/localization notes" rows={4} value={form.cultural_notes} onChange={(value) => setForm({ ...form, cultural_notes: value })} />
+        <TextArea wide label="Glossary terms" rows={4} value={form.glossary_terms} onChange={(value) => setForm({ ...form, glossary_terms: value })} />
+        <TextArea wide label="Notes" rows={3} value={form.notes} onChange={(value) => setForm({ ...form, notes: value })} />
+        <label className="field checkbox-field wide"><input type="checkbox" checked={form.needs_human_translation_review} onChange={(event) => setForm({ ...form, needs_human_translation_review: event.target.checked })} /><span>Require human translation review before publishing</span></label>
+        {error && <p className="error-text wide">{error}</p>}
+        <PermissionNotice permission="content:edit" compact />
+        <div className="wide button-row">
+          <GuardedButton permission="content:edit" disabled={busy}>{editingId ? 'Update plan' : 'Create plan'}</GuardedButton>
+          {editingId && <button type="button" className="secondary" onClick={resetForm}>Cancel edit</button>}
+        </div>
+      </form>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Language summary</h2><span className="muted">Use this to decide which language to test first.</span></div>
+        <div className="mini-grid">
+          {Object.entries(summary.by_language || {}).map(([language, count]) => <InfoBlock key={language} title={language} value={`${count} plan(s)`} />)}
+          {Object.keys(summary.by_language || {}).length === 0 && <p className="muted">No language plans yet.</p>}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <h2>Plans</h2>
+        {(data.plans || []).length === 0 && <p className="muted">No multilingual plans yet. Create one for Hindi/Telugu/Tamil/Kannada before translating your best Shorts.</p>}
+        {(data.plans || []).map((plan) => (
+          <div className="list-item" key={plan.id}>
+            <div>
+              <strong>#{plan.id} {plan.target_language}</strong>
+              <p>{plan.package_topic ? `Package: ${plan.package_topic}` : 'Standalone language plan'}</p>
+              <div className="pill-list">
+                <StatusBadge status={plan.status} />
+                <span>{plan.priority} priority</span>
+                <span>Readiness {plan.readiness_score}</span>
+                <span>{plan.voice_strategy}</span>
+                <span>{plan.subtitle_strategy}</span>
+              </div>
+              <p className="muted">{plan.recommendation}</p>
+              <details><summary>Checklist</summary><ul>{(plan.checklist || []).map((item) => <li key={item.label}>{item.passed ? '✅' : '⚠️'} {item.label} — {item.fix}</li>)}</ul></details>
+            </div>
+            <div className="button-row compact-actions">
+              <button className="secondary small" onClick={() => edit(plan)}>Edit</button>
+              <GuardedButton permission="content:edit" className="secondary small" onClick={() => remove(plan.id)}>Delete</GuardedButton>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 
 function ProductionBoardPage() {
   const canEdit = useCan('content:edit')

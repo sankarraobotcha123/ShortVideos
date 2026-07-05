@@ -81,6 +81,17 @@ from app.services.batch_handoff_service import (
     create_batch_handoff,
     list_batch_handoff_runs,
 )
+from app.services.multilingual_planning_service import (
+    LANGUAGE_PLAN_STATUSES,
+    SUPPORTED_LANGUAGES,
+    SUBTITLE_STRATEGIES,
+    VOICE_STRATEGIES,
+    build_multilingual_plans_markdown,
+    create_multilingual_plan,
+    get_multilingual_plan,
+    list_multilingual_plans,
+    update_multilingual_plan,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -452,6 +463,7 @@ def export_content(package_id: int, _: dict[str, Any] = Depends(require_permissi
         learning_outputs = conn.execute("SELECT * FROM learning_outputs WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         publishing_approvals = list_publishing_approvals(conn, package_id)
         provider_logs = conn.execute("SELECT * FROM ai_provider_logs WHERE package_id = ? ORDER BY attempt_order ASC, id ASC", (package_id,)).fetchall()
+        multilingual_plans = conn.execute("SELECT * FROM multilingual_plans WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
@@ -467,6 +479,7 @@ def export_content(package_id: int, _: dict[str, Any] = Depends(require_permissi
         [dict(item) for item in learning_outputs],
         publishing_approvals,
         [dict(item) for item in provider_logs],
+        [dict(item) for item in multilingual_plans],
     )
     return FileResponse(zip_path, filename=Path(zip_path).name, media_type="application/zip")
 
@@ -704,6 +717,28 @@ class SeriesItemCreateRequest(BaseModel):
 
 
 class SeriesItemUpdateRequest(SeriesItemCreateRequest):
+    pass
+
+
+
+
+class MultilingualPlanCreateRequest(BaseModel):
+    package_id: int | None = None
+    source_language: str = "English"
+    target_language: str = "Hindi"
+    status: str = "planning"
+    priority: str = "medium"
+    translation_goal: str = "Make this Short understandable for local-language students without changing the meaning."
+    cultural_notes: str = ""
+    glossary_terms: str = ""
+    voice_strategy: str = "manual_voice"
+    subtitle_strategy: str = "manual_review"
+    reviewer_name: str = ""
+    notes: str = ""
+    needs_human_translation_review: bool = True
+
+
+class MultilingualPlanUpdateRequest(MultilingualPlanCreateRequest):
     pass
 
 
@@ -1120,6 +1155,67 @@ def download_single_content_series(series_id: int, _: dict[str, Any] = Depends(r
         markdown,
         media_type="text/markdown",
         headers={"Content-Disposition": f"attachment; filename=content_series_{series_id}.md"},
+    )
+
+
+
+
+@router.get("/api/multilingual-plans")
+def api_multilingual_plans(target_language: str = "", status: str = "", _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
+    with db_session() as conn:
+        payload = list_multilingual_plans(conn, target_language=target_language, status=status)
+        packages = conn.execute(
+            """
+            SELECT id, topic, subject, class_level, language, trust_score, review_status
+            FROM content_packages
+            ORDER BY id DESC
+            """
+        ).fetchall()
+    payload["package_options"] = [dict(row) for row in packages]
+    return payload
+
+
+@router.post("/api/multilingual-plans", status_code=201)
+def api_create_multilingual_plan(payload: MultilingualPlanCreateRequest, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
+    with db_session() as conn:
+        try:
+            plan = create_multilingual_plan(conn, payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        plans = list_multilingual_plans(conn)
+    return {"plan": plan, "multilingual_plans": plans}
+
+
+@router.patch("/api/multilingual-plans/{plan_id}")
+def api_update_multilingual_plan(plan_id: int, payload: MultilingualPlanUpdateRequest, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
+    with db_session() as conn:
+        try:
+            plan = update_multilingual_plan(conn, plan_id, payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=404 if "not found" in str(exc).lower() else 400, detail=str(exc)) from exc
+        plans = list_multilingual_plans(conn)
+    return {"plan": plan, "multilingual_plans": plans}
+
+
+@router.delete("/api/multilingual-plans/{plan_id}")
+def api_delete_multilingual_plan(plan_id: int, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
+    with db_session() as conn:
+        existing = get_multilingual_plan(conn, plan_id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Multilingual plan not found")
+        conn.execute("DELETE FROM multilingual_plans WHERE id = ?", (plan_id,))
+    return {"deleted": True, "plan_id": plan_id}
+
+
+@router.get("/multilingual-plans/download")
+def download_multilingual_plans(_: dict[str, Any] = Depends(require_permission("content:view"))):
+    with db_session() as conn:
+        payload = list_multilingual_plans(conn)
+    markdown = build_multilingual_plans_markdown(payload)
+    return PlainTextResponse(
+        markdown,
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=multilingual_planning_report.md"},
     )
 
 

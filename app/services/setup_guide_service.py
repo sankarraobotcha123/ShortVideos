@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-COMMIT_MESSAGE = "Add batch export and production handoff workflow"
+COMMIT_MESSAGE = "Add lightweight multilingual planning workflow and improve sidebar active state"
 
 WINDOWS_SETUP_COMMANDS = [
     "git clone YOUR_GITHUB_REPO_URL short_videos",
