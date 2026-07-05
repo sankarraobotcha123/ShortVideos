@@ -15,6 +15,7 @@ from app.services.auth_service import (
     current_user_optional,
     current_user_required,
     list_users,
+    permission_matrix,
     require_role,
     revoke_session,
     update_user,
@@ -87,7 +88,12 @@ def api_me(user: dict[str, Any] | None = Depends(current_user_optional)) -> dict
 
 @router.get("/roles")
 def api_roles() -> dict[str, Any]:
-    return {"roles": [{"role": role, "permissions": sorted(perms)} for role, perms in ROLE_PERMISSIONS.items()]}
+    return {"roles": permission_matrix()}
+
+
+@router.get("/permissions")
+def api_permissions() -> dict[str, Any]:
+    return {"auth_required": settings.auth_required, "roles": permission_matrix()}
 
 
 @router.get("/users")

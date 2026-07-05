@@ -84,6 +84,10 @@ export function fetchAuthStatus() {
   return request('/api/auth/status')
 }
 
+export function fetchAuthPermissions() {
+  return request('/api/auth/permissions')
+}
+
 export function fetchAuthUsers() {
   return request('/api/auth/users')
 }

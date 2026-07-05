@@ -52,3 +52,76 @@ def test_user_management_requires_admin_token(tmp_path):
     client = TestClient(app)
     unauthorized = client.get("/api/auth/users")
     assert unauthorized.status_code == 401
+
+
+def test_strict_permission_enforcement_blocks_and_allows_creator_actions(tmp_path):
+    settings.database_path = tmp_path / "strict-permission-test.db"
+    settings.export_dir = tmp_path / "exports"
+    settings.auth_required = True
+    settings.default_admin_email = "admin@example.com"
+    settings.default_admin_password = "ChangeMe123!"
+    init_db()
+
+    client = TestClient(app)
+    payload = {
+        "board_source": "Self-written",
+        "class_level": "Class 7",
+        "subject": "Science",
+        "topic": "Why are leaves green?",
+        "audience": "School students",
+        "language": "English",
+        "duration_seconds": 60,
+        "output_type": "Short",
+        "tone": "Curious",
+        "source_notes": "Leaves contain chlorophyll. Chlorophyll reflects green light.",
+        "source_name": "Self notes",
+        "source_license_type": "Original",
+        "transformation_notes": "Original analogy added.",
+    }
+
+    try:
+        blocked = client.post("/api/content/generate", json=payload)
+        assert blocked.status_code == 401
+
+        login = client.post("/api/auth/login", json={"email": "admin@example.com", "password": "ChangeMe123!"})
+        assert login.status_code == 200
+        headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+        created = client.post("/api/content/generate", json=payload, headers=headers)
+        assert created.status_code == 201
+        package_id = created.json()["package"]["id"]
+
+        users = client.get("/api/auth/users", headers=headers)
+        assert users.status_code == 200
+
+        reviewer = client.post(
+            "/api/auth/users",
+            json={
+                "name": "Reviewer",
+                "email": "reviewer@example.com",
+                "password": "ChangeMe123!",
+                "role": "script_reviewer",
+                "active": True,
+            },
+            headers=headers,
+        )
+        assert reviewer.status_code == 200
+
+        reviewer_login = client.post("/api/auth/login", json={"email": "reviewer@example.com", "password": "ChangeMe123!"})
+        reviewer_headers = {"Authorization": f"Bearer {reviewer_login.json()['access_token']}"}
+
+        denied_create = client.post("/api/content/generate", json=payload, headers=reviewer_headers)
+        assert denied_create.status_code == 403
+
+        allowed_review = client.patch(
+            f"/api/content/{package_id}/review",
+            json={
+                "review_status": "approved",
+                "script_text": created.json()["package"]["script_text"],
+                "reviewer_notes": "Reviewer approved.",
+            },
+            headers=reviewer_headers,
+        )
+        assert allowed_review.status_code == 200
+    finally:
+        settings.auth_required = False

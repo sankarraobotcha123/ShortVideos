@@ -12,6 +12,7 @@ import {
   deleteVisualAsset,
   fetchAuthStatus,
   fetchAuthUsers,
+  fetchAuthPermissions,
   exportUrl,
   fetchAiSettings,
   fetchAnalyticsInsights,
@@ -162,22 +163,28 @@ function App() {
             <p>React frontend + FastAPI backend</p>
           </div>
         </div>
-        <nav>
+        <nav className="side-nav" aria-label="Primary navigation">
+          <div className="nav-section-title">Create</div>
           <a className={route.name === 'dashboard' ? 'active' : ''} href="#/">Dashboard</a>
           <a className={route.name === 'new' ? 'active' : ''} href="#/new">Create package</a>
           <a className={route.name === 'batches' || route.name === 'batch' ? 'active' : ''} href="#/batches">Batches</a>
           <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>
           <a className={route.name === 'assets' ? 'active' : ''} href="#/assets">Visual assets</a>
           <a className={route.name === 'templates' ? 'active' : ''} href="#/templates">Prompt templates</a>
+
+          <div className="nav-section-title">Review</div>
           <a className={route.name === 'analytics' ? 'active' : ''} href="#/analytics">Analytics insights</a>
           <a className={route.name === 'providerLogs' ? 'active' : ''} href="#/provider-logs">Provider logs</a>
+          <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
+          <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
+
+          <div className="nav-section-title">System</div>
           <a className={route.name === 'demo' ? 'active' : ''} href="#/demo">MVP demo setup</a>
           <a className={route.name === 'release' ? 'active' : ''} href="#/release">Release checklist</a>
           <a className={route.name === 'setup' ? 'active' : ''} href="#/setup">Fresh clone setup</a>
+          <a className={route.name === 'permissions' ? 'active' : ''} href="#/permissions">Permissions</a>
           {authUser?.role === 'super_admin' && <a className={route.name === 'users' ? 'active' : ''} href="#/users">Users & roles</a>}
           <a className={route.name === 'login' ? 'active' : ''} href="#/login">{authUser ? 'Account' : 'Login'}</a>
-          <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
-          <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
           <a href="http://127.0.0.1:8000" target="_blank" rel="noreferrer">Legacy Jinja UI</a>
         </nav>
         <div className="side-note">
@@ -205,6 +212,7 @@ function App() {
         {route.name === 'setup' && <FreshCloneSetupPage />}
         {route.name === 'login' && <LoginPage authUser={authUser} authStatus={authStatus} onLogin={setAuthUser} onLogout={handleLogout} />}
         {route.name === 'users' && <UserManagementPage currentUser={authUser} />}
+        {route.name === 'permissions' && <PermissionMatrixPage authStatus={authStatus} authUser={authUser} />}
         {route.name === 'settings' && <AiSettings />}
         {route.name === 'audioSettings' && <AudioSettings />}
       </main>
@@ -230,6 +238,7 @@ function parseRoute(hash) {
   if (parts[0] === 'setup') return { name: 'setup' }
   if (parts[0] === 'login') return { name: 'login' }
   if (parts[0] === 'users') return { name: 'users' }
+  if (parts[0] === 'permissions') return { name: 'permissions' }
   if (parts[0] === 'settings' && parts[1] === 'ai') return { name: 'settings' }
   if (parts[0] === 'settings' && parts[1] === 'audio') return { name: 'audioSettings' }
   return { name: 'dashboard' }
@@ -302,6 +311,55 @@ function LoginPage({ authUser, authStatus, onLogin, onLogout }) {
         <InfoBlock title="Auth required" value={String(Boolean(authStatus?.auth_required))} />
         <InfoBlock title="Default admin email" value={authStatus?.default_admin_email || 'admin@example.com'} />
         <p className="muted">For now, AUTH_REQUIRED can stay false while you build. Later, set it true and wire permission dependencies into sensitive routes.</p>
+      </div>
+    </section>
+  )
+}
+
+
+function PermissionMatrixPage({ authStatus, authUser }) {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchAuthPermissions().then(setData).catch((err) => setError(err.message))
+  }, [])
+
+  if (error) return <ErrorCard title="Could not load permissions" message={error} />
+  if (!data) return <Loading />
+
+  return (
+    <section>
+      <Header
+        title="Role permissions"
+        subtitle="This shows which roles can use sensitive creator workflows. AUTH_REQUIRED=false keeps local development permissive; AUTH_REQUIRED=true enforces these permissions on protected API actions."
+      />
+      <div className="card stack">
+        <InfoBlock title="Auth enforcement" value={data.auth_required ? 'Strict mode enabled' : 'Local MVP permissive mode'} />
+        <InfoBlock title="Current user" value={authUser ? `${authUser.name} (${authUser.role})` : 'Not signed in'} />
+        {!data.auth_required && <p className="muted">Local MVP mode allows protected creator actions without blocking development. Login still works, and strict enforcement can be enabled later through AUTH_REQUIRED=true.</p>}
+      </div>
+      <div className="card">
+        <div className="card-header"><h2>Permission matrix</h2><span>{data.roles.length} roles</span></div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Role</th><th>Permissions</th></tr></thead>
+            <tbody>
+              {data.roles.map((role) => (
+                <tr key={role.role}>
+                  <td><strong>{role.role.replaceAll('_', ' ')}</strong></td>
+                  <td><div className="pill-list">{role.permissions.map((permission) => <span key={permission}>{permission}</span>)}</div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="card stack">
+        <h2>Strict mode test</h2>
+        <p className="muted">When you are ready to test real permissions, set this in your local .env and restart FastAPI:</p>
+        <pre>{`AUTH_REQUIRED=true`}</pre>
+        <p className="muted">Then login as different roles and confirm create/review/publish actions are blocked or allowed correctly.</p>
       </div>
     </section>
   )

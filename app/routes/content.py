@@ -4,13 +4,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from app.db.session import db_session
 from app.services.content_generator import ContentInput
+from app.services.auth_service import require_permission
 from app.services.export_service import export_package
 from app.services.generation_orchestrator import generate_content_package_with_fallbacks, provider_status
 from app.services.audio_service import audio_provider_status, generate_audio_asset
@@ -555,7 +556,7 @@ def api_prompt_templates(task_type: str | None = None) -> dict[str, Any]:
 
 
 @router.post("/api/prompt-templates/seed", status_code=201)
-def api_seed_prompt_templates() -> dict[str, Any]:
+def api_seed_prompt_templates(_: dict[str, Any] = Depends(require_permission("templates:manage"))) -> dict[str, Any]:
     with db_session() as conn:
         created = seed_default_prompt_templates(conn)
         templates = list_prompt_templates(conn)
@@ -563,7 +564,7 @@ def api_seed_prompt_templates() -> dict[str, Any]:
 
 
 @router.post("/api/prompt-templates", status_code=201)
-def api_create_prompt_template(payload: PromptTemplateCreateRequest) -> dict[str, Any]:
+def api_create_prompt_template(payload: PromptTemplateCreateRequest, _: dict[str, Any] = Depends(require_permission("templates:manage"))) -> dict[str, Any]:
     with db_session() as conn:
         cursor = conn.execute(
             """
@@ -585,7 +586,7 @@ def api_create_prompt_template(payload: PromptTemplateCreateRequest) -> dict[str
 
 
 @router.patch("/api/prompt-templates/{template_id}")
-def api_update_prompt_template(template_id: int, payload: PromptTemplateUpdateRequest) -> dict[str, Any]:
+def api_update_prompt_template(template_id: int, payload: PromptTemplateUpdateRequest, _: dict[str, Any] = Depends(require_permission("templates:manage"))) -> dict[str, Any]:
     with db_session() as conn:
         existing = get_prompt_template(conn, template_id)
         if existing is None:
@@ -611,7 +612,7 @@ def api_update_prompt_template(template_id: int, payload: PromptTemplateUpdateRe
 
 
 @router.delete("/api/prompt-templates/{template_id}")
-def api_delete_prompt_template(template_id: int) -> dict[str, Any]:
+def api_delete_prompt_template(template_id: int, _: dict[str, Any] = Depends(require_permission("templates:manage"))) -> dict[str, Any]:
     with db_session() as conn:
         existing = get_prompt_template(conn, template_id)
         if existing is None:
@@ -621,7 +622,7 @@ def api_delete_prompt_template(template_id: int) -> dict[str, Any]:
 
 
 @router.post("/api/prompt-templates/{template_id}/preview")
-def api_preview_prompt_template(template_id: int, payload: PromptPreviewRequest) -> dict[str, Any]:
+def api_preview_prompt_template(template_id: int, payload: PromptPreviewRequest, _: dict[str, Any] = Depends(require_permission("templates:manage"))) -> dict[str, Any]:
     inp = payload.to_content_input()
     base_package = generate_content_package_with_fallbacks(inp)
     with db_session() as conn:
@@ -632,7 +633,7 @@ def api_preview_prompt_template(template_id: int, payload: PromptPreviewRequest)
 
 
 @router.get("/api/analytics/insights")
-def api_analytics_insights() -> dict[str, Any]:
+def api_analytics_insights(_: dict[str, Any] = Depends(require_permission("analytics:view"))) -> dict[str, Any]:
     with db_session() as conn:
         insights = build_analytics_insights(conn)
     return insights
@@ -647,7 +648,7 @@ def api_system_readiness() -> dict[str, Any]:
 
 
 @router.post("/api/demo/seed", status_code=201)
-def api_seed_demo_data(payload: DemoSeedRequest) -> dict[str, Any]:
+def api_seed_demo_data(payload: DemoSeedRequest, _: dict[str, Any] = Depends(require_permission("content:create"))) -> dict[str, Any]:
     with db_session() as conn:
         result = seed_demo_data(conn, reset_demo=payload.reset_demo)
         readiness = build_system_readiness(conn)
@@ -688,7 +689,7 @@ def download_release_checklist():
     )
 
 @router.get("/api/provider-logs")
-def api_provider_logs(limit: int = 100, package_id: int | None = None) -> dict[str, Any]:
+def api_provider_logs(limit: int = 100, package_id: int | None = None, _: dict[str, Any] = Depends(require_permission("analytics:view"))) -> dict[str, Any]:
     with db_session() as conn:
         summary = build_provider_log_summary(conn)
         logs = list_provider_logs(conn, limit=limit, package_id=package_id)
@@ -696,7 +697,7 @@ def api_provider_logs(limit: int = 100, package_id: int | None = None) -> dict[s
 
 
 @router.get("/api/packages")
-def api_packages() -> dict[str, Any]:
+def api_packages(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         rows = conn.execute(
             """
@@ -712,7 +713,7 @@ def api_packages() -> dict[str, Any]:
 
 
 @router.post("/api/content/generate", status_code=201)
-def api_generate_content(payload: ContentGenerateRequest) -> dict[str, Any]:
+def api_generate_content(payload: ContentGenerateRequest, _: dict[str, Any] = Depends(require_permission("content:create"))) -> dict[str, Any]:
     inp = payload.to_content_input()
     generated = generate_content_package_with_fallbacks(inp)
     with db_session() as conn:
@@ -727,7 +728,7 @@ def api_generate_content(payload: ContentGenerateRequest) -> dict[str, Any]:
 
 
 @router.get("/api/content/{package_id}")
-def api_package(package_id: int) -> dict[str, Any]:
+def api_package(package_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         analytics = conn.execute(
@@ -791,7 +792,7 @@ def api_package(package_id: int) -> dict[str, Any]:
 
 
 @router.patch("/api/content/{package_id}/review")
-def api_update_review(package_id: int, payload: ReviewUpdateRequest) -> dict[str, Any]:
+def api_update_review(package_id: int, payload: ReviewUpdateRequest, _: dict[str, Any] = Depends(require_permission("content:review"))) -> dict[str, Any]:
     _update_review_record(package_id, payload.review_status, payload.script_text, payload.reviewer_notes)
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
@@ -799,7 +800,7 @@ def api_update_review(package_id: int, payload: ReviewUpdateRequest) -> dict[str
 
 
 @router.post("/api/content/{package_id}/analytics", status_code=201)
-def api_add_analytics(package_id: int, payload: AnalyticsCreateRequest) -> dict[str, Any]:
+def api_add_analytics(package_id: int, payload: AnalyticsCreateRequest, _: dict[str, Any] = Depends(require_permission("analytics:manage"))) -> dict[str, Any]:
     _insert_analytics_record(
         package_id,
         payload.platform,
@@ -822,7 +823,7 @@ def api_add_analytics(package_id: int, payload: AnalyticsCreateRequest) -> dict[
 
 
 @router.get("/api/batches")
-def api_batches() -> dict[str, Any]:
+def api_batches(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         rows = conn.execute(
             """
@@ -850,7 +851,7 @@ def api_batches() -> dict[str, Any]:
 
 
 @router.post("/api/batches", status_code=201)
-def api_create_batch(payload: BatchCreateRequest) -> dict[str, Any]:
+def api_create_batch(payload: BatchCreateRequest, _: dict[str, Any] = Depends(require_permission("content:create"))) -> dict[str, Any]:
     _validate_batch_status(payload.status)
     with db_session() as conn:
         cursor = conn.execute(
@@ -881,7 +882,7 @@ def api_create_batch(payload: BatchCreateRequest) -> dict[str, Any]:
 
 
 @router.get("/api/batches/{batch_id}")
-def api_batch_detail(batch_id: int) -> dict[str, Any]:
+def api_batch_detail(batch_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         row = conn.execute(
             """
@@ -916,7 +917,7 @@ def api_batch_detail(batch_id: int) -> dict[str, Any]:
 
 
 @router.patch("/api/batches/{batch_id}")
-def api_update_batch(batch_id: int, payload: BatchUpdateRequest) -> dict[str, Any]:
+def api_update_batch(batch_id: int, payload: BatchUpdateRequest, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
     _validate_batch_status(payload.status)
     with db_session() as conn:
         _assert_batch_exists(conn, batch_id)
@@ -957,7 +958,7 @@ def api_update_batch(batch_id: int, payload: BatchUpdateRequest) -> dict[str, An
 
 
 @router.patch("/api/content/{package_id}/batch")
-def api_assign_package_batch(package_id: int, payload: PackageBatchUpdateRequest) -> dict[str, Any]:
+def api_assign_package_batch(package_id: int, payload: PackageBatchUpdateRequest, _: dict[str, Any] = Depends(require_permission("content:edit"))) -> dict[str, Any]:
     with db_session() as conn:
         _assert_package_exists(conn, package_id)
         if payload.batch_id is not None:
@@ -973,7 +974,7 @@ def api_assign_package_batch(package_id: int, payload: PackageBatchUpdateRequest
 
 
 @router.get("/api/assets")
-def api_visual_assets() -> dict[str, Any]:
+def api_visual_assets(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         rows = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     return {"assets": [dict(row) for row in rows]}
@@ -988,6 +989,7 @@ def api_upload_visual_asset(
     license_type: str = Form(""),
     notes: str = Form(""),
     file: UploadFile = File(...),
+    _: dict[str, Any] = Depends(require_permission("assets:manage")),
 ) -> dict[str, Any]:
     clean_tags = ", ".join(normalize_tags(tags))
     try:
@@ -1019,7 +1021,7 @@ def api_upload_visual_asset(
 
 
 @router.delete("/api/assets/{asset_id}")
-def api_delete_visual_asset(asset_id: int) -> dict[str, Any]:
+def api_delete_visual_asset(asset_id: int, _: dict[str, Any] = Depends(require_permission("assets:manage"))) -> dict[str, Any]:
     with db_session() as conn:
         asset = conn.execute("SELECT * FROM visual_assets WHERE id = ?", (asset_id,)).fetchone()
         if asset is None:
@@ -1047,7 +1049,7 @@ def download_visual_asset(asset_id: int):
 
 
 @router.get("/api/calendar")
-def api_calendar() -> dict[str, Any]:
+def api_calendar(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         entries = conn.execute(
             """
@@ -1072,7 +1074,7 @@ def api_calendar() -> dict[str, Any]:
 
 
 @router.post("/api/calendar", status_code=201)
-def api_create_calendar_entry(payload: CalendarCreateRequest) -> dict[str, Any]:
+def api_create_calendar_entry(payload: CalendarCreateRequest, _: dict[str, Any] = Depends(require_permission("calendar:manage"))) -> dict[str, Any]:
     _validate_calendar_status(payload.status)
     with db_session() as conn:
         _assert_package_exists(conn, payload.package_id)
@@ -1114,7 +1116,7 @@ def api_create_calendar_entry(payload: CalendarCreateRequest) -> dict[str, Any]:
 
 
 @router.patch("/api/calendar/{entry_id}")
-def api_update_calendar_entry(entry_id: int, payload: CalendarUpdateRequest) -> dict[str, Any]:
+def api_update_calendar_entry(entry_id: int, payload: CalendarUpdateRequest, _: dict[str, Any] = Depends(require_permission("calendar:manage"))) -> dict[str, Any]:
     _validate_calendar_status(payload.status)
     with db_session() as conn:
         existing = conn.execute("SELECT id FROM publishing_calendar WHERE id = ?", (entry_id,)).fetchone()
@@ -1151,7 +1153,7 @@ def api_update_calendar_entry(entry_id: int, payload: CalendarUpdateRequest) -> 
 
 
 @router.delete("/api/calendar/{entry_id}")
-def api_delete_calendar_entry(entry_id: int) -> dict[str, Any]:
+def api_delete_calendar_entry(entry_id: int, _: dict[str, Any] = Depends(require_permission("calendar:manage"))) -> dict[str, Any]:
     with db_session() as conn:
         existing = conn.execute("SELECT id FROM publishing_calendar WHERE id = ?", (entry_id,)).fetchone()
         if existing is None:
@@ -1161,7 +1163,7 @@ def api_delete_calendar_entry(entry_id: int) -> dict[str, Any]:
 
 
 @router.post("/api/content/{package_id}/assembly", status_code=201)
-def api_generate_assembly_plan(package_id: int) -> dict[str, Any]:
+def api_generate_assembly_plan(package_id: int, _: dict[str, Any] = Depends(require_permission("video:generate"))) -> dict[str, Any]:
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         if row is None:
@@ -1194,7 +1196,7 @@ def api_generate_assembly_plan(package_id: int) -> dict[str, Any]:
 
 
 @router.get("/api/content/{package_id}/assembly")
-def api_list_assembly_plans(package_id: int) -> dict[str, Any]:
+def api_list_assembly_plans(package_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         _assert_package_exists(conn, package_id)
         rows = conn.execute("SELECT * FROM assembly_plans WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
@@ -1221,7 +1223,7 @@ def download_assembly_plan(package_id: int, plan_id: int):
 
 
 @router.post("/api/content/{package_id}/audio", status_code=201)
-def api_generate_audio(package_id: int) -> dict[str, Any]:
+def api_generate_audio(package_id: int, _: dict[str, Any] = Depends(require_permission("audio:generate"))) -> dict[str, Any]:
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         if row is None:
@@ -1254,7 +1256,7 @@ def api_generate_audio(package_id: int) -> dict[str, Any]:
 
 
 @router.get("/api/content/{package_id}/audio")
-def api_list_audio(package_id: int) -> dict[str, Any]:
+def api_list_audio(package_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         _assert_package_exists(conn, package_id)
         rows = conn.execute("SELECT * FROM audio_assets WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
@@ -1362,7 +1364,7 @@ def _insert_analytics_record(
 
 
 @router.post("/api/content/{package_id}/thumbnail", status_code=201)
-def api_generate_thumbnail_guide(package_id: int) -> dict[str, Any]:
+def api_generate_thumbnail_guide(package_id: int, _: dict[str, Any] = Depends(require_permission("thumbnail:generate"))) -> dict[str, Any]:
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         if row is None:
@@ -1394,7 +1396,7 @@ def api_generate_thumbnail_guide(package_id: int) -> dict[str, Any]:
 
 
 @router.get("/api/content/{package_id}/thumbnails")
-def api_list_thumbnail_guides(package_id: int) -> dict[str, Any]:
+def api_list_thumbnail_guides(package_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         _assert_package_exists(conn, package_id)
         rows = conn.execute("SELECT * FROM thumbnail_guides WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
@@ -1417,7 +1419,7 @@ def download_thumbnail_guide(package_id: int, guide_id: int):
 
 
 @router.post("/api/content/{package_id}/source-safety", status_code=201)
-def api_generate_source_safety_review(package_id: int) -> dict[str, Any]:
+def api_generate_source_safety_review(package_id: int, _: dict[str, Any] = Depends(require_permission("source_safety:review"))) -> dict[str, Any]:
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         if row is None:
@@ -1454,7 +1456,7 @@ def api_generate_source_safety_review(package_id: int) -> dict[str, Any]:
 
 
 @router.get("/api/content/{package_id}/source-safety")
-def api_list_source_safety_reviews(package_id: int) -> dict[str, Any]:
+def api_list_source_safety_reviews(package_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         _assert_package_exists(conn, package_id)
         rows = conn.execute(
@@ -1480,7 +1482,7 @@ def download_source_safety_review(package_id: int, review_id: int):
 
 
 @router.post("/api/content/{package_id}/trust-review", status_code=201)
-def api_generate_trust_review(package_id: int) -> dict[str, Any]:
+def api_generate_trust_review(package_id: int, _: dict[str, Any] = Depends(require_permission("trust_score:review"))) -> dict[str, Any]:
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         if row is None:
@@ -1531,7 +1533,7 @@ def api_generate_trust_review(package_id: int) -> dict[str, Any]:
 
 
 @router.get("/api/content/{package_id}/trust-reviews")
-def api_list_trust_reviews(package_id: int) -> dict[str, Any]:
+def api_list_trust_reviews(package_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         _assert_package_exists(conn, package_id)
         rows = conn.execute(
@@ -1542,7 +1544,7 @@ def api_list_trust_reviews(package_id: int) -> dict[str, Any]:
 
 
 @router.patch("/api/content/{package_id}/trust-review/{review_id}")
-def api_update_trust_review(package_id: int, review_id: int, payload: TrustReviewUpdateRequest) -> dict[str, Any]:
+def api_update_trust_review(package_id: int, review_id: int, payload: TrustReviewUpdateRequest, _: dict[str, Any] = Depends(require_permission("trust_score:review"))) -> dict[str, Any]:
     allowed_decisions = {"pending", "approved", "edit_required", "rewrite_required", "rejected"}
     if payload.reviewer_decision not in allowed_decisions:
         raise HTTPException(status_code=400, detail="Invalid trust review decision")
@@ -1623,7 +1625,7 @@ def download_trust_review(package_id: int, review_id: int):
 
 
 @router.post("/api/content/{package_id}/learning-output", status_code=201)
-def api_generate_learning_output(package_id: int) -> dict[str, Any]:
+def api_generate_learning_output(package_id: int, _: dict[str, Any] = Depends(require_permission("learning_outputs:generate"))) -> dict[str, Any]:
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         if row is None:
@@ -1657,7 +1659,7 @@ def api_generate_learning_output(package_id: int) -> dict[str, Any]:
 
 
 @router.get("/api/content/{package_id}/learning-outputs")
-def api_list_learning_outputs(package_id: int) -> dict[str, Any]:
+def api_list_learning_outputs(package_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         _assert_package_exists(conn, package_id)
         rows = conn.execute(
@@ -1683,7 +1685,7 @@ def download_learning_output(package_id: int, output_id: int):
 
 
 @router.post("/api/content/{package_id}/video-draft", status_code=201)
-def api_generate_video_draft(package_id: int) -> dict[str, Any]:
+def api_generate_video_draft(package_id: int, _: dict[str, Any] = Depends(require_permission("video:generate"))) -> dict[str, Any]:
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         if row is None:
@@ -1729,7 +1731,7 @@ def api_generate_video_draft(package_id: int) -> dict[str, Any]:
 
 
 @router.get("/api/content/{package_id}/video-drafts")
-def api_list_video_drafts(package_id: int) -> dict[str, Any]:
+def api_list_video_drafts(package_id: int, _: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
         _assert_package_exists(conn, package_id)
         rows = conn.execute("SELECT * FROM video_drafts WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()

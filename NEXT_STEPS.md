@@ -1,49 +1,37 @@
-# Next Steps — v19
+# NEXT STEPS — v20
 
-Current version: `0.19.0`
+Current version: `0.20.0`
 
-## Completed in v19
+## Completed in this step
 
-Role-based login foundation.
+- Permission enforcement foundation for sensitive creator workflows.
+- Backend route dependencies for create/edit/review/generate/manage APIs.
+- Local permissive mode when `AUTH_REQUIRED=false`.
+- Strict role enforcement when `AUTH_REQUIRED=true`.
+- Permission matrix API and frontend page.
+- Sidebar fix for overflowing navigation links.
 
-Added:
+## Test now
 
-- `app/routes/auth.py`
-- `app/services/auth_service.py`
-- `user_accounts` database table
-- `auth_sessions` database table
-- Default local admin bootstrap
-- PBKDF2-SHA256 password hashing
-- Bearer token login sessions
-- Login/logout/me/status API routes
-- Super-admin user management API routes
-- React `#/login` page
-- React `#/users` page
-- Auth token storage and API headers in `frontend/src/api.js`
-- Auth settings in `.env.example`
-- Release/setup checks updated for auth files
-- Version updated to `0.19.0`
-
-## Test login
-
-Default local account after a new database is created:
-
-```text
-Email   : admin@example.com
-Password: ChangeMe123!
+```bash
+python scripts/setup_project.py --check-only
+python -m pytest
+npm run frontend:build
+python scripts/pre_push_check.py
 ```
 
-Open:
+Manual UI checks:
 
 ```text
-http://127.0.0.1:5173/#/login
+1. Open http://127.0.0.1:5173
+2. Confirm sidebar scrolls and all links are visible.
+3. Open #/permissions.
+4. Confirm role/permission matrix loads.
+5. Open #/login and login with local admin.
+6. Optional: set AUTH_REQUIRED=true and confirm protected actions need login.
 ```
 
-Change the password in your local `.env` before using the project beyond local testing.
-
-## Git commands for this step
-
-Use this exact commit message:
+## Git commands
 
 ```bash
 git status
@@ -54,41 +42,16 @@ python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Add role based login foundation"
+git commit -m "Enforce role permissions on creator workflows and fix sidebar navigation"
 git push
 ```
 
-## Check before committing
+## Next build recommendation
 
-Make sure these are not staged:
+Add permission-aware frontend action guards so users can see which actions they cannot perform before clicking.
 
-```text
-.env
-.venv/
-frontend/node_modules/
-frontend/dist/
-storage/app.db
-storage/exports/
-storage/audio/
-storage/video_drafts/
-storage/asset_library/
-storage/thumbnails/
-storage/source_safety/
-storage/trust_reviews/
-storage/learning_outputs/
-storage/release_reports/
-__pycache__/
-.pytest_cache/
-```
-
-## Next recommended build
-
-**Permission enforcement on sensitive creator actions**
-
-Suggested commit message:
+Next commit message:
 
 ```bash
-git commit -m "Enforce role permissions on creator workflows"
+git commit -m "Add permission aware frontend action guards"
 ```
-
-Why next: login exists now. The next step should connect roles to sensitive actions like package creation, review approval, publishing calendar changes, asset uploads, prompt-template edits, and exports.

@@ -16,6 +16,7 @@ from app.db.session import db_session
 ROLE_PERMISSIONS: dict[str, set[str]] = {
     "super_admin": {"*"},
     "content_admin": {
+        "content:view",
         "content:create",
         "content:edit",
         "content:review",
@@ -23,10 +24,18 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "assets:manage",
         "templates:manage",
         "analytics:view",
+        "analytics:manage",
+        "calendar:manage",
+        "source_safety:review",
+        "trust_score:review",
+        "thumbnail:generate",
+        "video:generate",
+        "audio:generate",
+        "learning_outputs:generate",
     },
-    "script_reviewer": {"content:review", "source_safety:review", "trust_score:review", "analytics:view"},
-    "video_editor": {"content:edit", "assets:manage", "video:generate", "thumbnail:generate"},
-    "publisher": {"content:publish", "calendar:manage", "analytics:view"},
+    "script_reviewer": {"content:view", "content:review", "source_safety:review", "trust_score:review", "analytics:view"},
+    "video_editor": {"content:view", "content:edit", "assets:manage", "video:generate", "audio:generate", "thumbnail:generate"},
+    "publisher": {"content:view", "content:publish", "calendar:manage", "analytics:view", "analytics:manage"},
     "viewer": {"content:view"},
 }
 
@@ -184,8 +193,28 @@ def current_user_required(
     return user
 
 
+def _local_mvp_user(permission: str | None = None) -> dict[str, Any]:
+    """Synthetic user used only when AUTH_REQUIRED=false.
+
+    This keeps local solo development unblocked while letting the same route
+    code become strict by setting AUTH_REQUIRED=true in `.env`.
+    """
+    permissions = {"*"} if permission else {"content:view"}
+    return {
+        "id": 0,
+        "name": "Local MVP Developer",
+        "email": "local-mvp@example.local",
+        "role": "local_mvp",
+        "active": True,
+        "permissions": sorted(permissions),
+        "auth_enforced": False,
+    }
+
+
 def require_role(*roles: str):
-    def dependency(user: dict[str, Any] = Depends(current_user_required)) -> dict[str, Any]:
+    def dependency(user: dict[str, Any] | None = Depends(current_user_optional)) -> dict[str, Any]:
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Login required")
         if user.get("role") not in roles:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission for this action")
         return user
@@ -194,12 +223,23 @@ def require_role(*roles: str):
 
 
 def require_permission(permission: str):
-    def dependency(user: dict[str, Any] = Depends(current_user_required)) -> dict[str, Any]:
+    def dependency(user: dict[str, Any] | None = Depends(current_user_optional)) -> dict[str, Any]:
+        if user is None and not settings.auth_required:
+            return _local_mvp_user(permission)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Login required")
         if not role_has_permission(user.get("role", "viewer"), permission):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission for this action")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Missing permission: {permission}")
         return user
 
     return dependency
+
+
+def permission_matrix() -> list[dict[str, Any]]:
+    return [
+        {"role": role, "permissions": sorted(perms)}
+        for role, perms in ROLE_PERMISSIONS.items()
+    ]
 
 
 def list_users() -> list[dict[str, Any]]:
@@ -284,10 +324,7 @@ def auth_status() -> dict[str, Any]:
         "auth_required": settings.auth_required,
         "cookie_name": settings.auth_cookie_name,
         "token_ttl_hours": settings.auth_token_ttl_hours,
-        "roles": [
-            {"role": role, "permissions": sorted(perms)}
-            for role, perms in ROLE_PERMISSIONS.items()
-        ],
+        "roles": permission_matrix(),
         "default_admin_email": settings.default_admin_email,
         "note": "Default admin is created only when the database has no users.",
     }

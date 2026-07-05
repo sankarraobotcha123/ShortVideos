@@ -98,7 +98,7 @@ GIT_COMMANDS = [
     "git status",
     "git add .",
     "git status",
-    "git commit -m \"Add role based login foundation\"",
+    "git commit -m \"Enforce role permissions on creator workflows and fix sidebar navigation\"",
     "git push",
 ]
 
@@ -191,7 +191,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         recommendations.append("Review warnings. Some may be acceptable, but confirm before release.")
     recommendations.append("Do not commit generated media, local databases, virtual environments, node_modules, or .env files.")
     recommendations.append("Run backend tests and frontend build before pushing a release commit.")
-    recommendations.append("Use the exact commit message for this step: Add role based login foundation")
+    recommendations.append("Use the exact commit message for this step: Enforce role permissions on creator workflows and fix sidebar navigation")
 
     report_markdown = build_release_report_markdown(
         pass_count=pass_count,
@@ -206,7 +206,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
     )
 
     return {
-        "version": "0.19.0",
+        "version": "0.20.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "pass_count": pass_count,
@@ -221,7 +221,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         "manual_command_checks": command_checks,
         "protected_paths": PROTECTED_PATHS,
         "git_commands": GIT_COMMANDS,
-        "commit_message": "Add role based login foundation",
+        "commit_message": "Enforce role permissions on creator workflows and fix sidebar navigation",
         "recommendations": recommendations,
         "report_markdown": report_markdown,
         "settings_snapshot": {

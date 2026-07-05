@@ -7,6 +7,7 @@
   --line: #e2e8f0;
   --primary: #2563eb;
   --primary-dark: #1d4ed8;
+  --accent-dark: #0369a1;
   --success: #15803d;
   --warning: #b45309;
   --danger: #b91c1c;
@@ -81,12 +82,26 @@ button.small {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: #0f172a;
   color: white;
-  padding: 24px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
 }
 
 .brand-block {
@@ -121,17 +136,28 @@ button.small {
   color: #cbd5e1;
 }
 
-nav {
+nav,
+.side-nav {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+}
+
+.nav-section-title {
+  color: #93c5fd;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  margin: 8px 2px 2px;
+  text-transform: uppercase;
 }
 
 nav a {
   color: #e2e8f0;
-  padding: 11px 12px;
-  border-radius: 12px;
+  padding: 9px 11px;
+  border-radius: 11px;
   text-decoration: none;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 nav a:hover,
@@ -140,7 +166,7 @@ nav a.active {
 }
 
 .side-note {
-  margin-top: auto;
+  margin-top: 0;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 18px;
@@ -509,10 +535,17 @@ pre {
   .sidebar {
     position: static;
     height: auto;
+    max-height: none;
+    overflow: visible;
   }
 
-  nav {
+  nav,
+  .side-nav {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nav-section-title {
+    grid-column: 1 / -1;
   }
 
   .stats-grid,
