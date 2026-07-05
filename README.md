@@ -1,17 +1,17 @@
-# Edu Content Platform MVP — v20
+# Edu Content Platform MVP — v21
 
 Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, setup automation, and role-based permissions.
 
-## What is new in v20
+## What is new in v21
 
-- Added permission enforcement foundation for sensitive creator API actions.
-- Protected create/edit/review/generate/manage routes with role permissions.
-- Added `/api/auth/permissions` for the frontend permission matrix.
-- Added React **Permissions** page.
-- Fixed the frontend sidebar issue by making the sidebar scroll-safe and grouping navigation links.
-- Kept local development unblocked: when `AUTH_REQUIRED=false`, protected routes stay permissive for solo MVP work.
-- When `AUTH_REQUIRED=true`, protected routes require login and the correct role permission.
-- Updated version to `0.20.0` and frontend asset version to `20`.
+- Added permission-aware frontend action guards on top of the existing backend permission checks.
+- Added shared frontend auth context and reusable `GuardedButton`, `GuardedLink`, and `PermissionNotice` components.
+- Sensitive UI actions now lock with clear permission messages before the API call is attempted.
+- Sidebar navigation hides role-restricted destinations when strict auth is enabled.
+- Protected create package, batch, calendar, visual asset, prompt template, review, source safety, trust review, audio, assembly, video draft, learning output, analytics, and demo seed workflows in the UI.
+- Role Permissions page now shows current-user allowed/blocked action cards.
+- Kept local development unblocked: when `AUTH_REQUIRED=false`, frontend actions stay permissive for solo MVP work.
+- Updated version to `0.21.0` and frontend asset version to `21`.
 
 ## Default local login
 
@@ -84,7 +84,7 @@ python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Enforce role permissions on creator workflows and fix sidebar navigation"
+git commit -m "Add permission aware frontend action guards"
 git push
 ```
 

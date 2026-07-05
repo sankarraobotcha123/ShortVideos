@@ -699,7 +699,7 @@ def test_release_checklist_api_available(tmp_path):
     response = client.get("/api/release/checklist")
     assert response.status_code == 200
     body = response.json()["release"]
-    assert body["commit_message"] == "Enforce role permissions on creator workflows and fix sidebar navigation"
+    assert body["commit_message"] == "Add permission aware frontend action guards"
     assert "git status" in body["git_commands"]
     assert body["report_markdown"].startswith("# Production Cleanup")
 
@@ -715,7 +715,7 @@ def test_setup_guide_api(tmp_path):
     client = TestClient(app)
     response = client.get("/api/setup/guide")
     assert response.status_code == 200
-    assert response.json()["setup"]["commit_message"] == "Enforce role permissions on creator workflows and fix sidebar navigation"
+    assert response.json()["setup"]["commit_message"] == "Add permission aware frontend action guards"
 
     download = client.get("/setup/guide/download")
     assert download.status_code == 200

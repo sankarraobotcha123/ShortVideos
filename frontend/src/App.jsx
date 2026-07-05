@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   addAnalytics,
   clearAuthToken,
@@ -114,6 +114,85 @@ const initialVisualAsset = {
   notes: 'Use for Class 6-8 science Shorts about plants.'
 }
 
+const ACTION_LABELS = {
+  'content:view': 'view content packages',
+  'content:create': 'create packages and batches',
+  'content:edit': 'edit packages and batches',
+  'content:review': 'review and approve scripts',
+  'content:publish': 'export publish packages',
+  'assets:manage': 'manage visual assets',
+  'templates:manage': 'manage prompt templates',
+  'analytics:view': 'view analytics',
+  'analytics:manage': 'enter analytics',
+  'calendar:manage': 'manage publishing calendar',
+  'source_safety:review': 'run source safety reviews',
+  'trust_score:review': 'run teacher trust reviews',
+  'thumbnail:generate': 'generate thumbnail guides',
+  'video:generate': 'generate assembly plans and video drafts',
+  'audio:generate': 'generate narration audio',
+  'learning_outputs:generate': 'generate notes, quizzes, and worksheets'
+}
+
+const AuthContext = createContext({ user: null, status: null })
+
+function useAuthContext() {
+  return useContext(AuthContext)
+}
+
+function canUsePermission(user, status, permission) {
+  if (!permission) return true
+  if (status && status.auth_required === false) return true
+  if (!user) return false
+  const permissions = user.permissions || []
+  return permissions.includes('*') || permissions.includes(permission)
+}
+
+function useCan(permission) {
+  const { user, status } = useAuthContext()
+  return canUsePermission(user, status, permission)
+}
+
+function permissionLabel(permission) {
+  return ACTION_LABELS[permission] || permission
+}
+
+function PermissionNotice({ permission, compact = false }) {
+  const { user, status } = useAuthContext()
+  const allowed = canUsePermission(user, status, permission)
+  if (allowed) return null
+  return (
+    <div className={`permission-banner ${compact ? 'compact' : ''}`}>
+      <strong>Permission needed</strong>
+      <span>This action requires permission to {permissionLabel(permission)}.</span>
+      {!user && <span>Login with a role that has this permission, or keep AUTH_REQUIRED=false during local solo development.</span>}
+      {user && <span>Your current role is <strong>{user.role.replaceAll('_', ' ')}</strong>.</span>}
+    </div>
+  )
+}
+
+function GuardedButton({ permission, children, disabled = false, className = '', ...props }) {
+  const allowed = useCan(permission)
+  const locked = !allowed
+  return (
+    <button
+      {...props}
+      className={`${className} ${locked ? 'locked-action' : ''}`.trim()}
+      disabled={disabled || locked}
+      title={locked ? `Requires permission to ${permissionLabel(permission)}` : props.title}
+    >
+      {locked ? '🔒 ' : ''}{children}
+    </button>
+  )
+}
+
+function GuardedLink({ permission, children, className = '', href, ...props }) {
+  const allowed = useCan(permission)
+  if (!allowed) {
+    return <span className={`${className} locked-link`.trim()} title={`Requires permission to ${permissionLabel(permission)}`}>🔒 {children}</span>
+  }
+  return <a className={className} href={href} {...props}>{children}</a>
+}
+
 function today() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -137,6 +216,8 @@ function App() {
   const route = useMemo(() => parseRoute(hash), [hash])
   const [authUser, setAuthUser] = useState(getStoredAuthUser())
   const [authStatus, setAuthStatus] = useState(null)
+  const authValue = useMemo(() => ({ user: authUser, status: authStatus }), [authUser, authStatus])
+  const navCan = (permission) => canUsePermission(authUser, authStatus, permission)
 
   useEffect(() => {
     fetchAuthStatus().then(setAuthStatus).catch(() => setAuthStatus(null))
@@ -154,6 +235,7 @@ function App() {
   }
 
   return (
+    <AuthContext.Provider value={authValue}>
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand-block">
@@ -166,20 +248,20 @@ function App() {
         <nav className="side-nav" aria-label="Primary navigation">
           <div className="nav-section-title">Create</div>
           <a className={route.name === 'dashboard' ? 'active' : ''} href="#/">Dashboard</a>
-          <a className={route.name === 'new' ? 'active' : ''} href="#/new">Create package</a>
-          <a className={route.name === 'batches' || route.name === 'batch' ? 'active' : ''} href="#/batches">Batches</a>
-          <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>
-          <a className={route.name === 'assets' ? 'active' : ''} href="#/assets">Visual assets</a>
-          <a className={route.name === 'templates' ? 'active' : ''} href="#/templates">Prompt templates</a>
+          {navCan('content:create') && <a className={route.name === 'new' ? 'active' : ''} href="#/new">Create package</a>}
+          {navCan('content:view') && <a className={route.name === 'batches' || route.name === 'batch' ? 'active' : ''} href="#/batches">Batches</a>}
+          {navCan('content:view') && <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>}
+          {navCan('content:view') && <a className={route.name === 'assets' ? 'active' : ''} href="#/assets">Visual assets</a>}
+          {navCan('templates:manage') && <a className={route.name === 'templates' ? 'active' : ''} href="#/templates">Prompt templates</a>}
 
           <div className="nav-section-title">Review</div>
-          <a className={route.name === 'analytics' ? 'active' : ''} href="#/analytics">Analytics insights</a>
-          <a className={route.name === 'providerLogs' ? 'active' : ''} href="#/provider-logs">Provider logs</a>
+          {navCan('analytics:view') && <a className={route.name === 'analytics' ? 'active' : ''} href="#/analytics">Analytics insights</a>}
+          {navCan('analytics:view') && <a className={route.name === 'providerLogs' ? 'active' : ''} href="#/provider-logs">Provider logs</a>}
           <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
           <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
 
           <div className="nav-section-title">System</div>
-          <a className={route.name === 'demo' ? 'active' : ''} href="#/demo">MVP demo setup</a>
+          {navCan('content:create') && <a className={route.name === 'demo' ? 'active' : ''} href="#/demo">MVP demo setup</a>}
           <a className={route.name === 'release' ? 'active' : ''} href="#/release">Release checklist</a>
           <a className={route.name === 'setup' ? 'active' : ''} href="#/setup">Fresh clone setup</a>
           <a className={route.name === 'permissions' ? 'active' : ''} href="#/permissions">Permissions</a>
@@ -217,6 +299,7 @@ function App() {
         {route.name === 'audioSettings' && <AudioSettings />}
       </main>
     </div>
+    </AuthContext.Provider>
   )
 }
 
@@ -338,6 +421,17 @@ function PermissionMatrixPage({ authStatus, authUser }) {
         <InfoBlock title="Auth enforcement" value={data.auth_required ? 'Strict mode enabled' : 'Local MVP permissive mode'} />
         <InfoBlock title="Current user" value={authUser ? `${authUser.name} (${authUser.role})` : 'Not signed in'} />
         {!data.auth_required && <p className="muted">Local MVP mode allows protected creator actions without blocking development. Login still works, and strict enforcement can be enabled later through AUTH_REQUIRED=true.</p>}
+        <div className="current-permission-grid">
+          {Object.entries(ACTION_LABELS).map(([permission, label]) => {
+            const allowed = canUsePermission(authUser, data, permission)
+            return (
+              <div className={`permission-card ${allowed ? 'allowed' : 'blocked'}`} key={permission}>
+                <strong>{allowed ? 'Allowed' : 'Blocked'}: {label}</strong>
+                <span>{permission}</span>
+              </div>
+            )
+          })}
+        </div>
       </div>
       <div className="card">
         <div className="card-header"><h2>Permission matrix</h2><span>{data.roles.length} roles</span></div>
@@ -472,7 +566,7 @@ function Dashboard() {
       <Header
         title="Creator dashboard"
         subtitle="Track generated Shorts packages, content batches, calendar items, review status, and production progress."
-        action={<button onClick={() => navigate('#/new')}>Create new package</button>}
+        action={<GuardedButton permission="content:create" onClick={() => navigate('#/new')}>Create new package</GuardedButton>}
       />
 
       <div className="stats-grid">
@@ -484,13 +578,13 @@ function Dashboard() {
       </div>
 
       <div className="quick-actions card">
-        <button onClick={() => navigate('#/batches')}>Plan a 20-Short batch</button>
-        <button className="secondary" onClick={() => navigate('#/calendar')}>Open publishing calendar</button>
-        <button className="secondary" onClick={() => navigate('#/assets')}>Upload visual assets</button>
-        <button className="secondary" onClick={() => navigate('#/templates')}>Manage prompt templates</button>
-        <button className="secondary" onClick={() => navigate('#/analytics')}>View analytics insights</button>
-        <button className="secondary" onClick={() => navigate('#/provider-logs')}>Review provider logs</button>
-        <button className="secondary" onClick={() => navigate('#/demo')}>Run MVP demo setup</button>
+        <GuardedButton permission="content:create" onClick={() => navigate('#/batches')}>Plan a 20-Short batch</GuardedButton>
+        <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/calendar')}>Open publishing calendar</GuardedButton>
+        <GuardedButton permission="assets:manage" className="secondary" onClick={() => navigate('#/assets')}>Upload visual assets</GuardedButton>
+        <GuardedButton permission="templates:manage" className="secondary" onClick={() => navigate('#/templates')}>Manage prompt templates</GuardedButton>
+        <GuardedButton permission="analytics:view" className="secondary" onClick={() => navigate('#/analytics')}>View analytics insights</GuardedButton>
+        <GuardedButton permission="analytics:view" className="secondary" onClick={() => navigate('#/provider-logs')}>Review provider logs</GuardedButton>
+        <GuardedButton permission="content:create" className="secondary" onClick={() => navigate('#/demo')}>Run MVP demo setup</GuardedButton>
         <button className="secondary" onClick={() => navigate('#/setup')}>Fresh clone setup</button>
         <button className="secondary" onClick={() => navigate('#/settings/ai')}>Check AI fallback</button>
       </div>
@@ -525,6 +619,7 @@ function Dashboard() {
 }
 
 function CreatePackage() {
+  const canCreate = useCan('content:create')
   const [form, setForm] = useState(initialForm)
   const [batches, setBatches] = useState([])
   const [promptTemplates, setPromptTemplates] = useState([])
@@ -542,6 +637,10 @@ function CreatePackage() {
 
   async function onSubmit(event) {
     event.preventDefault()
+    if (!canCreate) {
+      setError('You do not have permission to create content packages.')
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -571,6 +670,7 @@ function CreatePackage() {
       />
 
       <form className="card form-grid" onSubmit={onSubmit}>
+        <PermissionNotice permission="content:create" />
         {error && <div className="form-error">{error}</div>}
 
         <Input label="Board / Source" value={form.board_source} onChange={(v) => update('board_source', v)} />
@@ -624,7 +724,7 @@ function CreatePackage() {
 
         <div className="form-actions wide">
           <button type="button" className="secondary" onClick={() => setForm(initialForm)}>Reset sample</button>
-          <button type="submit" disabled={loading}>{loading ? 'Generating...' : 'Generate package'}</button>
+          <GuardedButton permission="content:create" type="submit" disabled={loading}>{loading ? 'Generating...' : 'Generate package'}</GuardedButton>
         </div>
       </form>
     </section>
@@ -632,6 +732,7 @@ function CreatePackage() {
 }
 
 function BatchesPage() {
+  const canCreate = useCan('content:create')
   const [data, setData] = useState(null)
   const [form, setForm] = useState(initialBatch)
   const [message, setMessage] = useState('')
@@ -652,6 +753,10 @@ function BatchesPage() {
     event.preventDefault()
     setMessage('')
     setError('')
+    if (!canCreate) {
+      setError('You do not have permission to create content batches.')
+      return
+    }
     try {
       await createBatch({ ...form, planned_count: Number(form.planned_count) })
       setForm(initialBatch)
@@ -670,13 +775,14 @@ function BatchesPage() {
       <Header
         title="Content batch planner"
         subtitle="Plan 20-30 Shorts at a time so the project supports consistent publishing instead of random one-off generation."
-        action={<button onClick={() => navigate('#/new')}>Create package</button>}
+        action={<GuardedButton permission="content:create" onClick={() => navigate('#/new')}>Create package</GuardedButton>}
       />
 
       {message && <div className="success-banner">{message}</div>}
       {error && <div className="form-error">{error}</div>}
 
       <form className="card form-grid" onSubmit={submit}>
+        <PermissionNotice permission="content:create" />
         <Input label="Batch name" value={form.name} onChange={(v) => update('name', v)} />
         <Input label="Niche" value={form.niche} onChange={(v) => update('niche', v)} />
         <Input label="Target audience" value={form.target_audience} onChange={(v) => update('target_audience', v)} />
@@ -685,7 +791,7 @@ function BatchesPage() {
         <Input type="number" label="Planned count" value={form.planned_count} onChange={(v) => update('planned_count', v)} />
         <Select label="Status" value={form.status} options={['planning', 'active', 'completed', 'paused']} onChange={(v) => update('status', v)} />
         <TextArea label="Notes" value={form.notes} onChange={(v) => update('notes', v)} rows={4} wide />
-        <div className="form-actions wide"><button type="submit">Create batch</button></div>
+        <div className="form-actions wide"><GuardedButton permission="content:create" type="submit">Create batch</GuardedButton></div>
       </form>
 
       <div className="card">
@@ -732,6 +838,7 @@ function BatchesPage() {
 }
 
 function BatchDetail({ id }) {
+  const canEdit = useCan('content:edit')
   const [data, setData] = useState(null)
   const [form, setForm] = useState(null)
   const [message, setMessage] = useState('')
@@ -757,6 +864,10 @@ function BatchDetail({ id }) {
     event.preventDefault()
     setMessage('')
     setError('')
+    if (!canEdit) {
+      setError('You do not have permission to edit content batches.')
+      return
+    }
     try {
       await updateBatch(id, { ...form, planned_count: Number(form.planned_count) })
       setMessage('Batch updated.')
@@ -774,12 +885,13 @@ function BatchDetail({ id }) {
       <Header
         title={data.batch.name}
         subtitle={`${data.batch.completed_count}/${data.batch.planned_count} packages • ${data.batch.scheduled_count} scheduled • ${data.batch.published_count} published`}
-        action={<button onClick={() => navigate('#/new')}>Create package for batch</button>}
+        action={<GuardedButton permission="content:create" onClick={() => navigate('#/new')}>Create package for batch</GuardedButton>}
       />
       {message && <div className="success-banner">{message}</div>}
       {error && <div className="form-error">{error}</div>}
 
       <form className="card form-grid" onSubmit={submit}>
+        <PermissionNotice permission="content:edit" />
         <Input label="Batch name" value={form.name} onChange={(v) => update('name', v)} />
         <Input label="Niche" value={form.niche} onChange={(v) => update('niche', v)} />
         <Input label="Target audience" value={form.target_audience} onChange={(v) => update('target_audience', v)} />
@@ -788,7 +900,7 @@ function BatchDetail({ id }) {
         <Input type="number" label="Planned count" value={form.planned_count} onChange={(v) => update('planned_count', v)} />
         <Select label="Status" value={form.status} options={['planning', 'active', 'completed', 'paused']} onChange={(v) => update('status', v)} />
         <TextArea label="Notes" value={form.notes || ''} onChange={(v) => update('notes', v)} rows={4} wide />
-        <div className="form-actions wide"><button type="submit">Save batch</button></div>
+        <div className="form-actions wide"><GuardedButton permission="content:edit" type="submit">Save batch</GuardedButton></div>
       </form>
 
       <div className="card">
@@ -816,6 +928,7 @@ function BatchDetail({ id }) {
 }
 
 function CalendarPage() {
+  const canManageCalendar = useCan('calendar:manage')
   const [data, setData] = useState(null)
   const [form, setForm] = useState(initialCalendar)
   const [editing, setEditing] = useState(null)
@@ -856,6 +969,10 @@ function CalendarPage() {
     event.preventDefault()
     setMessage('')
     setError('')
+    if (!canManageCalendar) {
+      setError('You do not have permission to manage the publishing calendar.')
+      return
+    }
     try {
       const payload = { ...form, package_id: Number(form.package_id) }
       if (!payload.package_id) throw new Error('Select a package to schedule.')
@@ -877,6 +994,10 @@ function CalendarPage() {
   async function remove(id) {
     setMessage('')
     setError('')
+    if (!canManageCalendar) {
+      setError('You do not have permission to manage the publishing calendar.')
+      return
+    }
     try {
       await deleteCalendarEntry(id)
       setMessage('Calendar entry removed.')
@@ -900,12 +1021,13 @@ function CalendarPage() {
       <Header
         title="Publishing calendar"
         subtitle="Schedule Shorts manually first. This keeps production moving before YouTube API automation is needed."
-        action={<button onClick={() => navigate('#/new')}>Create package</button>}
+        action={<GuardedButton permission="content:create" onClick={() => navigate('#/new')}>Create package</GuardedButton>}
       />
       {message && <div className="success-banner">{message}</div>}
       {error && <div className="form-error">{error}</div>}
 
       <form className="card form-grid" onSubmit={submit}>
+        <PermissionNotice permission="calendar:manage" />
         <Select label="Package" value={form.package_id} options={packageOptions} onChange={(v) => update('package_id', v)} disabled={Boolean(editing)} />
         <Input type="date" label="Planned publish date" value={form.planned_publish_date} onChange={(v) => update('planned_publish_date', v)} />
         <Input type="date" label="Actual publish date" value={form.actual_publish_date} onChange={(v) => update('actual_publish_date', v)} />
@@ -915,7 +1037,7 @@ function CalendarPage() {
         <TextArea label="Notes" value={form.notes} onChange={(v) => update('notes', v)} rows={3} wide />
         <div className="form-actions wide">
           {editing && <button type="button" className="secondary" onClick={resetForm}>Cancel edit</button>}
-          <button type="submit">{editing ? 'Save calendar entry' : 'Schedule package'}</button>
+          <GuardedButton permission="calendar:manage" type="submit">{editing ? 'Save calendar entry' : 'Schedule package'}</GuardedButton>
         </div>
       </form>
 
@@ -932,8 +1054,8 @@ function CalendarPage() {
                 </div>
                 <div className="row-meta">
                   <StatusBadge status={entry.status} />
-                  <button className="secondary small" onClick={() => startEdit(entry)}>Edit</button>
-                  <button className="secondary small" onClick={() => remove(entry.id)}>Remove</button>
+                  <GuardedButton permission="calendar:manage" className="secondary small" onClick={() => startEdit(entry)}>Edit</GuardedButton>
+                  <GuardedButton permission="calendar:manage" className="secondary small" onClick={() => remove(entry.id)}>Remove</GuardedButton>
                 </div>
               </div>
             ))}
@@ -959,6 +1081,7 @@ function CalendarPage() {
 }
 
 function VisualAssetsPage() {
+  const canManageAssets = useCan('assets:manage')
   const [assets, setAssets] = useState([])
   const [form, setForm] = useState(initialVisualAsset)
   const [file, setFile] = useState(null)
@@ -987,6 +1110,10 @@ function VisualAssetsPage() {
     event.preventDefault()
     setMessage('')
     setError('')
+    if (!canManageAssets) {
+      setError('You do not have permission to manage visual assets.')
+      return
+    }
     if (!file) {
       setError('Please choose an image file first.')
       return
@@ -1009,6 +1136,10 @@ function VisualAssetsPage() {
   async function remove(assetId) {
     setMessage('')
     setError('')
+    if (!canManageAssets) {
+      setError('You do not have permission to manage visual assets.')
+      return
+    }
     try {
       await deleteVisualAsset(assetId)
       setAssets((current) => current.filter((asset) => asset.id !== assetId))
@@ -1023,7 +1154,7 @@ function VisualAssetsPage() {
       <Header
         title="Reusable visual assets"
         subtitle="Upload icons, diagrams, screenshots, or simple images once. Matching assets are reused in MP4 draft scene cards before you move to CapCut."
-        action={<button onClick={() => navigate('#/new')}>Create package</button>}
+        action={<GuardedButton permission="content:create" onClick={() => navigate('#/new')}>Create package</GuardedButton>}
       />
       {message && <div className="success-banner">{message}</div>}
       {error && <div className="form-error">{error}</div>}
@@ -1031,6 +1162,7 @@ function VisualAssetsPage() {
       <div className="detail-grid">
         <form className="card stack" onSubmit={submit}>
           <h2>Upload asset</h2>
+          <PermissionNotice permission="assets:manage" compact />
           <p className="muted">Use clear tags such as <strong>leaf, chlorophyll, photosynthesis</strong>. The draft generator matches tags with scene text.</p>
           <Input label="Title" value={form.title} onChange={(v) => update('title', v)} />
           <Input label="Tags" value={form.tags} onChange={(v) => update('tags', v)} />
@@ -1042,7 +1174,7 @@ function VisualAssetsPage() {
             <span>Image file</span>
             <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => setFile(event.target.files?.[0] || null)} />
           </label>
-          <button type="submit">Upload visual asset</button>
+          <GuardedButton permission="assets:manage" type="submit">Upload visual asset</GuardedButton>
         </form>
 
         <div className="card stack">
@@ -1076,7 +1208,7 @@ function VisualAssetsPage() {
                   <p className="muted">{asset.source_type} • {asset.license_type || 'license not set'}</p>
                   <div className="row-meta">
                     <a className="button-link small" href={visualAssetUrl(asset.id)} target="_blank" rel="noreferrer">Open</a>
-                    <button className="danger small" onClick={() => remove(asset.id)}>Delete</button>
+                    <GuardedButton permission="assets:manage" className="danger small" onClick={() => remove(asset.id)}>Delete</GuardedButton>
                   </div>
                 </div>
               </div>
@@ -1090,6 +1222,7 @@ function VisualAssetsPage() {
 
 
 function PromptTemplatesPage() {
+  const canManageTemplates = useCan('templates:manage')
   const [templates, setTemplates] = useState([])
   const [form, setForm] = useState(initialPromptTemplate)
   const [editingId, setEditingId] = useState(null)
@@ -1138,6 +1271,10 @@ function PromptTemplatesPage() {
     event.preventDefault()
     setMessage('')
     setError('')
+    if (!canManageTemplates) {
+      setError('You do not have permission to manage prompt templates.')
+      return
+    }
     try {
       const payload = {
         ...form,
@@ -1160,6 +1297,10 @@ function PromptTemplatesPage() {
   async function remove(templateId) {
     setMessage('')
     setError('')
+    if (!canManageTemplates) {
+      setError('You do not have permission to manage prompt templates.')
+      return
+    }
     try {
       await deletePromptTemplate(templateId)
       setTemplates((current) => current.filter((item) => item.id !== templateId))
@@ -1173,6 +1314,10 @@ function PromptTemplatesPage() {
   async function seedDefaults() {
     setMessage('')
     setError('')
+    if (!canManageTemplates) {
+      setError('You do not have permission to manage prompt templates.')
+      return
+    }
     try {
       const result = await seedPromptTemplates()
       setTemplates(result.prompt_templates || [])
@@ -1206,7 +1351,7 @@ function PromptTemplatesPage() {
       <Header
         title="Prompt template manager"
         subtitle="Create reusable hook/script styles so every Short does not sound the same. Templates are selected when generating a package."
-        action={<button onClick={seedDefaults}>Seed default templates</button>}
+        action={<GuardedButton permission="templates:manage" onClick={seedDefaults}>Seed default templates</GuardedButton>}
       />
       {message && <div className="success-banner">{message}</div>}
       {error && <div className="form-error">{error}</div>}
@@ -1214,6 +1359,7 @@ function PromptTemplatesPage() {
       <div className="detail-grid">
         <form className="card stack" onSubmit={save}>
           <h2>{editingId ? 'Edit prompt template' : 'Create prompt template'}</h2>
+          <PermissionNotice permission="templates:manage" compact />
           <Input label="Name" value={form.name} onChange={(v) => update('name', v)} />
           <Input label="Task type" value={form.task_type} onChange={(v) => update('task_type', v)} />
           <Input label="Style key" value={form.style_key} onChange={(v) => update('style_key', v)} />
@@ -1221,7 +1367,7 @@ function PromptTemplatesPage() {
           <TextArea label="Template text" value={form.template_text} onChange={(v) => update('template_text', v)} rows={12} />
           <TextArea label="Notes" value={form.notes} onChange={(v) => update('notes', v)} rows={3} />
           <div className="button-row">
-            <button type="submit">{editingId ? 'Save template' : 'Create template'}</button>
+            <GuardedButton permission="templates:manage" type="submit">{editingId ? 'Save template' : 'Create template'}</GuardedButton>
             {editingId && <button type="button" className="secondary" onClick={reset}>Cancel edit</button>}
           </div>
         </form>
@@ -1251,9 +1397,9 @@ function PromptTemplatesPage() {
                 </div>
                 <div className="row-meta">
                   <StatusBadge status={template.active ? 'active' : 'inactive'} />
-                  <button className="secondary small" onClick={() => previewTemplate(template)}>Preview</button>
-                  <button className="secondary small" onClick={() => edit(template)}>Edit</button>
-                  <button className="danger small" onClick={() => remove(template.id)}>Delete</button>
+                  <GuardedButton permission="templates:manage" className="secondary small" onClick={() => previewTemplate(template)}>Preview</GuardedButton>
+                  <GuardedButton permission="templates:manage" className="secondary small" onClick={() => edit(template)}>Edit</GuardedButton>
+                  <GuardedButton permission="templates:manage" className="danger small" onClick={() => remove(template.id)}>Delete</GuardedButton>
                 </div>
               </div>
             ))}
@@ -1269,6 +1415,17 @@ function PromptTemplatesPage() {
 }
 
 function PackageDetail({ id }) {
+  const canReview = useCan('content:review')
+  const canEdit = useCan('content:edit')
+  const canPublish = useCan('content:publish')
+  const canManageAnalytics = useCan('analytics:manage')
+  const canGenerateThumbnail = useCan('thumbnail:generate')
+  const canReviewSourceSafety = useCan('source_safety:review')
+  const canReviewTrust = useCan('trust_score:review')
+  const canGenerateLearningOutputs = useCan('learning_outputs:generate')
+  const canGenerateAudio = useCan('audio:generate')
+  const canGenerateVideo = useCan('video:generate')
+  const canManageAssets = useCan('assets:manage')
   const [data, setData] = useState(null)
   const [batches, setBatches] = useState([])
   const [scriptText, setScriptText] = useState('')
@@ -1318,6 +1475,10 @@ function PackageDetail({ id }) {
   async function saveReview() {
     setMessage('')
     setError('')
+    if (!canReview) {
+      setError('You do not have permission to review scripts.')
+      return
+    }
     try {
       const result = await updateReview(id, { review_status: reviewStatus, script_text: scriptText, reviewer_notes: reviewerNotes })
       setData((current) => ({ ...current, package: result.package }))
@@ -1330,6 +1491,10 @@ function PackageDetail({ id }) {
   async function saveBatch() {
     setMessage('')
     setError('')
+    if (!canEdit) {
+      setError('You do not have permission to edit package batch assignment.')
+      return
+    }
     try {
       const result = await assignPackageBatch(id, { batch_id: selectedBatchId ? Number(selectedBatchId) : null })
       setData((current) => ({ ...current, package: result.package }))
@@ -1344,6 +1509,10 @@ function PackageDetail({ id }) {
   async function createNarrationAudio() {
     setMessage('')
     setError('')
+    if (!canGenerateAudio) {
+      setError('You do not have permission to generate narration audio.')
+      return
+    }
     setAudioGenerating(true)
     try {
       const result = await generateAudio(id)
@@ -1362,6 +1531,10 @@ function PackageDetail({ id }) {
   async function createAssemblyPlan() {
     setMessage('')
     setError('')
+    if (!canGenerateVideo) {
+      setError('You do not have permission to generate assembly plans.')
+      return
+    }
     setAssemblyGenerating(true)
     try {
       const result = await generateAssembly(id)
@@ -1381,6 +1554,10 @@ function PackageDetail({ id }) {
   async function createThumbnailGuide() {
     setMessage('')
     setError('')
+    if (!canGenerateThumbnail) {
+      setError('You do not have permission to generate thumbnail helpers.')
+      return
+    }
     setThumbnailGenerating(true)
     try {
       const result = await generateThumbnailGuide(id)
@@ -1400,6 +1577,10 @@ function PackageDetail({ id }) {
   async function createSourceSafetyReview() {
     setMessage('')
     setError('')
+    if (!canReviewSourceSafety) {
+      setError('You do not have permission to generate source safety reviews.')
+      return
+    }
     setSourceSafetyGenerating(true)
     try {
       const result = await generateSourceSafetyReview(id)
@@ -1420,6 +1601,10 @@ function PackageDetail({ id }) {
   async function createTrustReview() {
     setMessage('')
     setError('')
+    if (!canReviewTrust) {
+      setError('You do not have permission to generate teacher trust reviews.')
+      return
+    }
     setTrustReviewGenerating(true)
     try {
       const result = await generateTrustReview(id)
@@ -1441,6 +1626,10 @@ function PackageDetail({ id }) {
     if (!editingTrustReview) return
     setMessage('')
     setError('')
+    if (!canReviewTrust) {
+      setError('You do not have permission to edit teacher trust reviews.')
+      return
+    }
     setTrustReviewSaving(true)
     try {
       const payload = {
@@ -1477,6 +1666,10 @@ function PackageDetail({ id }) {
   async function createLearningOutput() {
     setMessage('')
     setError('')
+    if (!canGenerateLearningOutputs) {
+      setError('You do not have permission to generate learning outputs.')
+      return
+    }
     setLearningOutputGenerating(true)
     try {
       const result = await generateLearningOutput(id)
@@ -1496,6 +1689,10 @@ function PackageDetail({ id }) {
   async function createVideoDraft() {
     setMessage('')
     setError('')
+    if (!canGenerateVideo) {
+      setError('You do not have permission to generate video drafts.')
+      return
+    }
     setVideoDraftGenerating(true)
     try {
       const result = await generateVideoDraft(id)
@@ -1515,6 +1712,10 @@ function PackageDetail({ id }) {
     event.preventDefault()
     setMessage('')
     setError('')
+    if (!canManageAnalytics) {
+      setError('You do not have permission to save analytics.')
+      return
+    }
     try {
       const result = await addAnalytics(id, {
         ...analytics,
@@ -1543,7 +1744,7 @@ function PackageDetail({ id }) {
       <Header
         title={pkg.topic}
         subtitle={`${pkg.class_level} • ${pkg.subject} • ${pkg.duration_seconds}s • ${pkg.provider_used}`}
-        action={<a className="button-link" href={exportUrl(id)}>Export ZIP</a>}
+        action={<GuardedLink permission="content:publish" className="button-link" href={exportUrl(id)}>Export ZIP</GuardedLink>}
       />
       {message && <div className="success-banner">{message}</div>}
       {error && <div className="form-error">{error}</div>}
@@ -1551,11 +1752,12 @@ function PackageDetail({ id }) {
       <div className="detail-grid">
         <div className="card stack">
           <div className="card-header"><h2>Review</h2><TrustBadge score={pkg.trust_score} /></div>
+          <PermissionNotice permission="content:review" compact />
           <Select label="Review status" value={reviewStatus} options={['draft', 'approved', 'edit_required', 'rejected', 'published']} onChange={setReviewStatus} />
           <TextArea label="Script editor" value={scriptText} onChange={setScriptText} rows={12} />
           <TextArea label="Reviewer notes" value={reviewerNotes} onChange={setReviewerNotes} rows={4} />
           <div className="button-row">
-            <button onClick={saveReview}>Save review</button>
+            <GuardedButton permission="content:review" onClick={saveReview}>Save review</GuardedButton>
             <button className="secondary" onClick={() => copyText(scriptText)}>Copy script</button>
             <button className="secondary" onClick={() => speak(scriptText)}>Preview voice</button>
           </div>
@@ -1604,9 +1806,9 @@ function PackageDetail({ id }) {
             <h2>Thumbnail helper</h2>
             <p className="muted">Generate thumbnail text ideas, a manual layout guide, and a Canva/CapCut prompt for this Short.</p>
           </div>
-          <button onClick={createThumbnailGuide} disabled={thumbnailGenerating}>
+          <GuardedButton permission="thumbnail:generate" onClick={createThumbnailGuide} disabled={thumbnailGenerating}>
             {thumbnailGenerating ? 'Generating...' : 'Generate thumbnail helper'}
-          </button>
+          </GuardedButton>
         </div>
         {!data.thumbnail_guides || data.thumbnail_guides.length === 0 ? (
           <p className="muted">No thumbnail helper yet. Generate one before creating the final YouTube/Shorts thumbnail.</p>
@@ -1638,9 +1840,9 @@ function PackageDetail({ id }) {
             <h2>Source safety & originality</h2>
             <p className="muted">Run this before publishing. It checks source metadata, copied-text flag, transformation notes, and similarity between source notes and script.</p>
           </div>
-          <button onClick={createSourceSafetyReview} disabled={sourceSafetyGenerating}>
+          <GuardedButton permission="source_safety:review" onClick={createSourceSafetyReview} disabled={sourceSafetyGenerating}>
             {sourceSafetyGenerating ? 'Checking...' : 'Generate source safety review'}
-          </button>
+          </GuardedButton>
         </div>
         {!data.source_safety_reviews || data.source_safety_reviews.length === 0 ? (
           <p className="muted">No source safety review yet. Generate one before approving or publishing this Short.</p>
@@ -1673,9 +1875,9 @@ function PackageDetail({ id }) {
             <h2>Teacher Trust Score review</h2>
             <p className="muted">Use this after source safety review. Edit the category scores, add reviewer notes, and save a final approval recommendation.</p>
           </div>
-          <button onClick={createTrustReview} disabled={trustReviewGenerating}>
+          <GuardedButton permission="trust_score:review" onClick={createTrustReview} disabled={trustReviewGenerating}>
             {trustReviewGenerating ? 'Generating...' : 'Generate trust review'}
-          </button>
+          </GuardedButton>
         </div>
         {!data.trust_reviews || data.trust_reviews.length === 0 ? (
           <p className="muted">No Teacher Trust Score review yet. Generate one before approving or publishing this Short.</p>
@@ -1691,7 +1893,7 @@ function PackageDetail({ id }) {
                 </div>
                 <div className="row-meta">
                   <TrustBadge score={review.overall_trust_score} />
-                  <button className="secondary small" onClick={() => setEditingTrustReview(review)}>Edit scores</button>
+                  <GuardedButton permission="trust_score:review" className="secondary small" onClick={() => setEditingTrustReview(review)}>Edit scores</GuardedButton>
                   <a className="button-link small" href={trustReviewDownloadUrl(id, review.id)}>Download review</a>
                 </div>
               </div>
@@ -1712,7 +1914,7 @@ function PackageDetail({ id }) {
               <Select label="Reviewer decision" value={editingTrustReview.reviewer_decision || 'pending'} options={['pending', 'approved', 'edit_required', 'rewrite_required', 'rejected']} onChange={(v) => updateEditingTrustReview('reviewer_decision', v)} />
               <TextArea label="Trust reviewer notes" value={editingTrustReview.reviewer_notes || ''} onChange={(v) => updateEditingTrustReview('reviewer_notes', v)} rows={4} wide />
               <div className="wide button-row">
-                <button onClick={saveTrustReview} disabled={trustReviewSaving}>{trustReviewSaving ? 'Saving...' : 'Save trust review'}</button>
+                <GuardedButton permission="trust_score:review" onClick={saveTrustReview} disabled={trustReviewSaving}>{trustReviewSaving ? 'Saving...' : 'Save trust review'}</GuardedButton>
                 <button className="secondary" onClick={() => setEditingTrustReview(null)}>Close editor</button>
               </div>
             </div>
@@ -1726,9 +1928,9 @@ function PackageDetail({ id }) {
             <h2>Learning outputs</h2>
             <p className="muted">Generate reusable revision notes, flashcards, quiz questions, and a worksheet from this Short package.</p>
           </div>
-          <button onClick={createLearningOutput} disabled={learningOutputGenerating}>
+          <GuardedButton permission="learning_outputs:generate" onClick={createLearningOutput} disabled={learningOutputGenerating}>
             {learningOutputGenerating ? 'Generating...' : 'Generate learning outputs'}
-          </button>
+          </GuardedButton>
         </div>
         {!data.learning_outputs || data.learning_outputs.length === 0 ? (
           <p className="muted">No learning output pack yet. Generate this after the script and trust review look good.</p>
@@ -1766,7 +1968,7 @@ function PackageDetail({ id }) {
             options={[{ value: '', label: 'No batch' }, ...batches.map((b) => ({ value: String(b.id), label: b.name }))]}
             onChange={setSelectedBatchId}
           />
-          <button onClick={saveBatch}>Save batch assignment</button>
+          <GuardedButton permission="content:edit" onClick={saveBatch}>Save batch assignment</GuardedButton>
           {data.calendar ? (
             <InfoBlock title="Calendar" value={`${data.calendar.planned_publish_date} • ${data.calendar.platform} • ${data.calendar.status}`} />
           ) : (
@@ -1796,9 +1998,9 @@ function PackageDetail({ id }) {
             <h2>Narration audio</h2>
             <p className="muted">Generate offline narration when possible. If no local TTS is ready, the system creates a manual recording guide.</p>
           </div>
-          <button onClick={createNarrationAudio} disabled={audioGenerating}>
+          <GuardedButton permission="audio:generate" onClick={createNarrationAudio} disabled={audioGenerating}>
             {audioGenerating ? 'Generating...' : 'Generate narration'}
-          </button>
+          </GuardedButton>
         </div>
         {!data.audio_assets || data.audio_assets.length === 0 ? (
           <p className="muted">No narration asset yet. Use browser voice preview or generate a backend asset.</p>
@@ -1830,9 +2032,9 @@ function PackageDetail({ id }) {
             <h2>CapCut / manual assembly plan</h2>
             <p className="muted">Generate a scene-by-scene editing timeline for CapCut before full automatic video assembly is ready.</p>
           </div>
-          <button onClick={createAssemblyPlan} disabled={assemblyGenerating}>
+          <GuardedButton permission="video:generate" onClick={createAssemblyPlan} disabled={assemblyGenerating}>
             {assemblyGenerating ? 'Generating...' : 'Generate assembly plan'}
-          </button>
+          </GuardedButton>
         </div>
         {!data.assembly_plans || data.assembly_plans.length === 0 ? (
           <p className="muted">No assembly plan yet. Generate one after reviewing the script and narration status.</p>
@@ -1865,7 +2067,7 @@ function PackageDetail({ id }) {
             <h2>Suggested reusable visuals</h2>
             <p className="muted">These assets match this package's topic/script tags and can appear in the MP4 draft scene cards.</p>
           </div>
-          <button className="secondary" onClick={() => navigate('#/assets')}>Manage assets</button>
+          <GuardedButton permission="assets:manage" className="secondary" onClick={() => navigate('#/assets')}>Manage assets</GuardedButton>
         </div>
         {!data.suggested_visual_assets || data.suggested_visual_assets.length === 0 ? (
           <p className="muted">No matching assets yet. Upload assets with tags like leaf, chlorophyll, photosynthesis, math, grammar, etc.</p>
@@ -1891,9 +2093,9 @@ function PackageDetail({ id }) {
             <h2>Vertical MP4 draft</h2>
             <p className="muted">Generate a simple 9:16 review video from scene cards. Replace these cards with final visuals later in CapCut.</p>
           </div>
-          <button onClick={createVideoDraft} disabled={videoDraftGenerating}>
+          <GuardedButton permission="video:generate" onClick={createVideoDraft} disabled={videoDraftGenerating}>
             {videoDraftGenerating ? 'Generating...' : 'Generate video draft'}
-          </button>
+          </GuardedButton>
         </div>
         {!data.video_drafts || data.video_drafts.length === 0 ? (
           <p className="muted">No video draft yet. Generate one after reviewing the script, narration, and assembly plan.</p>
@@ -1928,6 +2130,7 @@ function PackageDetail({ id }) {
       <div className="card stack">
         <h2>Manual analytics</h2>
         <form className="analytics-grid" onSubmit={saveAnalytics}>
+          <PermissionNotice permission="analytics:manage" compact />
           <Input label="Platform" value={analytics.platform} onChange={(v) => setAnalytics({ ...analytics, platform: v })} />
           <Input type="date" label="Entry date" value={analytics.entry_date} onChange={(v) => setAnalytics({ ...analytics, entry_date: v })} />
           <Input type="number" label="Views" value={analytics.views} onChange={(v) => setAnalytics({ ...analytics, views: v })} />
@@ -1938,7 +2141,7 @@ function PackageDetail({ id }) {
           <Input type="number" label="Retention %" value={analytics.retention_pct} onChange={(v) => setAnalytics({ ...analytics, retention_pct: v })} />
           <Input type="number" label="CTR %" value={analytics.ctr_pct} onChange={(v) => setAnalytics({ ...analytics, ctr_pct: v })} />
           <TextArea label="Notes" value={analytics.notes} onChange={(v) => setAnalytics({ ...analytics, notes: v })} rows={3} wide />
-          <div className="wide"><button type="submit">Save analytics</button></div>
+          <div className="wide"><GuardedButton permission="analytics:manage" type="submit">Save analytics</GuardedButton></div>
         </form>
 
         <div className="analytics-list">
@@ -2232,6 +2435,7 @@ function ProviderLogsPage() {
 
 
 function DemoSetupPage() {
+  const canSeedDemo = useCan('content:create')
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -2247,6 +2451,10 @@ function DemoSetupPage() {
   }, [])
 
   const runSeed = async (resetDemo = false) => {
+    if (!canSeedDemo) {
+      setError('You do not have permission to seed demo content.')
+      return
+    }
     setBusy(true)
     setError('')
     setMessage('')
@@ -2276,7 +2484,7 @@ function DemoSetupPage() {
       <Header
         title="MVP demo setup"
         subtitle="Seed demo content, verify local storage, and confirm the fallback workflow before daily Shorts production."
-        action={<button onClick={() => runSeed(false)} disabled={busy}>{busy ? 'Working...' : 'Seed demo data'}</button>}
+        action={<GuardedButton permission="content:create" onClick={() => runSeed(false)} disabled={busy}>{busy ? 'Working...' : 'Seed demo data'}</GuardedButton>}
       />
 
       {message && <div className="card success-card"><strong>{message}</strong><p className="muted">Open Dashboard, Analytics insights, Provider logs, or a demo package to test the full workflow.</p></div>}
@@ -2334,8 +2542,8 @@ function DemoSetupPage() {
         <h2>Demo controls</h2>
         <p className="muted">Normal seed is safe and will not duplicate demo rows. Reset only deletes rows tagged as demo seed data.</p>
         <div className="quick-actions">
-          <button onClick={() => runSeed(false)} disabled={busy}>Seed demo data</button>
-          <button className="secondary" onClick={() => runSeed(true)} disabled={busy}>Reset demo data</button>
+          <GuardedButton permission="content:create" onClick={() => runSeed(false)} disabled={busy}>Seed demo data</GuardedButton>
+          <GuardedButton permission="content:create" className="secondary" onClick={() => runSeed(true)} disabled={busy}>Reset demo data</GuardedButton>
           <button className="secondary" onClick={() => navigate('#/')}>Open dashboard</button>
           <button className="secondary" onClick={() => navigate('#/analytics')}>Open analytics insights</button>
         </div>
@@ -2694,7 +2902,7 @@ function Loading() {
 }
 
 function EmptyState() {
-  return <div className="empty-state"><h3>No packages yet</h3><p>Create your first Shorts package using the sample Science topic.</p><button onClick={() => navigate('#/new')}>Create first package</button></div>
+  return <div className="empty-state"><h3>No packages yet</h3><p>Create your first Shorts package using the sample Science topic.</p><GuardedButton permission="content:create" onClick={() => navigate('#/new')}>Create first package</GuardedButton></div>
 }
 
 function ErrorCard({ title, message }) {

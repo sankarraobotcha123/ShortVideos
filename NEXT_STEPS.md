@@ -1,15 +1,15 @@
-# NEXT STEPS — v20
+# NEXT STEPS — v21
 
-Current version: `0.20.0`
+Current version: `0.21.0`
 
 ## Completed in this step
 
-- Permission enforcement foundation for sensitive creator workflows.
-- Backend route dependencies for create/edit/review/generate/manage APIs.
-- Local permissive mode when `AUTH_REQUIRED=false`.
-- Strict role enforcement when `AUTH_REQUIRED=true`.
-- Permission matrix API and frontend page.
-- Sidebar fix for overflowing navigation links.
+- Permission-aware frontend action guards.
+- Shared frontend auth context for role-aware UI decisions.
+- Reusable `GuardedButton`, `GuardedLink`, and `PermissionNotice` components.
+- Locked UI actions for create package, batch, calendar, visual assets, prompt templates, review, source safety, trust review, audio, assembly, video draft, learning outputs, analytics, and demo seed workflows.
+- Sidebar navigation now hides role-restricted destinations when strict auth is enabled.
+- Role Permissions page now displays current-user allowed/blocked action cards.
 
 ## Test now
 
@@ -42,7 +42,7 @@ python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Enforce role permissions on creator workflows and fix sidebar navigation"
+git commit -m "Add permission aware frontend action guards"
 git push
 ```
 
@@ -51,6 +51,19 @@ git push
 Add permission-aware frontend action guards so users can see which actions they cannot perform before clicking.
 
 Next commit message:
+
+```bash
+git commit -m "Add permission aware frontend action guards"
+```
+
+
+## v21 completed
+
+- Permission-aware frontend action guards were added.
+- UI actions now lock/hide based on role permissions before the backend rejects the request.
+- Next recommended step: production auth hardening and route guard polish.
+
+Suggested commit message:
 
 ```bash
 git commit -m "Add permission aware frontend action guards"

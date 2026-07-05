@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-COMMIT_MESSAGE = "Enforce role permissions on creator workflows and fix sidebar navigation"
+COMMIT_MESSAGE = "Add permission aware frontend action guards"
 
 WINDOWS_SETUP_COMMANDS = [
     "git clone YOUR_GITHUB_REPO_URL short_videos",
@@ -164,7 +164,7 @@ def build_setup_guide(project_root: str | Path = ".") -> dict[str, Any]:
     )
 
     return {
-        "version": "0.20.0",
+        "version": "0.21.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "pass_count": pass_count,
