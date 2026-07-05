@@ -21,6 +21,7 @@ def export_package(
     assembly_plans: Sequence[Mapping] | None = None,
     video_drafts: Sequence[Mapping] | None = None,
     visual_assets: Sequence[Mapping] | None = None,
+    thumbnail_guides: Sequence[Mapping] | None = None,
 ) -> Path:
     settings.export_dir.mkdir(parents=True, exist_ok=True)
     package_id = row["id"]
@@ -34,6 +35,7 @@ def export_package(
     assembly_plans = list(assembly_plans or [])
     video_drafts = list(video_drafts or [])
     visual_assets = list(visual_assets or [])
+    thumbnail_guides = list(thumbnail_guides or [])
 
     asset_summary = "No reusable visual assets saved yet. Upload assets in the Visual Assets page to reuse icons/diagrams in MP4 drafts."
     if visual_assets:
@@ -68,6 +70,14 @@ def export_package(
                 f"- {draft.get('file_name')} | {draft.get('status')} | {draft.get('draft_mode')} | {draft.get('duration_seconds', 0)} sec"
             )
         video_summary = "\n".join(video_lines)
+
+    thumbnail_summary = "No thumbnail guide generated yet. Use the app's Generate thumbnail helper button."
+    latest_thumbnail = thumbnail_guides[0] if thumbnail_guides else None
+    if latest_thumbnail:
+        thumbnail_summary = (
+            f"Latest guide: {latest_thumbnail.get('file_name')} | "
+            f"{latest_thumbnail.get('thumbnail_mode', 'manual_canva_capcut_guide')}"
+        )
 
     markdown = f"""# Content Package: {row['topic']}
 
@@ -113,6 +123,10 @@ def export_package(
 ## Video Drafts
 
 {video_summary}
+
+## Thumbnail Helper
+
+{thumbnail_summary}
 
 ## Title Options
 
@@ -197,11 +211,25 @@ def export_package(
             target.write_bytes(source.read_bytes())
     (package_dir / "video_drafts.json").write_text(json.dumps(video_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    thumbnail_manifest = []
+    for guide in thumbnail_guides:
+        source = Path(guide.get("file_path") or "")
+        thumbnail_manifest.append(dict(guide))
+        if source.exists() and source.is_file():
+            target_name = f"thumbnail_guide_{guide.get('id', 'guide')}_{source.name}"
+            target = package_dir / target_name
+            target.write_bytes(source.read_bytes())
+    if latest_thumbnail:
+        (package_dir / "thumbnail_guide.md").write_text(str(latest_thumbnail.get("layout_guide") or ""), encoding="utf-8")
+        (package_dir / "thumbnail_canva_prompt.txt").write_text(str(latest_thumbnail.get("canva_prompt") or ""), encoding="utf-8")
+    (package_dir / "thumbnail_guides.json").write_text(json.dumps(thumbnail_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
     payload = dict(row)
     payload["audio_assets"] = audio_manifest
     payload["assembly_plans"] = assembly_manifest
     payload["video_drafts"] = video_manifest
     payload["visual_assets"] = visual_asset_manifest
+    payload["thumbnail_guides"] = thumbnail_manifest
     (package_dir / "package.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
     zip_path = settings.export_dir / f"package-{package_id}-{slug}.zip"

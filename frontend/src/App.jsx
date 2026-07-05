@@ -20,7 +20,9 @@ import {
   generateAssembly,
   generateAudio,
   generateContent,
+  generateThumbnailGuide,
   generateVideoDraft,
+  thumbnailGuideDownloadUrl,
   updateBatch,
   uploadVisualAsset,
   updateCalendarEntry,
@@ -785,6 +787,7 @@ function PackageDetail({ id }) {
   const [audioGenerating, setAudioGenerating] = useState(false)
   const [assemblyGenerating, setAssemblyGenerating] = useState(false)
   const [videoDraftGenerating, setVideoDraftGenerating] = useState(false)
+  const [thumbnailGenerating, setThumbnailGenerating] = useState(false)
   const [analytics, setAnalytics] = useState({
     platform: 'YouTube Shorts',
     entry_date: today(),
@@ -875,6 +878,25 @@ function PackageDetail({ id }) {
       setError(err.message)
     } finally {
       setAssemblyGenerating(false)
+    }
+  }
+
+
+  async function createThumbnailGuide() {
+    setMessage('')
+    setError('')
+    setThumbnailGenerating(true)
+    try {
+      const result = await generateThumbnailGuide(id)
+      setData((current) => ({
+        ...current,
+        thumbnail_guides: [result.thumbnail_guide, ...(current.thumbnail_guides || [])]
+      }))
+      setMessage('Thumbnail helper generated.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setThumbnailGenerating(false)
     }
   }
 

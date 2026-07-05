@@ -1,23 +1,22 @@
-# Next Steps After v8
+# Next Steps After v9
 
-## What changed in v8
+## What changed in v9
 
-- Added **Reusable Visual Asset Library**.
-- Added backend service `asset_library_service.py`.
-- Added `visual_assets` database table.
+- Added **Thumbnail Helper workflow**.
+- Added backend service `thumbnail_service.py`.
+- Added `thumbnail_guides` database table.
 - Added API endpoints:
-  - `GET /api/assets`
-  - `POST /api/assets`
-  - `DELETE /api/assets/{asset_id}`
-  - `GET /assets/{asset_id}/download`
-- Added React screen: **Visual assets**.
-- Added suggested visual assets to package detail page.
-- Updated MP4 draft generation to use matching uploaded visual assets inside scene cards.
+  - `POST /api/content/{package_id}/thumbnail`
+  - `GET /api/content/{package_id}/thumbnails`
+  - `GET /content/{package_id}/thumbnail/{guide_id}/download`
+- Added React package-detail section: **Thumbnail helper**.
 - Export ZIP now includes:
-  - `visual_assets.json`
-  - copies of saved visual asset files inside `visual_assets/`
-- Backend tests passed: `9 passed`.
-- Frontend production build passed.
+  - `thumbnail_guides.json`
+  - `thumbnail_guide.md`
+  - `thumbnail_canva_prompt.txt`
+  - downloaded thumbnail guide markdown files
+- Added `THUMBNAIL_DIR=storage/thumbnails` to `.env.example`.
+- Added thumbnail storage to `.gitignore`.
 
 ---
 
@@ -49,27 +48,28 @@ http://127.0.0.1:5173
 
 Test:
 
-1. Go to **Visual assets**.
-2. Upload a leaf/chlorophyll image.
-3. Add tags: `leaf, chlorophyll, photosynthesis, science`.
-4. Create/open a package: `Why are leaves green?`.
-5. Check **Suggested reusable visuals**.
-6. Generate video draft.
-7. Confirm the scene card uses the uploaded asset when matched.
-8. Export ZIP.
+1. Create/open a package.
+2. Review the script and title options.
+3. Click **Generate thumbnail helper**.
+4. Check thumbnail text ideas, layout guide, and Canva/CapCut prompt.
+5. Download the guide or export ZIP.
+6. Use `thumbnail_canva_prompt.txt` in Canva/CapCut while creating the thumbnail.
 
 ---
 
-## Git push command
+## Git commands for this step
+
+Use this commit message exactly for the v9 change:
 
 ```bash
+git status
 git add .
 git status
-git commit -m "Add reusable visual asset library"
+git commit -m "Add thumbnail helper workflow for Shorts packages"
 git push
 ```
 
-Make sure these are not committed:
+Before committing, make sure these are not staged:
 
 ```text
 .env
@@ -80,48 +80,22 @@ storage/app.db
 storage/exports/
 storage/audio/
 storage/video_drafts/
-storage/asset_library/*
-storage/final/
+storage/asset_library/
+storage/thumbnails/
+__pycache__/
+.pytest_cache/
 ```
 
 ---
 
-## Recommended next feature: thumbnail helper
+## Recommended next feature
 
-The next best feature is **thumbnail helper**, not full thumbnail prediction.
+Next build: **Source Safety + Originality Check**.
 
-First version should generate:
+Reason: before publishing regularly, every Short should have source/license tracking and a copied-text warning. This protects trust and reduces content risk.
 
-```text
-Topic + hook + title options → thumbnail text ideas + layout guide + Canva/CapCut prompt
+Suggested next commit message:
+
+```bash
+git commit -m "Add source safety and originality review workflow"
 ```
-
-Suggested output:
-
-```text
-1. Thumbnail text option
-2. Emotion/curiosity angle
-3. Visual layout
-4. Background idea
-5. Main object/image suggestion
-6. Color/contrast note
-7. What not to put on thumbnail
-```
-
-Why this is next:
-
-- It directly helps Shorts/YouTube packaging.
-- It does not require paid image generation.
-- It improves click interest while the content workflow is still manual-first.
-
----
-
-## Feature after thumbnail helper
-
-Add **basic notes + quiz worksheet export**:
-
-```text
-Approved script → short notes → 5-question quiz → worksheet markdown/PDF-ready export
-```
-
-This supports future monetization through PDFs, worksheets, and study packs.

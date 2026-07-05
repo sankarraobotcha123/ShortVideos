@@ -785,3 +785,28 @@ button.small,
     grid-template-columns: 1fr;
   }
 }
+
+.thumbnail-guide-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.thumbnail-guide-entry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.thumbnail-guide-entry p {
+  margin: 0.25rem 0 0;
+}
+
+@media (max-width: 780px) {
+  .thumbnail-guide-entry {
+    grid-template-columns: 1fr;
+  }
+}

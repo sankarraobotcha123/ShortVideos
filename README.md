@@ -1,11 +1,11 @@
-# Edu Content Platform MVP v8
+# Edu Content Platform MVP v9
 
 Shorts-first educational content creator assistant.
 
-This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds a **Reusable Visual Asset Library**. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, stronger TTS providers, or advanced video generation without changing the business workflow.
+This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds a **Thumbnail Helper workflow** on top of the reusable visual asset library. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, stronger TTS providers, or advanced video generation without changing the business workflow.
 
 ```text
-Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Reusable Visual Assets → Vertical MP4 Draft → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics
+Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Reusable Visual Assets → Thumbnail Helper → Vertical MP4 Draft → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics
 ```
 
 ---
@@ -32,6 +32,11 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
   - Store tags, license/source notes, and descriptions
   - Suggest matching assets for a package
   - Reuse matched assets inside MP4 draft scene cards
+- Thumbnail helper workflow:
+  - Generates thumbnail text ideas
+  - Creates a manual layout guide
+  - Creates Canva/CapCut thumbnail prompt
+  - Exports thumbnail guide files in each package ZIP
 - Simple vertical MP4 draft generator:
   - Creates 9:16 scene-card video drafts
   - Uses matched reusable visual assets when tags match the scene
@@ -56,6 +61,7 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 - Visual asset library screen
 - Package detail/review screen
 - Suggested visual assets on package detail
+- Thumbnail helper section on package detail
 - Narration audio generation section
 - CapCut/manual assembly plan section
 - Vertical MP4 draft generation section
@@ -76,7 +82,7 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 ## Folder structure
 
 ```text
-edu-content-platform-mvp-v8/
+edu-content-platform-mvp-v9/
 ├── app/                    # FastAPI backend
 │   ├── core/
 │   ├── db/
@@ -173,7 +179,7 @@ This means:
 
 ---
 
-## How to test the full v8 workflow
+## How to test the full v9 workflow
 
 1. Start backend.
 2. Start frontend.

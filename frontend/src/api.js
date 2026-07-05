@@ -118,6 +118,16 @@ export function generateAssembly(id) {
   })
 }
 
+export function generateThumbnailGuide(id) {
+  return request(`/api/content/${id}/thumbnail`, {
+    method: 'POST'
+  })
+}
+
+export function thumbnailGuideDownloadUrl(packageId, guideId) {
+  return `${API_BASE_URL}/content/${packageId}/thumbnail/${guideId}/download`
+}
+
 export function generateVideoDraft(id) {
   return request(`/api/content/${id}/video-draft`, {
     method: 'POST'

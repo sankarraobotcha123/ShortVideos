@@ -16,6 +16,7 @@ from app.services.generation_orchestrator import generate_content_package_with_f
 from app.services.audio_service import audio_provider_status, generate_audio_asset
 from app.services.assembly_service import generate_assembly_plan
 from app.services.video_draft_service import generate_video_draft
+from app.services.thumbnail_service import generate_thumbnail_guide
 from app.services.asset_library_service import save_uploaded_asset, normalize_tags, rank_assets_for_scene
 
 router = APIRouter()
@@ -351,6 +352,7 @@ def export_content(package_id: int):
         audio_assets = conn.execute("SELECT * FROM audio_assets WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         assembly_plans = conn.execute("SELECT * FROM assembly_plans WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         video_drafts = conn.execute("SELECT * FROM video_drafts WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+        thumbnail_guides = conn.execute("SELECT * FROM thumbnail_guides WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
@@ -360,6 +362,7 @@ def export_content(package_id: int):
         [dict(item) for item in assembly_plans],
         [dict(item) for item in video_drafts],
         [dict(item) for item in visual_assets],
+        [dict(item) for item in thumbnail_guides],
     )
     return FileResponse(zip_path, filename=Path(zip_path).name, media_type="application/zip")
 
@@ -506,6 +509,10 @@ def api_package(package_id: int) -> dict[str, Any]:
             "SELECT * FROM video_drafts WHERE package_id = ? ORDER BY id DESC",
             (package_id,),
         ).fetchall()
+        thumbnail_guides = conn.execute(
+            "SELECT * FROM thumbnail_guides WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
@@ -516,6 +523,7 @@ def api_package(package_id: int) -> dict[str, Any]:
         "audio_assets": [dict(item) for item in audio_assets],
         "assembly_plans": [dict(item) for item in assembly_plans],
         "video_drafts": [dict(item) for item in video_drafts],
+        "thumbnail_guides": [dict(item) for item in thumbnail_guides],
         "visual_assets": [dict(item) for item in visual_assets],
         "suggested_visual_assets": _suggest_assets_for_package(dict(row), [dict(item) for item in visual_assets]),
     }
@@ -1090,6 +1098,61 @@ def _insert_analytics_record(
                 notes,
             ),
         )
+
+
+@router.post("/api/content/{package_id}/thumbnail", status_code=201)
+def api_generate_thumbnail_guide(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Package not found")
+        payload = generate_thumbnail_guide(dict(row))
+        cursor = conn.execute(
+            """
+            INSERT INTO thumbnail_guides (
+                package_id, status, file_path, file_name, mime_type, thumbnail_mode,
+                text_ideas, layout_guide, canva_prompt, provider_notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                package_id,
+                payload["status"],
+                payload["file_path"],
+                payload["file_name"],
+                payload["mime_type"],
+                payload["thumbnail_mode"],
+                payload["text_ideas"],
+                payload["layout_guide"],
+                payload["canva_prompt"],
+                payload.get("provider_notes", ""),
+            ),
+        )
+        guide_id = int(cursor.lastrowid)
+        guide = conn.execute("SELECT * FROM thumbnail_guides WHERE id = ?", (guide_id,)).fetchone()
+    return {"thumbnail_guide": dict(guide)}
+
+
+@router.get("/api/content/{package_id}/thumbnails")
+def api_list_thumbnail_guides(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        _assert_package_exists(conn, package_id)
+        rows = conn.execute("SELECT * FROM thumbnail_guides WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+    return {"thumbnail_guides": [dict(row) for row in rows]}
+
+
+@router.get("/content/{package_id}/thumbnail/{guide_id}/download")
+def download_thumbnail_guide(package_id: int, guide_id: int):
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM thumbnail_guides WHERE id = ? AND package_id = ?",
+            (guide_id, package_id),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Thumbnail guide not found")
+    path = Path(row["file_path"])
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Thumbnail guide file not found on disk")
+    return FileResponse(path, filename=row["file_name"], media_type=row["mime_type"] or "text/markdown")
 
 
 @router.post("/api/content/{package_id}/video-draft", status_code=201)

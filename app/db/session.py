@@ -144,6 +144,22 @@ CREATE TABLE IF NOT EXISTS visual_assets (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS thumbnail_guides (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'generated',
+    file_path TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL DEFAULT 'text/markdown',
+    thumbnail_mode TEXT NOT NULL DEFAULT 'manual_canva_capcut_guide',
+    text_ideas TEXT NOT NULL DEFAULT '[]',
+    layout_guide TEXT NOT NULL DEFAULT '',
+    canva_prompt TEXT NOT NULL DEFAULT '',
+    provider_notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -169,6 +185,7 @@ def ensure_storage() -> None:
     settings.audio_dir.mkdir(parents=True, exist_ok=True)
     settings.video_draft_dir.mkdir(parents=True, exist_ok=True)
     settings.asset_library_dir.mkdir(parents=True, exist_ok=True)
+    settings.thumbnail_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -320,6 +337,26 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
             reuse_count INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS thumbnail_guides (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'generated',
+            file_path TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            mime_type TEXT NOT NULL DEFAULT 'text/markdown',
+            thumbnail_mode TEXT NOT NULL DEFAULT 'manual_canva_capcut_guide',
+            text_ideas TEXT NOT NULL DEFAULT '[]',
+            layout_guide TEXT NOT NULL DEFAULT '',
+            canva_prompt TEXT NOT NULL DEFAULT '',
+            provider_notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
         )
         """
     )
