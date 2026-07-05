@@ -1,30 +1,23 @@
-# Next Steps After v14
+# Next Steps After v15
 
-## What changed in v14
+## What changed in v15
 
-- Added **Analytics Dashboard Insights workflow**.
-- Added backend service `analytics_insights_service.py`.
+- Added **AI Provider Fallback Logging workflow**.
+- Added backend service `provider_log_service.py`.
+- Added database table `ai_provider_logs`.
+- Added timing metadata to provider attempts.
 - Added API endpoint:
-  - `GET /api/analytics/insights`
-- Added React screen: **Analytics insights**.
-- Added sidebar navigation for Analytics insights.
-- Added dashboard quick action to open analytics insights.
-- Added analytics insight calculations:
-  - total latest views
-  - average retention
-  - average CTR
-  - engagement rate
-  - top videos by views
-  - top videos by retention
-  - weak videos to improve
-  - tone performance
-  - prompt-template performance
-  - subject performance
-  - batch performance
-  - weekly summary
-  - recommendations
-  - downloadable markdown report from the browser
-- Updated frontend asset version to 14.
+  - `GET /api/provider-logs`
+- Package generation now stores provider attempts as queryable log rows.
+- Package detail API now returns `provider_logs`.
+- Export ZIP now includes:
+  - `ai_provider_logs.json`
+  - `ai_provider_log_report.md`
+- Added React screen: **Provider logs**.
+- Added sidebar navigation for Provider logs.
+- Added package-detail **AI provider attempt log** section.
+- Added dashboard quick action to review provider logs.
+- Updated frontend asset version to 15.
 
 ---
 
@@ -51,23 +44,25 @@ npm run frontend:dev
 Test:
 
 1. Open `http://127.0.0.1:5173`.
-2. Create at least 3 packages.
-3. Open each package and add manual analytics.
-4. Open **Analytics insights** from the sidebar.
-5. Check top videos, weak videos, tone/template/batch performance, and weekly summary.
-6. Click **Download report** and confirm `analytics_dashboard_insights.md` downloads.
+2. Create a content package.
+3. Open the package detail page.
+4. Check **AI provider attempt log**.
+5. Open **Provider logs** from the sidebar.
+6. Confirm provider successes/failures and recommendations.
+7. Export the package ZIP.
+8. Confirm `ai_provider_logs.json` and `ai_provider_log_report.md` are present.
 
 ---
 
 ## Git commands for this step
 
-Use this commit message exactly for the v14 change:
+Use this commit message exactly for the v15 change:
 
 ```bash
 git status
 git add .
 git status
-git commit -m "Add analytics dashboard insights workflow"
+git commit -m "Improve AI provider fallback logging workflow"
 git push
 ```
 
@@ -98,18 +93,17 @@ __pycache__/
 Next build should be:
 
 ```text
-AI Provider Fallback Logging Improvements
+MVP Stabilization and Demo Data Seed Workflow
 ```
 
 Why this is next:
 
-- You are not using Ollama on the laptop now.
-- The project already supports fallback generation, but logging can be clearer.
-- Better provider logs will help you safely test template, Transformers, and later Ollama on another desktop.
-- This keeps the project ready for better AI without breaking the current workflow.
+- The main Shorts workflow is now broad enough for daily use.
+- Before adding more large features, the project needs better demo data, smoother empty states, safer validation, and a clear test/demo setup.
+- This will make it easier to push to GitHub, demo the project, and continue development without confusion.
 
 Recommended commit message for the next step:
 
 ```bash
-git commit -m "Improve AI provider fallback logging workflow"
+git commit -m "Stabilize MVP with demo data and usability fixes"
 ```

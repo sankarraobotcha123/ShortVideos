@@ -25,6 +25,7 @@ def export_package(
     source_safety_reviews: Sequence[Mapping] | None = None,
     trust_reviews: Sequence[Mapping] | None = None,
     learning_outputs: Sequence[Mapping] | None = None,
+    provider_logs: Sequence[Mapping] | None = None,
 ) -> Path:
     settings.export_dir.mkdir(parents=True, exist_ok=True)
     package_id = row["id"]
@@ -42,6 +43,7 @@ def export_package(
     source_safety_reviews = list(source_safety_reviews or [])
     trust_reviews = list(trust_reviews or [])
     learning_outputs = list(learning_outputs or [])
+    provider_logs = list(provider_logs or [])
 
     asset_summary = "No reusable visual assets saved yet. Upload assets in the Visual Assets page to reuse icons/diagrams in MP4 drafts."
     if visual_assets:
@@ -109,6 +111,15 @@ def export_package(
         learning_output_summary = (
             f"Latest learning output: {latest_learning_output.get('file_name')} | "
             f"{latest_learning_output.get('output_mode', 'notes_quiz_flashcards_worksheet')}"
+        )
+
+    provider_log_summary = "No provider attempt log rows found. Generate this package again after v15 if you need detailed logs."
+    if provider_logs:
+        provider_log_summary = "\n".join(
+            f"- #{log.get('attempt_order')}: {log.get('provider')} | "
+            f"{'success' if log.get('success') else 'failed'} | "
+            f"{log.get('duration_ms', 0)} ms | {log.get('message', '')}"
+            for log in provider_logs
         )
 
     markdown = f"""# Content Package: {row['topic']}
@@ -199,7 +210,12 @@ def export_package(
 - Provider Used: {row.get('provider_used', 'template')}
 - Generation Mode: {row.get('generation_mode', 'deterministic_template')}
 - Provider Chain: {row.get('provider_chain', 'template')}
+- Generation Duration: {row.get('generation_duration_ms', 0)} ms
 - Provider Notes: {row.get('provider_notes', '')}
+
+### Provider Attempt Log
+
+{provider_log_summary}
 
 ## Prompt Template
 
@@ -312,6 +328,11 @@ def export_package(
         (package_dir / "worksheet.md").write_text(str(latest_learning_output.get("worksheet_markdown") or ""), encoding="utf-8")
     (package_dir / "learning_outputs.json").write_text(json.dumps(learning_output_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    provider_log_manifest = [dict(log) for log in provider_logs]
+    (package_dir / "ai_provider_logs.json").write_text(json.dumps(provider_log_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    provider_report = "# AI Provider Attempt Log\n\n" + provider_log_summary + "\n"
+    (package_dir / "ai_provider_log_report.md").write_text(provider_report, encoding="utf-8")
+
     payload = dict(row)
     payload["audio_assets"] = audio_manifest
     payload["assembly_plans"] = assembly_manifest
@@ -321,6 +342,7 @@ def export_package(
     payload["source_safety_reviews"] = source_safety_manifest
     payload["teacher_trust_reviews"] = trust_review_manifest
     payload["learning_outputs"] = learning_output_manifest
+    payload["ai_provider_logs"] = provider_log_manifest
     (package_dir / "package.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
     zip_path = settings.export_dir / f"package-{package_id}-{slug}.zip"

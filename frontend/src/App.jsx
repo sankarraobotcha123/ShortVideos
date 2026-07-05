@@ -17,6 +17,7 @@ import {
   fetchCalendar,
   fetchPackage,
   fetchPackages,
+  fetchProviderLogs,
   fetchVisualAssets,
   generateAssembly,
   generateAudio,
@@ -137,6 +138,7 @@ function App() {
           <a className={route.name === 'assets' ? 'active' : ''} href="#/assets">Visual assets</a>
           <a className={route.name === 'templates' ? 'active' : ''} href="#/templates">Prompt templates</a>
           <a className={route.name === 'analytics' ? 'active' : ''} href="#/analytics">Analytics insights</a>
+          <a className={route.name === 'providerLogs' ? 'active' : ''} href="#/provider-logs">Provider logs</a>
           <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
           <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
           <a href="http://127.0.0.1:8000" target="_blank" rel="noreferrer">Legacy Jinja UI</a>
@@ -157,6 +159,7 @@ function App() {
         {route.name === 'assets' && <VisualAssetsPage />}
         {route.name === 'templates' && <PromptTemplatesPage />}
         {route.name === 'analytics' && <AnalyticsInsightsPage />}
+        {route.name === 'providerLogs' && <ProviderLogsPage />}
         {route.name === 'settings' && <AiSettings />}
         {route.name === 'audioSettings' && <AudioSettings />}
       </main>
@@ -176,6 +179,7 @@ function parseRoute(hash) {
   if (parts[0] === 'assets') return { name: 'assets' }
   if (parts[0] === 'templates') return { name: 'templates' }
   if (parts[0] === 'analytics') return { name: 'analytics' }
+  if (parts[0] === 'provider-logs') return { name: 'providerLogs' }
   if (parts[0] === 'settings' && parts[1] === 'ai') return { name: 'settings' }
   if (parts[0] === 'settings' && parts[1] === 'audio') return { name: 'audioSettings' }
   return { name: 'dashboard' }
@@ -214,6 +218,7 @@ function Dashboard() {
         <button className="secondary" onClick={() => navigate('#/assets')}>Upload visual assets</button>
         <button className="secondary" onClick={() => navigate('#/templates')}>Manage prompt templates</button>
         <button className="secondary" onClick={() => navigate('#/analytics')}>View analytics insights</button>
+        <button className="secondary" onClick={() => navigate('#/provider-logs')}>Review provider logs</button>
         <button className="secondary" onClick={() => navigate('#/settings/ai')}>Check AI fallback</button>
       </div>
 
@@ -1293,6 +1298,33 @@ function PackageDetail({ id }) {
         </div>
       </div>
 
+
+      <div className="card stack">
+        <div className="card-header">
+          <div>
+            <h2>AI provider attempt log</h2>
+            <p className="muted">Shows why the package used its final provider and whether fallback protected the generation.</p>
+          </div>
+          <button className="secondary small" onClick={() => navigate('#/provider-logs')}>Open all logs</button>
+        </div>
+        {(data.provider_logs || []).length === 0 ? (
+          <p className="muted">No provider logs stored for this package yet. New v15 packages will record detailed attempt logs.</p>
+        ) : (
+          <div className="performance-table provider-log-table">
+            <div className="performance-head"><span>Order</span><span>Provider</span><span>Status</span><span>Duration</span><span>Message</span></div>
+            {(data.provider_logs || []).map((log) => (
+              <div className="performance-row" key={log.id}>
+                <strong>#{log.attempt_order}</strong>
+                <span>{log.provider}</span>
+                <span>{log.success ? 'success' : 'failed'}</span>
+                <span>{log.duration_ms} ms</span>
+                <span>{log.message}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="card stack">
         <div className="card-header">
           <div>
@@ -1825,6 +1857,107 @@ function WeeklySummary({ rows = [] }) {
 }
 
 
+function ProviderLogsPage() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchProviderLogs().then(setData).catch((err) => setError(err.message))
+  }, [])
+
+  if (error) return <ErrorCard title="Could not load provider logs" message={error} />
+  if (!data) return <Loading />
+
+  const summary = data.summary || {}
+  const totals = summary.totals || {}
+  const providerStats = summary.provider_stats || []
+  const recentLogs = summary.recent_logs || []
+  const fallbackPackages = summary.fallback_packages || []
+  const recommendations = summary.recommendations || []
+
+  return (
+    <section>
+      <Header
+        title="AI provider fallback logs"
+        subtitle="See which provider generated each package, why providers failed, and whether template fallback protected the workflow."
+        action={<button onClick={() => downloadMarkdown('ai_provider_fallback_report.md', summary.report_markdown || '# AI Provider Report')}>Download report</button>}
+      />
+
+      <div className="stats-grid">
+        <StatCard label="Provider attempts" value={totals.total_logs || 0} />
+        <StatCard label="Packages logged" value={totals.packages_logged || 0} />
+        <StatCard label="Successes" value={totals.successes || 0} />
+        <StatCard label="Failures" value={totals.failures || 0} />
+        <StatCard label="Template fallbacks" value={totals.fallback_to_template_count || 0} />
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Recommended actions</h2><span>{recommendations.length} items</span></div>
+        {recommendations.length === 0 ? <p className="muted">No recommendations yet.</p> : (
+          <ul className="check-list">
+            {recommendations.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        )}
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Provider performance</h2><span>{providerStats.length} providers</span></div>
+        {providerStats.length === 0 ? <p className="muted">Generate a package to create provider logs.</p> : (
+          <div className="performance-table provider-log-table">
+            <div className="performance-head"><span>Provider</span><span>Attempts</span><span>Success</span><span>Failures</span><span>Avg ms</span></div>
+            {providerStats.map((provider) => (
+              <div className="performance-row" key={provider.provider}>
+                <strong>{provider.provider}</strong>
+                <span>{provider.attempts}</span>
+                <span>{provider.success_rate_pct}%</span>
+                <span>{provider.failure_count}</span>
+                <span>{provider.avg_duration_ms}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Recent provider attempts</h2><span>{recentLogs.length} logs</span></div>
+        {recentLogs.length === 0 ? <p className="muted">No attempts logged yet.</p> : (
+          <div className="package-list compact-list">
+            {recentLogs.slice(0, 30).map((log) => (
+              <div className="package-row static" key={log.id}>
+                <div>
+                  <h3>Package #{log.package_id}: {log.topic || 'Untitled package'}</h3>
+                  <p>{log.provider} • attempt {log.attempt_order} • {log.duration_ms} ms</p>
+                  <p>{log.message}</p>
+                </div>
+                <div className="row-meta"><StatusBadge status={log.success ? 'success' : 'failed'} /></div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Packages that used template fallback</h2><span>{fallbackPackages.length} items</span></div>
+        {fallbackPackages.length === 0 ? <p className="muted">No failed-AI-to-template fallback packages detected yet.</p> : (
+          <div className="package-list compact-list">
+            {fallbackPackages.map((item) => (
+              <button className="package-row" key={item.id} onClick={() => navigate(`#/packages/${item.id}`)}>
+                <div>
+                  <h3>{item.topic}</h3>
+                  <p>{item.subject} • final provider: {item.provider_used}</p>
+                  <p>{item.provider_notes}</p>
+                </div>
+                <div className="row-meta"><StatusBadge status="template_fallback" /></div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+
 function AiSettings() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -1852,6 +1985,7 @@ function AiSettings() {
         <h2>Recommended laptop setting</h2>
         <pre>{`AI_PROVIDER_CHAIN=transformers,template\nUSE_OLLAMA=false\nUSE_TRANSFORMERS=false`}</pre>
         <p className="muted">Enable Ollama later on your desktop without changing business logic.</p>
+        <button className="secondary" onClick={() => navigate('#/provider-logs')}>Open provider fallback logs</button>
       </div>
     </section>
   )
@@ -1981,6 +2115,16 @@ async function copyText(text) {
   } catch (_) {
     // Clipboard may be unavailable on some local/security contexts.
   }
+}
+
+function downloadMarkdown(filename, text) {
+  const blob = new Blob([text || ''], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
 }
 
 function speak(text) {

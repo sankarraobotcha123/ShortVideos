@@ -594,3 +594,50 @@ def test_analytics_dashboard_insights_workflow(tmp_path):
     assert body["weak_videos"]
     assert body["grouped"]["tones"]
     assert "Analytics Dashboard Insights" in body["report_markdown"]
+
+
+def test_ai_provider_logging_workflow(tmp_path):
+    settings.database_path = tmp_path / "provider-log-test.db"
+    settings.export_dir = tmp_path / "exports"
+    settings.ai_provider_chain = ["transformers", "template"]
+    settings.use_ollama = False
+    settings.use_transformers = False
+    init_db()
+
+    client = TestClient(app)
+    payload = {
+        "board_source": "Self-written",
+        "class_level": "Class 7",
+        "subject": "Science",
+        "topic": "Why are leaves green?",
+        "audience": "School students",
+        "language": "English",
+        "duration_seconds": 60,
+        "output_type": "Short",
+        "tone": "Curious",
+        "source_notes": "Leaves contain chlorophyll. Chlorophyll reflects green light.",
+        "source_name": "Self notes",
+        "source_license_type": "Original",
+        "transformation_notes": "Original analogy added.",
+    }
+    created = client.post("/api/content/generate", json=payload)
+    assert created.status_code == 201
+    package_id = created.json()["package"]["id"]
+
+    detail = client.get(f"/api/content/{package_id}")
+    assert detail.status_code == 200
+    provider_logs = detail.json()["provider_logs"]
+    assert len(provider_logs) >= 2
+    assert provider_logs[-1]["provider"] == "template"
+    assert provider_logs[-1]["success"] == 1
+
+    logs = client.get("/api/provider-logs")
+    assert logs.status_code == 200
+    body = logs.json()
+    assert body["summary"]["totals"]["packages_logged"] >= 1
+    assert body["summary"]["provider_stats"]
+    assert "AI Provider Fallback Report" in body["summary"]["report_markdown"]
+
+    exported = client.get(f"/content/{package_id}/export")
+    assert exported.status_code == 200
+    assert exported.headers["content-type"] == "application/zip"

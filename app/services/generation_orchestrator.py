@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import textwrap
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ class ProviderAttempt:
     available: bool
     success: bool
     message: str
+    duration_ms: int = 0
 
 
 class GenerationProviderError(RuntimeError):
@@ -183,6 +185,7 @@ def generate_content_package_with_fallbacks(inp: ContentInput) -> dict[str, Any]
     not block publishing.
     """
 
+    generation_started = time.perf_counter()
     base_package = generate_template_package(inp)
     attempts: list[ProviderAttempt] = []
 
@@ -193,29 +196,36 @@ def generate_content_package_with_fallbacks(inp: ContentInput) -> dict[str, Any]
     for provider_name in chain:
         provider = PROVIDERS.get(provider_name)
         if provider is None:
-            attempts.append(ProviderAttempt(provider_name, False, False, "Unknown provider name."))
+            attempts.append(ProviderAttempt(provider_name, False, False, "Unknown provider name.", 0))
             continue
 
+        attempt_started = time.perf_counter()
         available, message = provider.is_available()
+        availability_duration_ms = int((time.perf_counter() - attempt_started) * 1000)
         if not available:
-            attempts.append(ProviderAttempt(provider_name, False, False, message))
+            attempts.append(ProviderAttempt(provider_name, False, False, message, availability_duration_ms))
             continue
 
         try:
             package = provider.generate(inp, base_package)
-            attempts.append(ProviderAttempt(provider_name, True, True, "Generation succeeded."))
+            attempt_duration_ms = int((time.perf_counter() - attempt_started) * 1000)
+            attempts.append(ProviderAttempt(provider_name, True, True, "Generation succeeded.", attempt_duration_ms))
             package["provider_chain"] = ",".join(chain)
+            package["generation_duration_ms"] = int((time.perf_counter() - generation_started) * 1000)
             package["provider_attempts"] = json.dumps([a.__dict__ for a in attempts], ensure_ascii=False)
             return package
         except GenerationProviderError as exc:
-            attempts.append(ProviderAttempt(provider_name, True, False, str(exc)))
+            attempt_duration_ms = int((time.perf_counter() - attempt_started) * 1000)
+            attempts.append(ProviderAttempt(provider_name, True, False, str(exc), attempt_duration_ms))
         except Exception as exc:  # Keep the fallback chain safe.
-            attempts.append(ProviderAttempt(provider_name, True, False, f"Unexpected provider error: {exc}"))
+            attempt_duration_ms = int((time.perf_counter() - attempt_started) * 1000)
+            attempts.append(ProviderAttempt(provider_name, True, False, f"Unexpected provider error: {exc}", attempt_duration_ms))
 
     # This should rarely be reached because template is always appended.
     fallback = TemplateProvider().generate(inp, base_package)
-    attempts.append(ProviderAttempt("template", True, True, "Emergency fallback succeeded."))
+    attempts.append(ProviderAttempt("template", True, True, "Emergency fallback succeeded.", int((time.perf_counter() - generation_started) * 1000)))
     fallback["provider_chain"] = ",".join(chain)
+    fallback["generation_duration_ms"] = int((time.perf_counter() - generation_started) * 1000)
     fallback["provider_attempts"] = json.dumps([a.__dict__ for a in attempts], ensure_ascii=False)
     return fallback
 

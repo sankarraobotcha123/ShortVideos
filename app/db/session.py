@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS content_packages (
     provider_chain TEXT NOT NULL DEFAULT 'template',
     provider_notes TEXT DEFAULT '',
     provider_attempts TEXT DEFAULT '[]',
+    generation_duration_ms INTEGER NOT NULL DEFAULT 0,
     prompt_template_id INTEGER,
     prompt_template_name TEXT DEFAULT '',
     prompt_template_style TEXT DEFAULT '',
@@ -244,6 +245,22 @@ CREATE TABLE IF NOT EXISTS prompt_templates (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS ai_provider_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER,
+    provider TEXT NOT NULL DEFAULT 'template',
+    available INTEGER NOT NULL DEFAULT 0,
+    success INTEGER NOT NULL DEFAULT 0,
+    message TEXT DEFAULT '',
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    attempt_order INTEGER NOT NULL DEFAULT 1,
+    generation_mode TEXT NOT NULL DEFAULT 'deterministic_template',
+    provider_chain TEXT NOT NULL DEFAULT 'template',
+    total_generation_duration_ms INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -271,6 +288,8 @@ def ensure_storage() -> None:
     settings.asset_library_dir.mkdir(parents=True, exist_ok=True)
     settings.thumbnail_dir.mkdir(parents=True, exist_ok=True)
     settings.source_safety_dir.mkdir(parents=True, exist_ok=True)
+    settings.trust_review_dir.mkdir(parents=True, exist_ok=True)
+    settings.learning_output_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -531,6 +550,26 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
 
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS ai_provider_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER,
+            provider TEXT NOT NULL DEFAULT 'template',
+            available INTEGER NOT NULL DEFAULT 0,
+            success INTEGER NOT NULL DEFAULT 0,
+            message TEXT DEFAULT '',
+            duration_ms INTEGER NOT NULL DEFAULT 0,
+            attempt_order INTEGER NOT NULL DEFAULT 1,
+            generation_mode TEXT NOT NULL DEFAULT 'deterministic_template',
+            provider_chain TEXT NOT NULL DEFAULT 'template',
+            total_generation_duration_ms INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS prompt_templates (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -555,6 +594,7 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
         "provider_chain": "ALTER TABLE content_packages ADD COLUMN provider_chain TEXT NOT NULL DEFAULT 'template'",
         "provider_notes": "ALTER TABLE content_packages ADD COLUMN provider_notes TEXT DEFAULT ''",
         "provider_attempts": "ALTER TABLE content_packages ADD COLUMN provider_attempts TEXT DEFAULT '[]'",
+        "generation_duration_ms": "ALTER TABLE content_packages ADD COLUMN generation_duration_ms INTEGER NOT NULL DEFAULT 0",
         "prompt_template_id": "ALTER TABLE content_packages ADD COLUMN prompt_template_id INTEGER",
         "prompt_template_name": "ALTER TABLE content_packages ADD COLUMN prompt_template_name TEXT DEFAULT ''",
         "prompt_template_style": "ALTER TABLE content_packages ADD COLUMN prompt_template_style TEXT DEFAULT ''",

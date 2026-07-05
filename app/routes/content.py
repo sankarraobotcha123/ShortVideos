@@ -22,6 +22,7 @@ from app.services.trust_score_service import build_trust_review, rebuild_trust_r
 from app.services.learning_output_service import generate_learning_output
 from app.services.asset_library_service import save_uploaded_asset, normalize_tags, rank_assets_for_scene
 from app.services.analytics_insights_service import build_analytics_insights
+from app.services.provider_log_service import build_provider_log_summary, list_provider_logs, record_generation_provider_logs
 from app.services.prompt_template_service import (
     apply_script_prompt_template,
     build_prompt_preview,
@@ -150,9 +151,9 @@ def _insert_generated_package(inp: ContentInput, generated: dict[str, Any], batc
                 page_or_section_reference, copied_text_used, transformation_notes,
                 hook, script_text, storyboard_markdown, subtitle_srt, visual_prompts_markdown,
                 title_options, description, hashtags, quiz_question, trust_score,
-                provider_used, generation_mode, provider_chain, provider_notes, provider_attempts,
+                provider_used, generation_mode, provider_chain, provider_notes, provider_attempts, generation_duration_ms,
                 prompt_template_id, prompt_template_name, prompt_template_style, prompt_template_snapshot
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 inp.board_source,
@@ -185,6 +186,7 @@ def _insert_generated_package(inp: ContentInput, generated: dict[str, Any], batc
                 generated.get("provider_chain", "template"),
                 generated.get("provider_notes", ""),
                 generated.get("provider_attempts", "[]"),
+                int(generated.get("generation_duration_ms") or 0),
                 generated.get("prompt_template_id"),
                 generated.get("prompt_template_name", ""),
                 generated.get("prompt_template_style", ""),
@@ -195,6 +197,7 @@ def _insert_generated_package(inp: ContentInput, generated: dict[str, Any], batc
         if batch_id is not None:
             _assert_batch_exists(conn, batch_id)
             conn.execute("UPDATE content_packages SET batch_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (batch_id, package_id))
+        record_generation_provider_logs(conn, package_id, generated)
         return package_id
 
 
@@ -372,6 +375,7 @@ def export_content(package_id: int):
         source_safety_reviews = conn.execute("SELECT * FROM source_safety_reviews WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         trust_reviews = conn.execute("SELECT * FROM teacher_trust_reviews WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
         learning_outputs = conn.execute("SELECT * FROM learning_outputs WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+        provider_logs = conn.execute("SELECT * FROM ai_provider_logs WHERE package_id = ? ORDER BY attempt_order ASC, id ASC", (package_id,)).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
@@ -385,6 +389,7 @@ def export_content(package_id: int):
         [dict(item) for item in source_safety_reviews],
         [dict(item) for item in trust_reviews],
         [dict(item) for item in learning_outputs],
+        [dict(item) for item in provider_logs],
     )
     return FileResponse(zip_path, filename=Path(zip_path).name, media_type="application/zip")
 
@@ -626,6 +631,16 @@ def api_analytics_insights() -> dict[str, Any]:
     return insights
 
 
+
+
+@router.get("/api/provider-logs")
+def api_provider_logs(limit: int = 100, package_id: int | None = None) -> dict[str, Any]:
+    with db_session() as conn:
+        summary = build_provider_log_summary(conn)
+        logs = list_provider_logs(conn, limit=limit, package_id=package_id)
+    return {"summary": summary, "logs": logs}
+
+
 @router.get("/api/packages")
 def api_packages() -> dict[str, Any]:
     with db_session() as conn:
@@ -697,6 +712,10 @@ def api_package(package_id: int) -> dict[str, Any]:
             "SELECT * FROM learning_outputs WHERE package_id = ? ORDER BY id DESC",
             (package_id,),
         ).fetchall()
+        provider_logs = conn.execute(
+            "SELECT * FROM ai_provider_logs WHERE package_id = ? ORDER BY attempt_order ASC, id ASC",
+            (package_id,),
+        ).fetchall()
         visual_assets = conn.execute("SELECT * FROM visual_assets ORDER BY id DESC").fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
@@ -711,6 +730,7 @@ def api_package(package_id: int) -> dict[str, Any]:
         "source_safety_reviews": [dict(item) for item in source_safety_reviews],
         "trust_reviews": [dict(item) for item in trust_reviews],
         "learning_outputs": [dict(item) for item in learning_outputs],
+        "provider_logs": [dict(item) for item in provider_logs],
         "visual_assets": [dict(item) for item in visual_assets],
         "suggested_visual_assets": _suggest_assets_for_package(dict(row), [dict(item) for item in visual_assets]),
     }

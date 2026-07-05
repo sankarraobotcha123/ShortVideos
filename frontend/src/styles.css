@@ -1007,3 +1007,20 @@ button.small,
     grid-template-columns: 1fr;
   }
 }
+
+
+.provider-log-table .performance-head,
+.provider-log-table .performance-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 0.9fr 0.9fr minmax(0, 2fr);
+}
+
+.package-row.static {
+  cursor: default;
+}
+
+@media (max-width: 780px) {
+  .provider-log-table .performance-head,
+  .provider-log-table .performance-row {
+    grid-template-columns: 1fr;
+  }
+}

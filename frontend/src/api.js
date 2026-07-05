@@ -268,3 +268,7 @@ export function previewPromptTemplate(id, payload) {
 export function fetchAnalyticsInsights() {
   return request('/api/analytics/insights')
 }
+
+export function fetchProviderLogs() {
+  return request('/api/provider-logs')
+}
