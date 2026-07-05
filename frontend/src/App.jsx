@@ -18,6 +18,8 @@ import {
   fetchPackage,
   fetchPackages,
   fetchProviderLogs,
+  fetchReleaseChecklist,
+  fetchSetupGuide,
   fetchSystemReadiness,
   fetchVisualAssets,
   generateAssembly,
@@ -36,6 +38,8 @@ import {
   deletePromptTemplate,
   fetchPromptTemplates,
   previewPromptTemplate,
+  releaseChecklistDownloadUrl,
+  setupGuideDownloadUrl,
   seedDemoData,
   seedPromptTemplates,
   updatePromptTemplate,
@@ -142,6 +146,8 @@ function App() {
           <a className={route.name === 'analytics' ? 'active' : ''} href="#/analytics">Analytics insights</a>
           <a className={route.name === 'providerLogs' ? 'active' : ''} href="#/provider-logs">Provider logs</a>
           <a className={route.name === 'demo' ? 'active' : ''} href="#/demo">MVP demo setup</a>
+          <a className={route.name === 'release' ? 'active' : ''} href="#/release">Release checklist</a>
+          <a className={route.name === 'setup' ? 'active' : ''} href="#/setup">Fresh clone setup</a>
           <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
           <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
           <a href="http://127.0.0.1:8000" target="_blank" rel="noreferrer">Legacy Jinja UI</a>
@@ -164,6 +170,8 @@ function App() {
         {route.name === 'analytics' && <AnalyticsInsightsPage />}
         {route.name === 'providerLogs' && <ProviderLogsPage />}
         {route.name === 'demo' && <DemoSetupPage />}
+        {route.name === 'release' && <ReleaseChecklistPage />}
+        {route.name === 'setup' && <FreshCloneSetupPage />}
         {route.name === 'settings' && <AiSettings />}
         {route.name === 'audioSettings' && <AudioSettings />}
       </main>
@@ -185,6 +193,8 @@ function parseRoute(hash) {
   if (parts[0] === 'analytics') return { name: 'analytics' }
   if (parts[0] === 'provider-logs') return { name: 'providerLogs' }
   if (parts[0] === 'demo') return { name: 'demo' }
+  if (parts[0] === 'release') return { name: 'release' }
+  if (parts[0] === 'setup') return { name: 'setup' }
   if (parts[0] === 'settings' && parts[1] === 'ai') return { name: 'settings' }
   if (parts[0] === 'settings' && parts[1] === 'audio') return { name: 'audioSettings' }
   return { name: 'dashboard' }
@@ -225,6 +235,7 @@ function Dashboard() {
         <button className="secondary" onClick={() => navigate('#/analytics')}>View analytics insights</button>
         <button className="secondary" onClick={() => navigate('#/provider-logs')}>Review provider logs</button>
         <button className="secondary" onClick={() => navigate('#/demo')}>Run MVP demo setup</button>
+        <button className="secondary" onClick={() => navigate('#/setup')}>Fresh clone setup</button>
         <button className="secondary" onClick={() => navigate('#/settings/ai')}>Check AI fallback</button>
       </div>
 
@@ -2072,6 +2083,211 @@ function DemoSetupPage() {
           <button className="secondary" onClick={() => navigate('#/')}>Open dashboard</button>
           <button className="secondary" onClick={() => navigate('#/analytics')}>Open analytics insights</button>
         </div>
+      </div>
+    </section>
+  )
+}
+
+
+function ReleaseChecklistPage() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchReleaseChecklist().then(setData).catch((err) => setError(err.message))
+  }, [])
+
+  if (error) return <ErrorCard title="Could not load release checklist" message={error} />
+  if (!data) return <Loading />
+
+  const release = data.release || {}
+  const summary = release.summary || {}
+  const checks = [
+    ['Required files', release.file_checks || []],
+    ['Required folders', release.directory_checks || []],
+    ['.gitignore checks', release.gitignore_checks || []],
+    ['.env.example checks', release.env_example_checks || []],
+    ['Manual commands', release.manual_command_checks || []]
+  ]
+
+  return (
+    <section>
+      <Header
+        title="Production cleanup and release checklist"
+        subtitle="Use this page before every GitHub push or shared zip release. It protects local data, generated media, and environment secrets."
+        action={<a className="button-link" href={releaseChecklistDownloadUrl()} target="_blank" rel="noreferrer">Download report</a>}
+      />
+
+      <div className="stats-grid">
+        <StatCard label="Passed" value={summary.pass_count || 0} />
+        <StatCard label="Warnings" value={summary.warn_count || 0} />
+        <StatCard label="Failures" value={summary.fail_count || 0} />
+        <StatCard label="Ready for push" value={summary.ready_for_push ? 'Yes' : 'No'} />
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Recommended Git commands</h2><StatusBadge status="git" /></div>
+        <pre>{(release.git_commands || []).join('\n')}</pre>
+        <button className="secondary" onClick={() => copyText((release.git_commands || []).join('\n'))}>Copy commands</button>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Commit message for this step</h2><StatusBadge status="commit" /></div>
+        <pre>{`git commit -m "${release.commit_message || 'Add fresh clone setup automation'}"`}</pre>
+        <button className="secondary" onClick={() => copyText(`git commit -m "${release.commit_message || 'Add fresh clone setup automation'}"`)}>Copy commit command</button>
+      </div>
+
+      <div className="card stack warning-card">
+        <div className="card-header"><h2>Do not commit these paths</h2><span>{(release.protected_paths || []).length} protected</span></div>
+        <ul className="check-list two-column">
+          {(release.protected_paths || []).map((item) => <li key={item}><code>{item}</code></li>)}
+        </ul>
+      </div>
+
+      {checks.map(([title, items]) => (
+        <div className="card stack" key={title}>
+          <div className="card-header"><h2>{title}</h2><span>{items.length} checks</span></div>
+          <div className="performance-table release-table">
+            <div className="performance-head"><span>Status</span><span>Item</span><span>Detail</span><span>Fix</span></div>
+            {items.map((item) => (
+              <div className="performance-row" key={`${title}-${item.label}`}>
+                <StatusBadge status={item.status} />
+                <strong>{item.label}</strong>
+                <span>{item.detail}</span>
+                <span>{item.fix || '-'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div className="card stack">
+        <div className="card-header"><h2>Recommendations</h2><span>{(release.recommendations || []).length} items</span></div>
+        <ul className="check-list">
+          {(release.recommendations || []).map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      </div>
+
+      <TextCard title="Release report markdown" value={release.report_markdown || ''} />
+      <div className="quick-actions">
+        <button onClick={() => downloadMarkdown('production_release_checklist.md', release.report_markdown || '')}>Download markdown from browser</button>
+        <button className="secondary" onClick={() => navigate('#/demo')}>Open MVP demo setup</button>
+        <button className="secondary" onClick={() => navigate('#/provider-logs')}>Open provider logs</button>
+      </div>
+    </section>
+  )
+}
+
+
+
+function FreshCloneSetupPage() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchSetupGuide().then(setData).catch((err) => setError(err.message))
+  }, [])
+
+  if (error) return <ErrorCard title="Could not load fresh clone setup guide" message={error} />
+  if (!data) return <Loading />
+
+  const setup = data.setup || {}
+  const summary = setup.summary || {}
+
+  return (
+    <section>
+      <Header
+        title="Fresh clone setup automation"
+        subtitle="Use this after cloning the GitHub repo on a new laptop or desktop. It keeps setup repeatable and avoids missing env, database, or frontend steps."
+        action={<a className="button-link" href={setupGuideDownloadUrl()} target="_blank" rel="noreferrer">Download guide</a>}
+      />
+
+      <div className="stats-grid">
+        <StatCard label="Passed" value={summary.pass_count || 0} />
+        <StatCard label="Warnings" value={summary.warn_count || 0} />
+        <StatCard label="Failures" value={summary.fail_count || 0} />
+        <StatCard label="Fresh-clone ready" value={summary.fresh_clone_ready ? 'Yes' : 'No'} />
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Fast Windows setup</h2><StatusBadge status="recommended" /></div>
+        <pre>{'setup_windows.bat'}</pre>
+        <button className="secondary" onClick={() => copyText('setup_windows.bat')}>Copy command</button>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Manual Windows setup commands</h2><span>{(setup.windows_setup_commands || []).length} commands</span></div>
+        <pre>{(setup.windows_setup_commands || []).join('\n')}</pre>
+        <button className="secondary" onClick={() => copyText((setup.windows_setup_commands || []).join('\n'))}>Copy commands</button>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Step-by-step setup</h2><span>{(setup.setup_steps || []).length} steps</span></div>
+        <div className="timeline-list">
+          {(setup.setup_steps || []).map((item) => (
+            <div className="timeline-item" key={item.step}>
+              <strong>{item.step}. {item.title}</strong>
+              <p>{item.description}</p>
+              <code>{item.command}</code>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Git commands for this step</h2><StatusBadge status="git" /></div>
+        <pre>{(setup.git_commands || []).join('\n')}</pre>
+        <button className="secondary" onClick={() => copyText((setup.git_commands || []).join('\n'))}>Copy Git commands</button>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Commit message</h2><StatusBadge status="commit" /></div>
+        <pre>{`git commit -m "${setup.commit_message || 'Add fresh clone setup automation'}"`}</pre>
+        <button className="secondary" onClick={() => copyText(`git commit -m "${setup.commit_message || 'Add fresh clone setup automation'}"`)}>Copy commit command</button>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Required setup files</h2><span>{(setup.required_setup_files || []).length} files</span></div>
+        <div className="performance-table release-table">
+          <div className="performance-head"><span>Status</span><span>File</span><span>Detail</span><span>Fix</span></div>
+          {(setup.required_setup_files || []).map((item) => (
+            <div className="performance-row" key={item.label}>
+              <StatusBadge status={item.status} />
+              <strong>{item.label}</strong>
+              <span>{item.detail}</span>
+              <span>{item.fix || '-'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Local machine status</h2><span>{(setup.local_status || []).length} checks</span></div>
+        <div className="performance-table release-table">
+          <div className="performance-head"><span>Status</span><span>Item</span><span>Detail</span><span>Fix</span></div>
+          {(setup.local_status || []).map((item) => (
+            <div className="performance-row" key={item.label}>
+              <StatusBadge status={item.status} />
+              <strong>{item.label}</strong>
+              <span>{item.detail}</span>
+              <span>{item.fix || '-'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Recommendations</h2><span>{(setup.recommendations || []).length} items</span></div>
+        <ul className="check-list">
+          {(setup.recommendations || []).map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      </div>
+
+      <TextCard title="Fresh clone setup guide markdown" value={setup.guide_markdown || ''} />
+      <div className="quick-actions">
+        <button onClick={() => downloadMarkdown('fresh_clone_setup_guide.md', setup.guide_markdown || '')}>Download markdown from browser</button>
+        <button className="secondary" onClick={() => navigate('#/release')}>Open release checklist</button>
+        <button className="secondary" onClick={() => navigate('#/demo')}>Open MVP demo setup</button>
       </div>
     </section>
   )

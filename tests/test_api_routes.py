@@ -688,3 +688,35 @@ def test_demo_seed_and_readiness_workflow(tmp_path):
     assert reset.status_code == 201
     assert reset.json()["demo"]["created"] is True
     assert reset.json()["demo"]["package_count"] == 3
+
+
+def test_release_checklist_api_available(tmp_path):
+    settings.database_path = tmp_path / "release-check-test.db"
+    settings.export_dir = tmp_path / "exports"
+    init_db()
+
+    client = TestClient(app)
+    response = client.get("/api/release/checklist")
+    assert response.status_code == 200
+    body = response.json()["release"]
+    assert body["commit_message"] == "Add fresh clone setup automation"
+    assert "git status" in body["git_commands"]
+    assert body["report_markdown"].startswith("# Production Cleanup")
+
+    download = client.get("/release/checklist/download")
+    assert download.status_code == 200
+    assert b"Production Cleanup and Release Checklist" in download.content
+
+
+def test_setup_guide_api(tmp_path):
+    settings.database_path = tmp_path / "setup-guide-test.db"
+    init_db()
+
+    client = TestClient(app)
+    response = client.get("/api/setup/guide")
+    assert response.status_code == 200
+    assert response.json()["setup"]["commit_message"] == "Add fresh clone setup automation"
+
+    download = client.get("/setup/guide/download")
+    assert download.status_code == 200
+    assert "Fresh Clone Setup Guide" in download.text

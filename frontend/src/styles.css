@@ -1024,3 +1024,54 @@ button.small,
     grid-template-columns: 1fr;
   }
 }
+
+.two-column {
+  columns: 2;
+}
+
+.release-table .performance-row {
+  grid-template-columns: 0.7fr 1.2fr 1.8fr 1.8fr;
+}
+
+.release-table .performance-head {
+  grid-template-columns: 0.7fr 1.2fr 1.8fr 1.8fr;
+}
+
+.warning-card {
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  background: #2563eb;
+  color: white;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 12px;
+}
+
+.timeline-item {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.timeline-item p {
+  margin: 6px 0 10px;
+  color: var(--muted);
+}
+
+.timeline-item code {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

@@ -74,7 +74,7 @@ class Settings:
     tts_voice_id: str = os.getenv("TTS_VOICE_ID", "default")
     tts_rate: int = int(os.getenv("TTS_RATE", "165"))
 
-    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "16")
+    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "18")
 
     cors_origins: list[str] = [
         item.strip()

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
@@ -24,6 +24,8 @@ from app.services.asset_library_service import save_uploaded_asset, normalize_ta
 from app.services.analytics_insights_service import build_analytics_insights
 from app.services.provider_log_service import build_provider_log_summary, list_provider_logs, record_generation_provider_logs
 from app.services.demo_seed_service import build_system_readiness, seed_demo_data
+from app.services.release_check_service import build_release_checklist
+from app.services.setup_guide_service import build_setup_guide
 from app.services.prompt_template_service import (
     apply_script_prompt_template,
     build_prompt_preview,
@@ -652,6 +654,38 @@ def api_seed_demo_data(payload: DemoSeedRequest) -> dict[str, Any]:
     return {"demo": result, "readiness": readiness}
 
 
+
+
+
+
+
+@router.get("/api/setup/guide")
+def api_setup_guide() -> dict[str, Any]:
+    return {"setup": build_setup_guide()}
+
+
+@router.get("/setup/guide/download")
+def download_setup_guide():
+    guide = build_setup_guide()
+    return PlainTextResponse(
+        guide["guide_markdown"],
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=fresh_clone_setup_guide.md"},
+    )
+
+@router.get("/api/release/checklist")
+def api_release_checklist() -> dict[str, Any]:
+    return {"release": build_release_checklist()}
+
+
+@router.get("/release/checklist/download")
+def download_release_checklist():
+    checklist = build_release_checklist()
+    return PlainTextResponse(
+        checklist["report_markdown"],
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=production_release_checklist.md"},
+    )
 
 @router.get("/api/provider-logs")
 def api_provider_logs(limit: int = 100, package_id: int | None = None) -> dict[str, Any]:

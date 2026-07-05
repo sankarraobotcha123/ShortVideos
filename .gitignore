@@ -62,6 +62,7 @@ storage/thumbnails/*
 storage/source_safety/*
 storage/trust_reviews/*
 storage/learning_outputs/*
+storage/release_reports/*
 storage/asset_library/*
 storage/scene_library/*
 !storage/**/.gitkeep

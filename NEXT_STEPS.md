@@ -1,74 +1,72 @@
-# Next Steps After v16
+# Next Steps — v18
 
-## What changed in v16
+Current version: `0.18.0`
 
-v16 stabilizes the MVP for daily testing and demos.
+## Completed in v18
+
+Fresh-clone setup automation.
 
 Added:
 
-- MVP demo setup screen
-- system readiness checks
-- demo data seed API
-- demo data seed script
-- demo Science Shorts batch
-- demo packages with analytics, reviews, thumbnails, learning outputs, calendar entries, and provider logs
-- safer local test workflow before adding more features
+- `scripts/setup_project.py`
+- `setup_windows.bat`
+- `setup_windows.ps1`
+- `docs/FRESH_CLONE_SETUP.md`
+- Setup guide service
+- `/api/setup/guide`
+- `/setup/guide/download`
+- React Fresh clone setup page at `#/setup`
+- Release checklist updated to include setup files
+- Version updated to `0.18.0`
 
-## How to test v16
+## Git commands for this step
 
-```bash
-python scripts/init_db.py
-python scripts/seed_demo_data.py
-uvicorn app.main:app --reload
-```
-
-Second terminal:
+Use this exact commit message:
 
 ```bash
-npm run frontend:install
-npm run frontend:dev
-```
-
-Then open:
-
-```text
-http://127.0.0.1:5173/#/demo
-```
-
-Check:
-
-- readiness checklist
-- storage folder checks
-- provider checks
-- demo seed button
-- Dashboard demo packages
-- Analytics insights demo data
-- Provider logs demo data
-
-## Git command for v16
-
-```bash
+git status
+python scripts/setup_project.py --check-only
+python -m pytest
+npm run frontend:build
+python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Stabilize MVP with demo data and usability fixes"
+git commit -m "Add fresh clone setup automation"
 git push
+```
+
+## Check before committing
+
+Make sure these are not staged:
+
+```text
+.env
+.venv/
+frontend/node_modules/
+frontend/dist/
+storage/app.db
+storage/exports/
+storage/audio/
+storage/video_drafts/
+storage/asset_library/
+storage/thumbnails/
+storage/source_safety/
+storage/trust_reviews/
+storage/learning_outputs/
+storage/release_reports/
+__pycache__/
+.pytest_cache/
 ```
 
 ## Next recommended build
 
-Production cleanup and release checklist:
+**Role-based login foundation**
 
-- route-level validation pass
-- README screenshot checklist
-- `.env.example` cleanup
-- one-command dev run notes
-- Windows troubleshooting page
-- GitHub issue templates
-- release checklist before sharing with others
-
-Commit message:
+Suggested commit message:
 
 ```bash
-git commit -m "Add production cleanup and release checklist"
+git commit -m "Add role based login foundation"
 ```
+
+Why next: before you turn this into a more serious side-job tool, you should protect admin screens and prepare roles like Super Admin, Content Admin, Script Reviewer, Video Editor, and Publisher.

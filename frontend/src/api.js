@@ -284,3 +284,19 @@ export function seedDemoData(resetDemo = false) {
     body: JSON.stringify({ reset_demo: resetDemo })
   })
 }
+
+export function fetchReleaseChecklist() {
+  return request('/api/release/checklist')
+}
+
+export function releaseChecklistDownloadUrl() {
+  return `${API_BASE_URL}/release/checklist/download`
+}
+
+export function fetchSetupGuide() {
+  return request('/api/setup/guide')
+}
+
+export function setupGuideDownloadUrl() {
+  return `${API_BASE_URL}/setup/guide/download`
+}

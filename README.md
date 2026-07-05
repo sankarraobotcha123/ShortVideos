@@ -1,56 +1,66 @@
-# Edu Content Platform MVP v16
+# Edu Content Platform MVP v18
 
 Shorts-first educational content creator assistant.
 
-This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds **MVP stabilization + demo data seeding** on top of AI provider fallback logging, analytics insights, prompt templates, notes/quiz/flashcards/worksheets, Teacher Trust Score review, source safety, thumbnail helper, reusable visual assets, audio fallback, assembly planning, and MP4 draft generation. Ollama is not required.
+This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds **fresh-clone setup automation** on top of release checks, demo data, analytics insights, provider logging, prompt templates, learning outputs, trust review, source safety, thumbnails, reusable visuals, audio fallback, assembly planning, and MP4 draft generation. Ollama is not required.
 
 ```text
-Concept input → Prompt Template → AI Provider Chain → Provider Logs → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Plan → Visual Assets → Thumbnail Helper → Source Safety → Teacher Trust Review → Learning Outputs → MP4 Draft → Review → Batch Planner → Calendar → Export ZIP → Manual Analytics → Analytics Insights → Demo Setup / Readiness Checks
+Concept input → Prompt Template → AI Provider Chain → Provider Logs → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Plan → Visual Assets → Thumbnail Helper → Source Safety → Teacher Trust Review → Learning Outputs → MP4 Draft → Review → Batch Planner → Calendar → Export ZIP → Manual Analytics → Analytics Insights → Demo Setup → Release Checklist → Fresh Clone Setup
 ```
 
 ---
 
-## What changed in v16
+## What changed in v18
 
-- Added **MVP Demo Setup** screen in the React frontend.
-- Added backend readiness API:
-  - `GET /api/system/readiness`
-- Added demo data seed API:
-  - `POST /api/demo/seed`
-- Added demo data seed script:
-  - `python scripts/seed_demo_data.py`
-  - `python scripts/seed_demo_data.py --reset-demo`
-- Added backend service:
-  - `app/services/demo_seed_service.py`
-- Demo seed creates:
-  - one Science Shorts batch
-  - three demo content packages
-  - prompt-template usage
-  - provider logs
-  - source safety reviews
-  - teacher trust reviews
-  - thumbnail guides
-  - learning outputs
-  - publishing calendar rows
-  - manual analytics entries
-- Added readiness checks for:
-  - storage folders
-  - prompt templates
-  - provider fallback availability
-  - manual analytics availability
-  - demo seed status
-- Updated app version to `0.16.0` and frontend asset version to `16`.
+- Added **fresh-clone setup automation**.
+- Added cross-platform setup helper:
+  - `python scripts/setup_project.py`
+- Added Windows setup scripts:
+  - `setup_windows.bat`
+  - `setup_windows.ps1`
+- Added documentation:
+  - `docs/FRESH_CLONE_SETUP.md`
+- Added setup guide API:
+  - `GET /api/setup/guide`
+  - `GET /setup/guide/download`
+- Added React page:
+  - `#/setup`
+- Updated release checklist to include the new setup files.
+- Updated version to `0.18.0` and frontend asset version to `18`.
 
 ---
 
-## Run backend
+## Fresh clone setup on Windows
 
-```bash
+After cloning the GitHub repo, run this from the project root:
+
+```bat
+setup_windows.bat
+```
+
+This will:
+
+```text
+create .venv
+install backend requirements
+copy .env.example to .env if missing
+create storage folders
+initialize SQLite database
+seed demo data
+install frontend dependencies if npm is available
+```
+
+---
+
+## Manual backend setup
+
+```bat
 python -m venv .venv
 .venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 copy .env.example .env
-python scripts/init_db.py
+python scripts/setup_project.py --seed-demo
 uvicorn app.main:app --reload
 ```
 
@@ -62,11 +72,11 @@ http://127.0.0.1:8000
 
 ---
 
-## Run frontend
+## Manual frontend setup
 
 Open a second terminal in the project root:
 
-```bash
+```bat
 npm run frontend:install
 npm run frontend:dev
 ```
@@ -79,27 +89,21 @@ http://127.0.0.1:5173
 
 ---
 
-## Seed demo data
-
-Use this when you want a ready-made local demo without manually creating packages first:
+## Useful setup commands
 
 ```bash
-python scripts/seed_demo_data.py
+python scripts/setup_project.py --check-only
+python scripts/setup_project.py --seed-demo
+python scripts/setup_project.py --reset-demo
+python scripts/setup_project.py --install-backend
+python scripts/setup_project.py --install-frontend
 ```
 
-To delete only demo-seeded rows and recreate them:
-
-```bash
-python scripts/seed_demo_data.py --reset-demo
-```
-
-You can also seed from the frontend:
+Open the setup guide in the React app:
 
 ```text
-Open React app → MVP demo setup → Seed demo data
+http://127.0.0.1:5173/#/setup
 ```
-
-The seed is safe: normal seed will not duplicate existing demo rows. Reset deletes only rows tagged as demo seed data.
 
 ---
 
@@ -117,48 +121,48 @@ The template fallback keeps content package generation working immediately. Prov
 
 ---
 
-## Test workflow for v16
+## Test workflow for v18
 
-1. Start backend and frontend.
-2. Open **MVP demo setup**.
-3. Click **Seed demo data**.
-4. Open Dashboard and confirm demo packages exist.
-5. Open Analytics Insights and confirm demo analytics are visible.
-6. Open Provider Logs and confirm fallback attempts are visible.
-7. Open a demo package and check:
-   - source safety review
-   - teacher trust review
-   - thumbnail guide
-   - learning outputs
-   - export ZIP
+1. Run `setup_windows.bat`, or run the manual setup commands.
+2. Start backend and frontend.
+3. Open **Fresh clone setup** at `#/setup`.
+4. Open **Release checklist** at `#/release`.
+5. Open **MVP demo setup** at `#/demo`.
+6. Confirm demo packages, provider logs, analytics insights, and exports work.
 
 ---
 
 ## Tests
 
 ```bash
+python scripts/setup_project.py --check-only
 python -m pytest -q
 npm run frontend:build
+python scripts/pre_push_check.py
 ```
 
-Current verification for this package:
+Current backend verification for this package:
 
 ```text
-20 passed
-Frontend production build passed
+24 passed
 ```
 
 ---
 
-## Git commands for v16
+## Git commands for v18
 
 Use this exact commit message:
 
 ```bash
 git status
+python scripts/setup_project.py --check-only
+python -m pytest
+npm run frontend:build
+python scripts/pre_push_check.py
+git status
 git add .
 git status
-git commit -m "Stabilize MVP with demo data and usability fixes"
+git commit -m "Add fresh clone setup automation"
 git push
 ```
 
@@ -178,6 +182,7 @@ storage/thumbnails/
 storage/source_safety/
 storage/trust_reviews/
 storage/learning_outputs/
+storage/release_reports/
 __pycache__/
 .pytest_cache/
 ```
@@ -189,11 +194,11 @@ __pycache__/
 Next build should be:
 
 ```text
-Production cleanup and release checklist
+Role-based login foundation
 ```
 
 Recommended commit message for the next step:
 
 ```bash
-git commit -m "Add production cleanup and release checklist"
+git commit -m "Add role based login foundation"
 ```
