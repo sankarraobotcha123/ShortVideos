@@ -1,23 +1,25 @@
-# Edu Content Platform MVP — v28
+# Edu Content Platform MVP — v32
 
-Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, content idea backlog, series planner, bulk publishing calendar scheduling, and batch production handoff exports.
+Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, content idea backlog, series planner, multilingual planning, YouTube manual publishing preparation, and deployment packaging guidance.
 
-## What is new in v28
+## What is new in v32
 
-- Added **Batch Export and Production Handoff workflow**.
-- Added new React page: `#/handoff`.
-- Added new backend service: `app/services/batch_handoff_service.py`.
-- Added new database table: `batch_handoff_runs`.
-- Added API endpoints to create handoff ZIPs, list runs, download handoff ZIPs, and download the handoff report.
-- Handoff ZIP includes:
-  - `README_HANDOFF.md`
-  - `manifest.csv`
-  - `manifest.json`
-  - `skipped_packages.json`
-  - `packages/package-<id>.zip` for each included content package
-- Added ready-only filtering so weak/unapproved packages can be skipped from editor handoff.
-- Added sidebar and dashboard links for batch handoff.
-- Updated version to `0.28.0` and frontend asset version to `28`.
+- Added **Deployment Packaging and Production Configuration Guide**.
+- Added new React page: `#/deployment`.
+- Added new backend service: `app/services/deployment_config_service.py`.
+- Added API endpoints:
+  - `GET /api/deployment/guide`
+  - `GET /deployment/guide/download`
+- Added `docs/DEPLOYMENT_PRODUCTION_GUIDE.md`.
+- Added clean release ZIP builder: `scripts/build_release_package.py`.
+- Added production-focused `.env.example` keys:
+  - `ENVIRONMENT`
+  - `PUBLIC_FRONTEND_URL`
+  - `PUBLIC_API_URL`
+  - `TRUST_PROXY_HEADERS`
+  - `LOG_LEVEL`
+- Updated version to `0.32.0` and frontend asset version to `32`.
+- Updated release checklist and pre-push flow for deployment packaging.
 
 ## Default local login
 
@@ -76,63 +78,95 @@ Frontend:
 http://127.0.0.1:5173
 ```
 
-## Test the handoff workflow
+## Test the new deployment guide
 
 ```text
-Open http://127.0.0.1:5173/#/handoff
-→ Select all packages or one batch
-→ Keep ready-only enabled for production-safe export
-→ Create handoff ZIP
-→ Download ZIP
-→ Open README_HANDOFF.md and manifest.csv
-→ Use package ZIPs for CapCut/Canva/editor handoff
+Open http://127.0.0.1:5173/#/deployment
+→ Review production .env recommendations
+→ Check protected paths
+→ Copy packaging commands
+→ Download the deployment guide markdown
+```
+
+## Build a clean release ZIP
+
+```bash
+python scripts/setup_project.py --check-only
+python -m pytest
+npm run frontend:install
+npm run frontend:build
+python scripts/pre_push_check.py
+python scripts/build_release_package.py
+```
+
+Default release output:
+
+```text
+dist_release/edu-content-platform-mvp-v32.zip
+```
+
+The package builder excludes `.env`, local databases, generated media, OAuth secrets, virtual environments, node_modules, frontend build output, caches, and logs.
+
+## Recommended production overrides
+
+For any public demo or production-like deployment, copy `.env.example` to `.env` on the server and change at least these values:
+
+```env
+ENVIRONMENT=production
+AUTH_REQUIRED=true
+DEFAULT_ADMIN_PASSWORD=replace-with-a-strong-password
+AUTH_COOKIE_SECURE=true
+CORS_ORIGINS=https://your-frontend-domain.example
+DATABASE_PATH=/persistent-storage/app.db
+YOUTUBE_API_ENABLED=false
+YOUTUBE_DRY_RUN=true
 ```
 
 ## Test/check before Git push
 
 ```bash
+git status
 python scripts/setup_project.py --check-only
 python -m pytest
+npm run frontend:install
 npm run frontend:build
 python scripts/pre_push_check.py
+python scripts/build_release_package.py
+git status
+git add .
+git status
+git commit -m "Add deployment packaging and production configuration guide"
+git push
 ```
 
-## Recommended Git commit
+## Recent roadmap history
 
-```bash
-git commit -m "Add YouTube publishing checklist workflow"
-```
-
-
-## v29 — Lightweight Multilingual Planning + Sidebar Active State
+### v29 — Lightweight Multilingual Planning + Sidebar Active State
 
 - Added multilingual planning workflow for target-language Shorts.
 - Added package-linked or standalone language plans with glossary, cultural notes, voice/subtitle strategy, reviewer, checklist, and readiness score.
 - Added clearer sidebar active-page highlighting and current-page chip so Dashboard/current route is visible.
 - Suggested commit: `Add lightweight multilingual planning workflow and improve sidebar active state`.
 
-## v30 — Real Provider Adapter Setup Guide
+### v30 — Real Provider Adapter Setup Guide
 
 - Added provider setup guide page at `#/provider-setup`.
-- Added backend service `app/services/provider_setup_service.py`.
-- Added API endpoints:
-  - `GET /api/provider-setup/guide`
-  - `GET /provider-setup/guide/download`
 - Added `docs/PROVIDER_ADAPTER_SETUP.md`.
 - Added hosted API placeholder environment keys while keeping hosted APIs disabled by default.
-- Added environment profiles for laptop-safe template fallback, Ollama desktop mode, Transformers local experiments, and future hosted API mode.
 - Suggested commit: `Add real provider adapter setup guide`.
 
-
-## v31 — YouTube Manual Publishing Checklist + API Prep
+### v31 — YouTube Manual Publishing Checklist + API Prep
 
 - Added YouTube publishing checklist page at `#/youtube-publishing`.
-- Added backend service `app/services/youtube_publishing_service.py`.
-- Added API endpoints:
-  - `GET /api/youtube-publishing/checklist`
-  - `GET /youtube-publishing/checklist/download`
 - Added `docs/YOUTUBE_PUBLISHING_GUIDE.md`.
 - Added package readiness checks for manual upload status, publishing gate status, schedule status, and next action.
 - Added safe YouTube API placeholder env keys while keeping real API upload disabled by default.
-- Added protected `storage/youtube_oauth/` folder for future local OAuth files.
 - Suggested commit: `Add YouTube publishing checklist workflow`.
+
+### v32 — Deployment Packaging and Production Configuration
+
+- Added deployment guide page at `#/deployment`.
+- Added `docs/DEPLOYMENT_PRODUCTION_GUIDE.md`.
+- Added clean release ZIP builder.
+- Added production `.env` guidance and v32 release checklist updates.
+- Suggested commit: `Add deployment packaging and production configuration guide`.

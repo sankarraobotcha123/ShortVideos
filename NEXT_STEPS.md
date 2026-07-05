@@ -1,30 +1,33 @@
 # Next Steps
 
-Current version: `0.31.0`
+Current version: `0.32.0`
 
-## Completed in v31
+## Completed in v32
 
-- Added YouTube manual publishing checklist workflow.
-- Added YouTube publishing page at `#/youtube-publishing`.
-- Added package readiness summary for manual YouTube upload.
-- Added optional future YouTube API dry-run preparation notes.
-- Added safe YouTube environment placeholders in `.env.example`.
-- Added `docs/YOUTUBE_PUBLISHING_GUIDE.md`.
-- Kept API uploading disabled by default and protected OAuth files from Git.
+- Added deployment packaging and production configuration guide.
+- Added deployment guide page at `#/deployment`.
+- Added backend deployment guide endpoints:
+  - `GET /api/deployment/guide`
+  - `GET /deployment/guide/download`
+- Added clean release package builder:
+  - `scripts/build_release_package.py`
+- Added `docs/DEPLOYMENT_PRODUCTION_GUIDE.md`.
+- Added production-focused `.env.example` keys for environment, public URLs, proxy trust, and log level.
+- Updated release checklist for v32 packaging and production safety.
+- Kept generated media, local databases, OAuth secrets, frontend build output, and release ZIPs protected from Git.
 
 ## Recommended next step
 
-**Deployment packaging and production configuration guide**
+**Final MVP bug-fix and UI polish pass**
 
 Suggested commit message:
 
 ```bash
-git commit -m "Add deployment packaging and production configuration guide"
+git commit -m "Finalize MVP bug fixes and UI polish"
 ```
 
-## Remaining suggested major steps after v31
+## Remaining suggested major steps after v32
 
-1. Deployment packaging and production configuration guide
-2. Final MVP bug-fix and UI polish pass
+1. Final MVP bug-fix and UI polish pass
 
-After v31, there are **2 remaining major steps** for the strong MVP roadmap.
+After v32, there is **1 remaining major step** for the strong MVP roadmap.

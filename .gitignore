@@ -69,6 +69,9 @@ storage/asset_library/*
 storage/scene_library/*
 !storage/**/.gitkeep
 
+# Local release package output
+dist_release/
+
 # Logs
 logs/
 *.log

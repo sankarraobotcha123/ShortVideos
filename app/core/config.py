@@ -96,7 +96,15 @@ class Settings:
     tts_voice_id: str = os.getenv("TTS_VOICE_ID", "default")
     tts_rate: int = int(os.getenv("TTS_RATE", "165"))
 
-    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "31")
+    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "32")
+
+    # Deployment metadata. These values are mostly informational for MVP checks
+    # and make production/server configuration explicit.
+    environment: str = os.getenv("ENVIRONMENT", "local")
+    public_frontend_url: str = os.getenv("PUBLIC_FRONTEND_URL", "http://127.0.0.1:5173")
+    public_api_url: str = os.getenv("PUBLIC_API_URL", "http://127.0.0.1:8000")
+    trust_proxy_headers: bool = _bool_env("TRUST_PROXY_HEADERS", "false")
+    log_level: str = os.getenv("LOG_LEVEL", "INFO")
 
     # Authentication is a foundation layer for role-based review/publishing workflows.
     # Keep AUTH_REQUIRED=false during local MVP work if you do not want to block older routes yet.

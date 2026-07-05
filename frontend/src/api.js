@@ -458,6 +458,15 @@ export function youtubePublishingChecklistDownloadUrl() {
   return `${API_BASE_URL}/youtube-publishing/checklist/download`
 }
 
+
+export function fetchDeploymentGuide() {
+  return request('/api/deployment/guide')
+}
+
+export function deploymentGuideDownloadUrl() {
+  return `${API_BASE_URL}/deployment/guide/download`
+}
+
 export function fetchReleaseChecklist() {
   return request('/api/release/checklist')
 }

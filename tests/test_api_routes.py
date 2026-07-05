@@ -699,7 +699,7 @@ def test_release_checklist_api_available(tmp_path):
     response = client.get("/api/release/checklist")
     assert response.status_code == 200
     body = response.json()["release"]
-    assert body["commit_message"] == "Add YouTube publishing checklist workflow"
+    assert body["commit_message"] == "Add deployment packaging and production configuration guide"
     assert "git status" in body["git_commands"]
     assert body["report_markdown"].startswith("# Production Cleanup")
 
@@ -888,6 +888,23 @@ def test_provider_setup_guide_api(tmp_path):
     assert "Real Provider Adapter Setup Guide" in download.text
 
 
+
+
+def test_deployment_guide_api(tmp_path):
+    settings.database_path = tmp_path / "deployment-guide-test.db"
+    init_db()
+
+    client = TestClient(app)
+    response = client.get("/api/deployment/guide")
+    assert response.status_code == 200
+    body = response.json()["deployment"]
+    assert body["summary"]["commit_message"] == "Add deployment packaging and production configuration guide"
+    assert "python scripts/build_release_package.py" in body["packaging_commands"]
+    assert "AUTH_REQUIRED=true" in body["guide_markdown"]
+
+    download = client.get("/deployment/guide/download")
+    assert download.status_code == 200
+    assert "Deployment Packaging and Production Configuration Guide" in download.text
 
 def test_youtube_publishing_checklist_api(tmp_path):
     settings.database_path = tmp_path / "youtube-publishing-test.db"

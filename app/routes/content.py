@@ -29,6 +29,7 @@ from app.services.release_check_service import build_release_checklist
 from app.services.setup_guide_service import build_setup_guide
 from app.services.provider_setup_service import build_provider_setup_guide
 from app.services.youtube_publishing_service import build_youtube_publishing_checklist
+from app.services.deployment_config_service import build_deployment_config_guide
 from app.services.prompt_template_service import (
     apply_script_prompt_template,
     build_prompt_preview,
@@ -1295,6 +1296,22 @@ def download_youtube_publishing_checklist(_: dict[str, Any] = Depends(require_pe
         checklist["guide_markdown"],
         media_type="text/markdown",
         headers={"Content-Disposition": "attachment; filename=youtube_manual_publishing_checklist.md"},
+    )
+
+
+
+@router.get("/api/deployment/guide")
+def api_deployment_guide(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
+    return {"deployment": build_deployment_config_guide()}
+
+
+@router.get("/deployment/guide/download")
+def download_deployment_guide(_: dict[str, Any] = Depends(require_permission("content:view"))):
+    guide = build_deployment_config_guide()
+    return PlainTextResponse(
+        guide["guide_markdown"],
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=deployment_production_guide.md"},
     )
 
 @router.get("/api/release/checklist")

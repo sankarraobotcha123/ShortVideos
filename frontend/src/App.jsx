@@ -23,6 +23,7 @@ import {
   createCalendarEntry,
   deleteCalendarEntry,
   deleteVisualAsset,
+  deploymentGuideDownloadUrl,
   fetchAuthStatus,
   fetchAuthUsers,
   fetchAuthPermissions,
@@ -41,6 +42,7 @@ import {
   fetchContentIdeas,
   fetchContentSeries,
   fetchContentSeriesDetail,
+  fetchDeploymentGuide,
   fetchMultilingualPlans,
   fetchCurrentUser,
   fetchProviderLogs,
@@ -307,6 +309,7 @@ const ROUTE_ACCESS = {
   providerLogs: { permission: 'analytics:view' },
   providerSetup: { permission: 'content:view' },
   youtubePublishing: { permission: 'content:view' },
+  deployment: { permission: 'content:view' },
   demo: { permission: 'content:create' },
   users: { role: 'super_admin' },
   authHardening: { role: 'super_admin' }
@@ -412,6 +415,7 @@ function routeDisplayName(route) {
     providerLogs: 'Provider logs',
     providerSetup: 'Provider setup guide',
     youtubePublishing: 'YouTube publishing',
+    deployment: 'Deployment guide',
     demo: 'MVP demo setup',
     release: 'Release checklist',
     setup: 'Fresh clone setup',
@@ -495,6 +499,7 @@ function App() {
 
           <div className="nav-section-title">System</div>
           {navCan('content:create') && <NavItem route={route} active={route.name === 'demo'} href="#/demo">MVP demo setup</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'deployment'} href="#/deployment">Deployment guide</NavItem>}
           <NavItem route={route} active={route.name === 'release'} href="#/release">Release checklist</NavItem>
           <NavItem route={route} active={route.name === 'setup'} href="#/setup">Fresh clone setup</NavItem>
           <NavItem route={route} active={route.name === 'permissions'} href="#/permissions">Permissions</NavItem>
@@ -534,6 +539,7 @@ function App() {
           {route.name === 'providerSetup' && <ProviderSetupGuidePage />}
           {route.name === 'youtubePublishing' && <YoutubePublishingChecklistPage />}
           {route.name === 'demo' && <DemoSetupPage />}
+          {route.name === 'deployment' && <DeploymentGuidePage />}
           {route.name === 'release' && <ReleaseChecklistPage />}
           {route.name === 'setup' && <FreshCloneSetupPage />}
           {route.name === 'login' && <LoginPage authUser={authUser} authStatus={authStatus} onLogin={setAuthUser} onLogout={handleLogout} />}
@@ -572,6 +578,7 @@ function parseRoute(hash) {
   if (parts[0] === 'provider-setup') return { name: 'providerSetup' }
   if (parts[0] === 'youtube-publishing') return { name: 'youtubePublishing' }
   if (parts[0] === 'demo') return { name: 'demo' }
+  if (parts[0] === 'deployment') return { name: 'deployment' }
   if (parts[0] === 'release') return { name: 'release' }
   if (parts[0] === 'setup') return { name: 'setup' }
   if (parts[0] === 'login') return { name: 'login' }
@@ -4173,6 +4180,135 @@ function DemoSetupPage() {
           <button className="secondary" onClick={() => navigate('#/')}>Open dashboard</button>
           <button className="secondary" onClick={() => navigate('#/analytics')}>Open analytics insights</button>
         </div>
+      </div>
+    </section>
+  )
+}
+
+
+
+function DeploymentGuidePage() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchDeploymentGuide().then(setData).catch((err) => setError(err.message))
+  }, [])
+
+  if (error) return <ErrorCard title="Could not load deployment guide" message={error} />
+  if (!data) return <Loading />
+
+  const deployment = data.deployment || {}
+  const summary = deployment.summary || {}
+  const envChecks = deployment.production_env_checks || []
+  const fileChecks = deployment.required_file_checks || []
+  const gitignoreChecks = deployment.gitignore_checks || []
+  const deploymentSteps = deployment.deployment_steps || []
+
+  return (
+    <section>
+      <Header
+        title="Deployment packaging and production configuration"
+        subtitle="Use this before sharing a ZIP, pushing to GitHub, or deploying the MVP to a server. It focuses on secrets, storage, auth, CORS, and release packaging."
+        action={<a className="button-link" href={deploymentGuideDownloadUrl()} target="_blank" rel="noreferrer">Download guide</a>}
+      />
+
+      <div className="stats-grid">
+        <StatCard label="Passed" value={summary.pass_count || 0} />
+        <StatCard label="Warnings" value={summary.warn_count || 0} />
+        <StatCard label="Failures" value={summary.fail_count || 0} />
+        <StatCard label="Ready" value={summary.ready_for_package ? 'Yes' : 'Check'} />
+      </div>
+
+      <div className="card stack success-card">
+        <div className="card-header"><h2>Recommended production overrides</h2><StatusBadge status="production" /></div>
+        <p>Keep local development easy, but use stricter settings before any public demo or production deployment.</p>
+        <pre>{`ENVIRONMENT=production\nAUTH_REQUIRED=true\nDEFAULT_ADMIN_PASSWORD=replace-with-a-strong-password\nAUTH_COOKIE_SECURE=true\nCORS_ORIGINS=https://your-frontend-domain.example\nDATABASE_PATH=/persistent-storage/app.db\nYOUTUBE_API_ENABLED=false\nYOUTUBE_DRY_RUN=true`}</pre>
+        <button className="secondary" onClick={() => copyText(`ENVIRONMENT=production\nAUTH_REQUIRED=true\nDEFAULT_ADMIN_PASSWORD=replace-with-a-strong-password\nAUTH_COOKIE_SECURE=true\nCORS_ORIGINS=https://your-frontend-domain.example\nDATABASE_PATH=/persistent-storage/app.db\nYOUTUBE_API_ENABLED=false\nYOUTUBE_DRY_RUN=true`)}>Copy production env sample</button>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Deployment phases</h2><span>{deploymentSteps.length} phases</span></div>
+        <div className="detail-grid">
+          {deploymentSteps.map((phase) => (
+            <div className="card nested-card stack" key={phase.phase}>
+              <h3>{phase.phase}. {phase.title}</h3>
+              <ul className="check-list">
+                {(phase.items || []).map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Production environment checks</h2><span>{envChecks.length} keys</span></div>
+        <div className="performance-table release-table">
+          <div className="performance-head"><span>Status</span><span>Key</span><span>Recommended</span><span>Reason</span></div>
+          {envChecks.map((item) => (
+            <div className="performance-row" key={item.key}>
+              <StatusBadge status={item.status} />
+              <strong>{item.key}</strong>
+              <span>{item.recommended}</span>
+              <span>{item.reason}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Required deployment files</h2><span>{fileChecks.length} files</span></div>
+        <div className="performance-table release-table">
+          <div className="performance-head"><span>Status</span><span>Path</span><span>Detail</span></div>
+          {fileChecks.map((item) => (
+            <div className="performance-row" key={item.path}>
+              <StatusBadge status={item.status} />
+              <strong>{item.path}</strong>
+              <span>{item.detail}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack warning-card">
+        <div className="card-header"><h2>Protected paths</h2><span>{(deployment.protected_paths || []).length} protected</span></div>
+        <p>These should stay out of Git and out of shared source ZIPs unless they are only `.gitkeep` placeholders.</p>
+        <div className="performance-table release-table">
+          <div className="performance-head"><span>Status</span><span>Pattern</span><span>Detail</span></div>
+          {gitignoreChecks.map((item) => (
+            <div className="performance-row" key={item.path}>
+              <StatusBadge status={item.status} />
+              <strong>{item.path}</strong>
+              <span>{item.detail}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Packaging commands</h2><StatusBadge status="package" /></div>
+        <pre>{(deployment.packaging_commands || []).join('\n')}</pre>
+        <button className="secondary" onClick={() => copyText((deployment.packaging_commands || []).join('\n'))}>Copy package commands</button>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Git commands for this step</h2><StatusBadge status="git" /></div>
+        <pre>{(deployment.git_commands || []).join('\n')}</pre>
+        <button className="secondary" onClick={() => copyText((deployment.git_commands || []).join('\n'))}>Copy Git commands</button>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Recommendations</h2><span>{(deployment.recommendations || []).length} items</span></div>
+        <ul className="check-list">
+          {(deployment.recommendations || []).map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      </div>
+
+      <TextCard title="Deployment guide markdown" value={deployment.guide_markdown || ''} />
+      <div className="quick-actions">
+        <button onClick={() => downloadMarkdown('deployment_production_guide.md', deployment.guide_markdown || '')}>Download markdown from browser</button>
+        <button className="secondary" onClick={() => navigate('#/release')}>Open release checklist</button>
+        <button className="secondary" onClick={() => navigate('#/setup')}>Open fresh clone setup</button>
       </div>
     </section>
   )

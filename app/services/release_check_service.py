@@ -23,6 +23,7 @@ REQUIRED_GITIGNORE_PATTERNS = [
     "storage/handoffs/*",
     "storage/release_reports/*",
     "storage/youtube_oauth/*",
+    "dist_release/",
     "__pycache__/",
     ".pytest_cache/",
 ]
@@ -43,10 +44,13 @@ REQUIRED_FILES = [
     "docs/FRESH_CLONE_SETUP.md",
     "docs/PROVIDER_ADAPTER_SETUP.md",
     "docs/YOUTUBE_PUBLISHING_GUIDE.md",
+    "docs/DEPLOYMENT_PRODUCTION_GUIDE.md",
     "app/routes/auth.py",
     "app/services/auth_service.py",
     "app/services/provider_setup_service.py",
     "app/services/youtube_publishing_service.py",
+    "app/services/deployment_config_service.py",
+    "scripts/build_release_package.py",
 ]
 
 REQUIRED_DIRS = [
@@ -90,6 +94,11 @@ REQUIRED_ENV_KEYS = [
     "YOUTUBE_DEFAULT_PRIVACY_STATUS",
     "YOUTUBE_DEFAULT_PLAYLIST_ID",
     "YOUTUBE_NOTIFY_SUBSCRIBERS",
+    "ENVIRONMENT",
+    "PUBLIC_FRONTEND_URL",
+    "PUBLIC_API_URL",
+    "TRUST_PROXY_HEADERS",
+    "LOG_LEVEL",
 ]
 
 PROTECTED_PATHS = [
@@ -108,6 +117,7 @@ PROTECTED_PATHS = [
     "storage/learning_outputs/",
     "storage/handoffs/",
     "storage/youtube_oauth/",
+    "dist_release/",
     "__pycache__/",
     ".pytest_cache/",
 ]
@@ -116,12 +126,14 @@ GIT_COMMANDS = [
     "git status",
     "python scripts/setup_project.py --check-only",
     "python -m pytest",
+    "npm run frontend:install",
     "npm run frontend:build",
     "python scripts/pre_push_check.py",
+    "python scripts/build_release_package.py",
     "git status",
     "git add .",
     "git status",
-    "git commit -m \"Add YouTube publishing checklist workflow\"",
+    "git commit -m \"Add deployment packaging and production configuration guide\"",
     "git push",
 ]
 
@@ -214,7 +226,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         recommendations.append("Review warnings. Some may be acceptable, but confirm before release.")
     recommendations.append("Do not commit generated media, local databases, virtual environments, node_modules, or .env files.")
     recommendations.append("Run backend tests and frontend build before pushing a release commit.")
-    recommendations.append("Use the exact commit message for this step: Add YouTube publishing checklist workflow")
+    recommendations.append("Use the exact commit message for this step: Add deployment packaging and production configuration guide")
 
     report_markdown = build_release_report_markdown(
         pass_count=pass_count,
@@ -229,7 +241,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
     )
 
     return {
-        "version": "0.31.0",
+        "version": "0.32.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "pass_count": pass_count,
@@ -244,7 +256,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         "manual_command_checks": command_checks,
         "protected_paths": PROTECTED_PATHS,
         "git_commands": GIT_COMMANDS,
-        "commit_message": "Add YouTube publishing checklist workflow",
+        "commit_message": "Add deployment packaging and production configuration guide",
         "recommendations": recommendations,
         "report_markdown": report_markdown,
         "settings_snapshot": {
@@ -253,6 +265,9 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
             "ai_provider_chain": settings.ai_provider_chain,
             "tts_provider_chain": settings.tts_provider_chain,
             "frontend_asset_version": settings.frontend_asset_version,
+            "environment": settings.environment,
+            "public_frontend_url": settings.public_frontend_url,
+            "public_api_url": settings.public_api_url,
         },
     }
 
