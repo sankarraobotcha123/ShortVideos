@@ -208,6 +208,21 @@ export function deleteCalendarEntry(id) {
   })
 }
 
+export function bulkScheduleCalendar(payload) {
+  return request('/api/calendar/bulk-schedule', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function fetchCalendarBulkRuns() {
+  return request('/api/calendar/bulk-runs')
+}
+
+export function calendarBulkReportDownloadUrl() {
+  return `${API_BASE_URL}/calendar/bulk-schedule/download`
+}
+
 export function generateAudio(id) {
   return request(`/api/content/${id}/audio`, {
     method: 'POST'

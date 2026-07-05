@@ -1,32 +1,34 @@
 # Next Steps
 
-Current version: `0.26.0`
+Current version: `0.27.0`
 
-## Completed in v26
+## Completed in v27
 
-- Added Content Series Planner workflow.
-- Added series strategy fields for niche, audience, goal, episode style, and CTA strategy.
-- Added ordered episode rows that can link to backlog ideas or generated content packages.
-- Added downloadable series planning reports.
-- Added React pages at `#/series` and `#/series/{id}`.
+- Added Content Calendar Bulk Scheduling workflow.
+- Added schedule preview and apply flow for unscheduled packages.
+- Added filters for all unscheduled packages or one batch.
+- Added videos-per-day and gap-days controls.
+- Added recent bulk scheduling run history.
+- Added downloadable bulk scheduling report.
+- Added React page at `#/calendar/bulk`.
 
 ## Recommended next step
 
-**Content calendar bulk scheduling workflow**
+**Batch export and production handoff workflow**
 
 Suggested commit message:
 
 ```bash
-git commit -m "Add content calendar bulk scheduling workflow"
+git commit -m "Add batch export and production handoff workflow"
 ```
 
-## Remaining suggested major steps after v26
+## Remaining suggested major steps after v27
 
-1. Content calendar bulk scheduling workflow
-2. Batch export and production handoff workflow
-3. Lightweight multilingual planning workflow
-4. Real provider adapter setup guide for Ollama/Transformers/hosted APIs
-5. YouTube manual publishing checklist + optional API integration preparation
-6. Deployment packaging and production configuration guide
-7. Final MVP bug-fix and UI polish pass
+1. Batch export and production handoff workflow
+2. Lightweight multilingual planning workflow
+3. Real provider adapter setup guide for Ollama/Transformers/hosted APIs
+4. YouTube manual publishing checklist + optional API integration preparation
+5. Deployment packaging and production configuration guide
+6. Final MVP bug-fix and UI polish pass
 
+After v27, there are **6 remaining major steps** for the strong MVP roadmap.

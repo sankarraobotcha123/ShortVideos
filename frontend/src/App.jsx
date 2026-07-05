@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   addAnalytics,
+  bulkScheduleCalendar,
+  calendarBulkReportDownloadUrl,
   changeAuthPassword,
   contentIdeasDownloadUrl,
   convertContentIdea,
@@ -28,6 +30,7 @@ import {
   fetchBatch,
   fetchBatches,
   fetchCalendar,
+  fetchCalendarBulkRuns,
   fetchPackage,
   fetchPackages,
   fetchContentIdeas,
@@ -129,6 +132,20 @@ const initialCalendar = {
   notes: ''
 }
 
+const initialBulkCalendar = {
+  start_date: today(),
+  batch_id: '',
+  limit: 20,
+  videos_per_day: 1,
+  days_between: 0,
+  platform: 'YouTube Shorts',
+  playlist_name: 'Science Curiosity Shorts',
+  status: 'planned',
+  order_by: 'created_at',
+  created_by: '',
+  apply: false
+}
+
 const initialVisualAsset = {
   title: 'Leaf chlorophyll diagram',
   tags: 'leaf, chlorophyll, photosynthesis, science',
@@ -218,6 +235,7 @@ const ACTION_LABELS = {
   'analytics:view': 'view analytics',
   'analytics:manage': 'enter analytics',
   'calendar:manage': 'manage publishing calendar',
+  'calendar:bulk_schedule': 'bulk schedule publishing calendar',
   'source_safety:review': 'run source safety reviews',
   'trust_score:review': 'run teacher trust reviews',
   'thumbnail:generate': 'generate thumbnail guides',
@@ -236,6 +254,7 @@ const ROUTE_ACCESS = {
   batches: { permission: 'content:view' },
   batch: { permission: 'content:view' },
   calendar: { permission: 'content:view' },
+  bulkCalendar: { permission: 'content:view' },
   productionBoard: { permission: 'content:view' },
   ideas: { permission: 'content:view' },
   series: { permission: 'content:view' },
@@ -373,6 +392,7 @@ function App() {
           {navCan('content:create') && <a className={route.name === 'new' ? 'active' : ''} href="#/new">Create package</a>}
           {navCan('content:view') && <a className={route.name === 'batches' || route.name === 'batch' ? 'active' : ''} href="#/batches">Batches</a>}
           {navCan('content:view') && <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>}
+          {navCan('content:view') && <a className={route.name === 'bulkCalendar' ? 'active' : ''} href="#/calendar/bulk">Bulk schedule</a>}
           {navCan('content:view') && <a className={route.name === 'productionBoard' ? 'active' : ''} href="#/production-board">Production board</a>}
           {navCan('content:view') && <a className={route.name === 'ideas' ? 'active' : ''} href="#/ideas">Idea backlog</a>}
           {navCan('content:view') && <a className={route.name === 'series' || route.name === 'seriesDetail' ? 'active' : ''} href="#/series">Series planner</a>}
@@ -412,6 +432,7 @@ function App() {
           {route.name === 'batches' && <BatchesPage />}
           {route.name === 'batch' && <BatchDetail id={route.id} />}
           {route.name === 'calendar' && <CalendarPage />}
+          {route.name === 'bulkCalendar' && <BulkScheduleCalendarPage />}
           {route.name === 'productionBoard' && <ProductionBoardPage />}
           {route.name === 'ideas' && <ContentIdeaBacklogPage />}
           {route.name === 'series' && <ContentSeriesPlannerPage />}
@@ -444,6 +465,7 @@ function parseRoute(hash) {
   if (parts[0] === 'packages' && parts[1]) return { name: 'package', id: parts[1] }
   if (parts[0] === 'batches' && parts[1]) return { name: 'batch', id: parts[1] }
   if (parts[0] === 'batches') return { name: 'batches' }
+  if (parts[0] === 'calendar' && parts[1] === 'bulk') return { name: 'bulkCalendar' }
   if (parts[0] === 'calendar') return { name: 'calendar' }
   if (parts[0] === 'production-board') return { name: 'productionBoard' }
   if (parts[0] === 'ideas') return { name: 'ideas' }
@@ -881,6 +903,7 @@ function Dashboard() {
       <div className="quick-actions card">
         <GuardedButton permission="content:create" onClick={() => navigate('#/batches')}>Plan a 20-Short batch</GuardedButton>
         <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/calendar')}>Open publishing calendar</GuardedButton>
+        <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/calendar/bulk')}>Bulk schedule calendar</GuardedButton>
         <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/production-board')}>Open production board</GuardedButton>
         <GuardedButton permission="content:view" className="secondary" onClick={() => navigate('#/ideas')}>Open idea backlog</GuardedButton>
         <GuardedButton permission="assets:manage" className="secondary" onClick={() => navigate('#/assets')}>Upload visual assets</GuardedButton>
@@ -1372,6 +1395,163 @@ function CalendarPage() {
           <div className="package-list compact">
             {data.unscheduled_packages.map((item) => (
               <button key={item.id} className="package-row" onClick={() => setForm({ ...initialCalendar, package_id: String(item.id) })}>
+                <div><h3>{item.topic}</h3><p>{item.class_level} • {item.subject} • {item.batch_name || 'No batch'}</p></div>
+                <div className="row-meta"><TrustBadge score={item.trust_score} /><StatusBadge status={item.review_status} /></div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+
+function BulkScheduleCalendarPage() {
+  const canManageCalendar = useCan('calendar:manage')
+  const [data, setData] = useState(null)
+  const [batches, setBatches] = useState([])
+  const [runs, setRuns] = useState([])
+  const [form, setForm] = useState(initialBulkCalendar)
+  const [preview, setPreview] = useState(null)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  function load() {
+    setError('')
+    Promise.all([fetchCalendar(), fetchBatches(), fetchCalendarBulkRuns()])
+      .then(([calendarPayload, batchPayload, runPayload]) => {
+        setData(calendarPayload)
+        setBatches(batchPayload.batches || [])
+        setRuns(runPayload.bulk_runs || [])
+      })
+      .catch((err) => setError(err.message))
+  }
+
+  useEffect(load, [])
+
+  function update(name, value) {
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  function buildPayload(apply) {
+    return {
+      ...form,
+      batch_id: form.batch_id ? Number(form.batch_id) : null,
+      limit: Number(form.limit || 20),
+      videos_per_day: Number(form.videos_per_day || 1),
+      days_between: Number(form.days_between || 0),
+      apply
+    }
+  }
+
+  async function previewSchedule(event) {
+    event.preventDefault()
+    setMessage('')
+    setError('')
+    try {
+      const result = await bulkScheduleCalendar(buildPayload(false))
+      setPreview(result.bulk_schedule)
+      setRuns(result.bulk_runs || [])
+      setMessage(`Preview ready: ${result.bulk_schedule.scheduled_count} package(s) can be scheduled.`)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function applySchedule() {
+    setMessage('')
+    setError('')
+    if (!canManageCalendar) {
+      setError('You do not have permission to bulk schedule calendar entries.')
+      return
+    }
+    try {
+      const result = await bulkScheduleCalendar(buildPayload(true))
+      setPreview(result.bulk_schedule)
+      setData(result.calendar_payload)
+      setRuns(result.bulk_runs || [])
+      setMessage(`Bulk schedule applied: ${result.bulk_schedule.inserted_count} added, ${result.bulk_schedule.skipped_count} skipped.`)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (error && !data) return <ErrorCard title="Could not load bulk scheduler" message={error} />
+  if (!data) return <Loading />
+
+  const batchOptions = [{ value: '', label: 'All unscheduled packages' }, ...batches.map((b) => ({ value: String(b.id), label: b.name }))]
+
+  return (
+    <section>
+      <Header
+        title="Content calendar bulk scheduling"
+        subtitle="Schedule a batch of Shorts in one step, then fine-tune dates from the publishing calendar."
+        action={<a className="button secondary" href={calendarBulkReportDownloadUrl()} target="_blank" rel="noreferrer">Download bulk report</a>}
+      />
+      {message && <div className="success-banner">{message}</div>}
+      {error && <div className="form-error">{error}</div>}
+
+      <form className="card form-grid" onSubmit={previewSchedule}>
+        <PermissionNotice permission="calendar:manage" />
+        <Select label="Package source" value={form.batch_id} options={batchOptions} onChange={(v) => update('batch_id', v)} />
+        <Input type="date" label="Start date" value={form.start_date} onChange={(v) => update('start_date', v)} />
+        <Input type="number" label="Max packages" value={form.limit} onChange={(v) => update('limit', v)} />
+        <Input type="number" label="Videos per day" value={form.videos_per_day} onChange={(v) => update('videos_per_day', v)} />
+        <Input type="number" label="Gap days after each publishing day" value={form.days_between} onChange={(v) => update('days_between', v)} />
+        <Select label="Order by" value={form.order_by} options={['created_at', 'trust_score', 'topic']} onChange={(v) => update('order_by', v)} />
+        <Input label="Platform" value={form.platform} onChange={(v) => update('platform', v)} />
+        <Input label="Playlist name" value={form.playlist_name} onChange={(v) => update('playlist_name', v)} />
+        <Select label="Initial status" value={form.status} options={['planned', 'scheduled']} onChange={(v) => update('status', v)} />
+        <Input label="Created by" value={form.created_by} onChange={(v) => update('created_by', v)} />
+        <div className="form-actions wide">
+          <button className="secondary" type="submit">Preview schedule</button>
+          <GuardedButton permission="calendar:manage" type="button" onClick={applySchedule}>Apply bulk schedule</GuardedButton>
+        </div>
+      </form>
+
+      <div className="grid two-cols">
+        <div className="card">
+          <div className="card-header"><h2>Preview</h2><span>{preview?.items?.length || 0} items</span></div>
+          {!preview ? <p className="muted">Preview a schedule before applying it.</p> : preview.items.length === 0 ? <p className="muted">No unscheduled packages match this filter.</p> : (
+            <div className="calendar-list">
+              {preview.items.map((item) => (
+                <div className="calendar-entry" key={item.id}>
+                  <div>
+                    <strong>{item.planned_publish_date} • {item.topic}</strong>
+                    <p>{item.subject} • {item.class_level} • {item.batch_name || 'No batch'} • trust {item.trust_score}</p>
+                  </div>
+                  <StatusBadge status={item.status} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <div className="card-header"><h2>Recent bulk runs</h2><span>{runs.length}</span></div>
+          {runs.length === 0 ? <p className="muted">No bulk runs yet.</p> : (
+            <div className="package-list compact">
+              {runs.slice(0, 8).map((run) => (
+                <div className="package-row static" key={run.id}>
+                  <div>
+                    <h3>Run #{run.id}: {run.batch_name || 'All unscheduled packages'}</h3>
+                    <p>{run.start_date} • {run.platform} • {run.playlist_name || 'No playlist'}</p>
+                  </div>
+                  <div className="row-meta"><span>{run.scheduled_count} scheduled</span><span>{run.skipped_count} skipped</span></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header"><h2>Still unscheduled</h2><span>{data.unscheduled_packages.length}</span></div>
+        {data.unscheduled_packages.length === 0 ? <p className="muted">All packages are scheduled.</p> : (
+          <div className="package-list compact">
+            {data.unscheduled_packages.slice(0, 12).map((item) => (
+              <button key={item.id} className="package-row" onClick={() => navigate(`#/packages/${item.id}`)}>
                 <div><h3>{item.topic}</h3><p>{item.class_level} • {item.subject} • {item.batch_name || 'No batch'}</p></div>
                 <div className="row-meta"><TrustBadge score={item.trust_score} /><StatusBadge status={item.review_status} /></div>
               </button>

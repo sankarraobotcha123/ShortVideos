@@ -70,6 +70,12 @@ from app.services.publishing_approval_service import (
     list_publishing_approvals,
     update_publishing_approval_decision,
 )
+from app.services.calendar_bulk_service import (
+    apply_bulk_schedule,
+    build_bulk_schedule_markdown,
+    list_bulk_runs,
+    preview_bulk_schedule,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -115,6 +121,28 @@ def _calendar_from_row(row) -> dict[str, Any]:
     item["package_id"] = int(item.get("package_id"))
     return item
 
+
+def _calendar_payload(conn) -> dict[str, Any]:
+    entries = conn.execute(
+        """
+        SELECT pc.*, cp.topic, cp.subject, cp.class_level, cp.review_status, cp.trust_score, cp.batch_id, b.name AS batch_name
+        FROM publishing_calendar pc
+        JOIN content_packages cp ON cp.id = pc.package_id
+        LEFT JOIN content_batches b ON b.id = cp.batch_id
+        ORDER BY pc.planned_publish_date ASC, pc.id ASC
+        """
+    ).fetchall()
+    unscheduled = conn.execute(
+        """
+        SELECT cp.id, cp.topic, cp.subject, cp.class_level, cp.review_status, cp.trust_score, cp.batch_id, b.name AS batch_name
+        FROM content_packages cp
+        LEFT JOIN content_batches b ON b.id = cp.batch_id
+        LEFT JOIN publishing_calendar pc ON pc.package_id = cp.id
+        WHERE pc.id IS NULL
+        ORDER BY cp.id DESC
+        """
+    ).fetchall()
+    return {"calendar": [_calendar_from_row(row) for row in entries], "unscheduled_packages": [dict(row) for row in unscheduled]}
 
 def _suggest_assets_for_package(package: dict[str, Any], assets: list[dict[str, Any]]) -> list[dict[str, Any]]:
     pseudo_scene = {
@@ -542,6 +570,20 @@ class CalendarUpdateRequest(BaseModel):
     status: str = "planned"
     playlist_name: str = ""
     notes: str = ""
+
+
+class CalendarBulkScheduleRequest(BaseModel):
+    start_date: str = Field(default_factory=lambda: __import__("datetime").date.today().isoformat())
+    batch_id: int | None = None
+    limit: int = Field(default=20, ge=1, le=200)
+    videos_per_day: int = Field(default=1, ge=1, le=20)
+    days_between: int = Field(default=0, ge=0, le=30)
+    platform: str = "YouTube Shorts"
+    playlist_name: str = "Science Curiosity Shorts"
+    status: str = "planned"
+    order_by: str = "created_at"
+    created_by: str = ""
+    apply: bool = False
 
 
 
@@ -1488,26 +1530,7 @@ def download_visual_asset(asset_id: int, _: dict[str, Any] = Depends(require_per
 @router.get("/api/calendar")
 def api_calendar(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
     with db_session() as conn:
-        entries = conn.execute(
-            """
-            SELECT pc.*, cp.topic, cp.subject, cp.class_level, cp.review_status, cp.trust_score, cp.batch_id, b.name AS batch_name
-            FROM publishing_calendar pc
-            JOIN content_packages cp ON cp.id = pc.package_id
-            LEFT JOIN content_batches b ON b.id = cp.batch_id
-            ORDER BY pc.planned_publish_date ASC, pc.id ASC
-            """
-        ).fetchall()
-        unscheduled = conn.execute(
-            """
-            SELECT cp.id, cp.topic, cp.subject, cp.class_level, cp.review_status, cp.trust_score, cp.batch_id, b.name AS batch_name
-            FROM content_packages cp
-            LEFT JOIN content_batches b ON b.id = cp.batch_id
-            LEFT JOIN publishing_calendar pc ON pc.package_id = cp.id
-            WHERE pc.id IS NULL
-            ORDER BY cp.id DESC
-            """
-        ).fetchall()
-    return {"calendar": [_calendar_from_row(row) for row in entries], "unscheduled_packages": [dict(row) for row in unscheduled]}
+        return _calendar_payload(conn)
 
 
 @router.post("/api/calendar", status_code=201)
@@ -1601,6 +1624,53 @@ def api_delete_calendar_entry(entry_id: int, _: dict[str, Any] = Depends(require
             raise HTTPException(status_code=404, detail="Calendar entry not found")
         conn.execute("DELETE FROM publishing_calendar WHERE id = ?", (entry_id,))
     return {"deleted": True, "entry_id": entry_id}
+
+
+@router.get("/api/calendar/bulk-runs")
+def api_calendar_bulk_runs(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
+    with db_session() as conn:
+        runs = list_bulk_runs(conn)
+    return {"bulk_runs": runs}
+
+
+@router.post("/api/calendar/bulk-schedule")
+def api_calendar_bulk_schedule(payload: CalendarBulkScheduleRequest, user: dict[str, Any] = Depends(require_permission("calendar:manage"))) -> dict[str, Any]:
+    with db_session() as conn:
+        if payload.batch_id is not None:
+            _assert_batch_exists(conn, payload.batch_id)
+        try:
+            common = {
+                "start_date": payload.start_date,
+                "batch_id": payload.batch_id,
+                "limit": payload.limit,
+                "videos_per_day": payload.videos_per_day,
+                "days_between": payload.days_between,
+                "platform": payload.platform.strip() or "YouTube Shorts",
+                "playlist_name": payload.playlist_name.strip(),
+                "status": payload.status.strip() or "planned",
+                "order_by": payload.order_by.strip() or "created_at",
+            }
+            if payload.apply:
+                created_by = payload.created_by.strip() or str(user.get("email") or user.get("name") or "")
+                result = apply_bulk_schedule(conn, created_by=created_by, **common)
+            else:
+                result = preview_bulk_schedule(conn, **common)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        calendar = _calendar_payload(conn)
+        runs = list_bulk_runs(conn)
+    return {"bulk_schedule": result, "calendar_payload": calendar, "bulk_runs": runs}
+
+
+@router.get("/calendar/bulk-schedule/download")
+def download_calendar_bulk_report(_: dict[str, Any] = Depends(require_permission("content:view"))):
+    with db_session() as conn:
+        markdown = build_bulk_schedule_markdown(conn)
+    return PlainTextResponse(
+        markdown,
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=calendar_bulk_scheduling_report.md"},
+    )
 
 
 @router.post("/api/content/{package_id}/assembly", status_code=201)

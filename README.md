@@ -1,19 +1,17 @@
-# Edu Content Platform MVP — v26
+# Edu Content Platform MVP — v27
 
-Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, and a content idea backlog with topic scoring.
+Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, content idea backlog, series planner, and bulk publishing calendar scheduling.
 
-## What is new in v26
+## What is new in v27
 
-- Added **Content Idea Backlog + Topic Scoring workflow**.
-- Added new React page: `#/ideas`.
-- Added new backend service: `app/services/idea_backlog_service.py`.
-- Added new database table: `content_ideas`.
-- Added API endpoints to create, update, delete, list, download, and convert ideas into content packages.
-- Added scoring fields for curiosity, evergreen value, visual potential, student value, production effort, and monetization potential.
-- Added weighted topic score and priority recommendation.
-- Added dashboard and sidebar links for the idea backlog.
-- Demo seed now creates sample ideas also.
-- Updated version to `0.26.0` and frontend asset version to `26`.
+- Added **Content Calendar Bulk Scheduling workflow**.
+- Added new React page: `#/calendar/bulk`.
+- Added new backend service: `app/services/calendar_bulk_service.py`.
+- Added new database table: `calendar_bulk_runs`.
+- Added API endpoints to preview/apply bulk schedules and view recent bulk scheduling runs.
+- Added downloadable bulk scheduling report: `/calendar/bulk-schedule/download`.
+- Added sidebar and dashboard links for bulk scheduling.
+- Updated version to `0.27.0` and frontend asset version to `27`.
 
 ## Default local login
 
@@ -72,16 +70,16 @@ Frontend:
 http://127.0.0.1:5173
 ```
 
-## Test the idea backlog workflow
+## Test the bulk scheduling workflow
 
 ```text
-Open http://127.0.0.1:5173/#/ideas
-→ Add a Shorts idea
-→ Adjust the score fields
-→ Mark the idea as shortlisted or ready
-→ Convert the idea into a package
-→ Open the generated package
-→ Download the idea backlog report
+Open http://127.0.0.1:5173/#/calendar/bulk
+→ Select all unscheduled packages or one batch
+→ Choose start date, videos per day, spacing, playlist, and status
+→ Preview schedule
+→ Apply bulk schedule
+→ Open Calendar to fine-tune individual dates
+→ Download the bulk scheduling report
 ```
 
 ## Pre-push checklist
@@ -95,7 +93,7 @@ python scripts/pre_push_check.py
 git status
 git add .
 git status
-git commit -m "Add content series planner workflow"
+git commit -m "Add content calendar bulk scheduling workflow"
 git push
 ```
 

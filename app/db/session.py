@@ -107,6 +107,25 @@ CREATE TABLE IF NOT EXISTS publishing_calendar (
     FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS calendar_bulk_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id INTEGER,
+    start_date TEXT NOT NULL,
+    limit_count INTEGER NOT NULL DEFAULT 20,
+    videos_per_day INTEGER NOT NULL DEFAULT 1,
+    days_between INTEGER NOT NULL DEFAULT 0,
+    platform TEXT NOT NULL DEFAULT 'YouTube Shorts',
+    playlist_name TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'planned',
+    order_by TEXT NOT NULL DEFAULT 'created_at',
+    created_by TEXT DEFAULT '',
+    scheduled_count INTEGER NOT NULL DEFAULT 0,
+    skipped_count INTEGER NOT NULL DEFAULT 0,
+    run_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(batch_id) REFERENCES content_batches(id) ON DELETE SET NULL
+);
+
 
 CREATE TABLE IF NOT EXISTS audio_assets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -515,6 +534,28 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS calendar_bulk_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id INTEGER,
+            start_date TEXT NOT NULL,
+            limit_count INTEGER NOT NULL DEFAULT 20,
+            videos_per_day INTEGER NOT NULL DEFAULT 1,
+            days_between INTEGER NOT NULL DEFAULT 0,
+            platform TEXT NOT NULL DEFAULT 'YouTube Shorts',
+            playlist_name TEXT DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'planned',
+            order_by TEXT NOT NULL DEFAULT 'created_at',
+            created_by TEXT DEFAULT '',
+            scheduled_count INTEGER NOT NULL DEFAULT 0,
+            skipped_count INTEGER NOT NULL DEFAULT 0,
+            run_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(batch_id) REFERENCES content_batches(id) ON DELETE SET NULL
         )
         """
     )
