@@ -5,7 +5,7 @@ from pathlib import Path
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT = ROOT / "dist_release" / "edu-content-platform-mvp-v32.zip"
+DEFAULT_OUTPUT = ROOT / "dist_release" / "edu-content-platform-mvp-v33.zip"
 
 EXCLUDED_DIR_NAMES = {
     ".git",

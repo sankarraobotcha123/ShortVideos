@@ -91,7 +91,7 @@ python scripts/build_release_package.py
 Default output:
 
 ```text
-dist_release/edu-content-platform-mvp-v32.zip
+dist_release/edu-content-platform-mvp-v33.zip
 ```
 
 Preview included files without creating the ZIP:

@@ -24,6 +24,7 @@ import {
   deleteCalendarEntry,
   deleteVisualAsset,
   deploymentGuideDownloadUrl,
+  finalPolishReportDownloadUrl,
   fetchAuthStatus,
   fetchAuthUsers,
   fetchAuthPermissions,
@@ -43,6 +44,7 @@ import {
   fetchContentSeries,
   fetchContentSeriesDetail,
   fetchDeploymentGuide,
+  fetchFinalPolishReport,
   fetchMultilingualPlans,
   fetchCurrentUser,
   fetchProviderLogs,
@@ -310,6 +312,7 @@ const ROUTE_ACCESS = {
   providerSetup: { permission: 'content:view' },
   youtubePublishing: { permission: 'content:view' },
   deployment: { permission: 'content:view' },
+  finalPolish: { permission: 'content:view' },
   demo: { permission: 'content:create' },
   users: { role: 'super_admin' },
   authHardening: { role: 'super_admin' }
@@ -416,6 +419,7 @@ function routeDisplayName(route) {
     providerSetup: 'Provider setup guide',
     youtubePublishing: 'YouTube publishing',
     deployment: 'Deployment guide',
+    finalPolish: 'Final MVP polish',
     demo: 'MVP demo setup',
     release: 'Release checklist',
     setup: 'Fresh clone setup',
@@ -500,6 +504,7 @@ function App() {
           <div className="nav-section-title">System</div>
           {navCan('content:create') && <NavItem route={route} active={route.name === 'demo'} href="#/demo">MVP demo setup</NavItem>}
           {navCan('content:view') && <NavItem route={route} active={route.name === 'deployment'} href="#/deployment">Deployment guide</NavItem>}
+          {navCan('content:view') && <NavItem route={route} active={route.name === 'finalPolish'} href="#/final-polish">Final MVP polish</NavItem>}
           <NavItem route={route} active={route.name === 'release'} href="#/release">Release checklist</NavItem>
           <NavItem route={route} active={route.name === 'setup'} href="#/setup">Fresh clone setup</NavItem>
           <NavItem route={route} active={route.name === 'permissions'} href="#/permissions">Permissions</NavItem>
@@ -540,6 +545,7 @@ function App() {
           {route.name === 'youtubePublishing' && <YoutubePublishingChecklistPage />}
           {route.name === 'demo' && <DemoSetupPage />}
           {route.name === 'deployment' && <DeploymentGuidePage />}
+          {route.name === 'finalPolish' && <FinalPolishPage />}
           {route.name === 'release' && <ReleaseChecklistPage />}
           {route.name === 'setup' && <FreshCloneSetupPage />}
           {route.name === 'login' && <LoginPage authUser={authUser} authStatus={authStatus} onLogin={setAuthUser} onLogout={handleLogout} />}
@@ -579,6 +585,7 @@ function parseRoute(hash) {
   if (parts[0] === 'youtube-publishing') return { name: 'youtubePublishing' }
   if (parts[0] === 'demo') return { name: 'demo' }
   if (parts[0] === 'deployment') return { name: 'deployment' }
+  if (parts[0] === 'final-polish') return { name: 'finalPolish' }
   if (parts[0] === 'release') return { name: 'release' }
   if (parts[0] === 'setup') return { name: 'setup' }
   if (parts[0] === 'login') return { name: 'login' }
@@ -4314,6 +4321,119 @@ function DeploymentGuidePage() {
   )
 }
 
+
+
+function FinalPolishPage() {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchFinalPolishReport().then(setData).catch((err) => setError(err.message))
+  }, [])
+
+  if (error) return <ErrorCard title="Could not load final MVP polish report" message={error} />
+  if (!data) return <Loading />
+
+  const report = data.final_polish || {}
+  const summary = report.summary || {}
+  const snapshot = report.db_snapshot || {}
+  const completed = report.completed_items || []
+  const checks = report.project_checks || []
+  const qaSteps = report.manual_qa_steps || []
+
+  return (
+    <section>
+      <Header
+        title="Final MVP bug-fix and UI polish"
+        subtitle="Use this as the final browser and release pass after v32. It records the production cookie fix, UI polish, manual QA steps, and final Git commands."
+        action={<a className="button-link" href={finalPolishReportDownloadUrl()} target="_blank" rel="noreferrer">Download report</a>}
+      />
+
+      <div className="stats-grid">
+        <StatCard label="Passed" value={summary.pass_count || 0} />
+        <StatCard label="Warnings" value={summary.warn_count || 0} />
+        <StatCard label="Failures" value={summary.fail_count || 0} />
+        <StatCard label="Final ready" value={summary.mvp_final_ready ? 'Yes' : 'Check'} />
+      </div>
+
+      <div className="card stack success-card">
+        <div className="card-header"><h2>Completed final polish items</h2><span>{completed.length} items</span></div>
+        <div className="detail-grid">
+          {completed.map((item) => (
+            <div className="card nested-card stack" key={item.key}>
+              <div className="card-header"><h3>{item.title}</h3><StatusBadge status={item.status} /></div>
+              <p>{item.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Project checks</h2><span>{checks.length} checks</span></div>
+        <div className="performance-table release-table">
+          <div className="performance-head"><span>Status</span><span>Item</span><span>Detail</span><span>Fix</span></div>
+          {checks.map((item) => (
+            <div className="performance-row" key={item.label}>
+              <StatusBadge status={item.status} />
+              <strong>{item.label}</strong>
+              <span>{item.detail}</span>
+              <span>{item.fix || '-'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Current MVP data snapshot</h2><span>local database</span></div>
+        <div className="stats-grid compact-stats">
+          {Object.entries(snapshot).map(([key, value]) => (
+            <StatCard key={key} label={key.replaceAll('_', ' ')} value={value} />
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Manual QA before final push</h2><span>{qaSteps.length} areas</span></div>
+        <div className="detail-grid">
+          {qaSteps.map((group) => (
+            <div className="card nested-card stack" key={group.area}>
+              <h3>{group.area}</h3>
+              <ul className="check-list">
+                {(group.steps || []).map((step) => <li key={step}>{step}</li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Final Git commands</h2><StatusBadge status="git" /></div>
+        <pre>{(report.git_commands || []).join('\n')}</pre>
+        <button className="secondary" onClick={() => copyText((report.git_commands || []).join('\n'))}>Copy final commands</button>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Commit message</h2><StatusBadge status="commit" /></div>
+        <pre>{`git commit -m "${report.commit_message || 'Finalize MVP bug fixes and UI polish'}"`}</pre>
+        <button className="secondary" onClick={() => copyText(`git commit -m "${report.commit_message || 'Finalize MVP bug fixes and UI polish'}"`)}>Copy commit command</button>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Recommendations</h2><span>{(report.recommendations || []).length} items</span></div>
+        <ul className="check-list">
+          {(report.recommendations || []).map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      </div>
+
+      <TextCard title="Final MVP polish report markdown" value={report.report_markdown || ''} />
+      <div className="quick-actions">
+        <button onClick={() => downloadMarkdown('final_mvp_polish_report.md', report.report_markdown || '')}>Download markdown from browser</button>
+        <button className="secondary" onClick={() => navigate('#/release')}>Open release checklist</button>
+        <button className="secondary" onClick={() => navigate('#/deployment')}>Open deployment guide</button>
+      </div>
+    </section>
+  )
+}
 
 function ReleaseChecklistPage() {
   const [data, setData] = useState(null)

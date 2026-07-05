@@ -699,7 +699,7 @@ def test_release_checklist_api_available(tmp_path):
     response = client.get("/api/release/checklist")
     assert response.status_code == 200
     body = response.json()["release"]
-    assert body["commit_message"] == "Add deployment packaging and production configuration guide"
+    assert body["commit_message"] == "Finalize MVP bug fixes and UI polish"
     assert "git status" in body["git_commands"]
     assert body["report_markdown"].startswith("# Production Cleanup")
 
@@ -921,3 +921,21 @@ def test_youtube_publishing_checklist_api(tmp_path):
     download = client.get("/youtube-publishing/checklist/download")
     assert download.status_code == 200
     assert "YouTube Manual Publishing Checklist" in download.text
+
+
+
+def test_final_polish_report_api(tmp_path):
+    settings.database_path = tmp_path / "final-polish-test.db"
+    init_db()
+
+    client = TestClient(app)
+    response = client.get("/api/final-polish/report")
+    assert response.status_code == 200
+    body = response.json()["final_polish"]
+    assert body["summary"]["commit_message"] == "Finalize MVP bug fixes and UI polish"
+    assert body["summary"]["mvp_final_ready"] is True
+    assert "credentials=include" in body["report_markdown"] or "credentials: 'include'" in body["report_markdown"]
+
+    download = client.get("/final-polish/report/download")
+    assert download.status_code == 200
+    assert "Final MVP Bug-fix and UI Polish Report" in download.text

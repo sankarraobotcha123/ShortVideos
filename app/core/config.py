@@ -96,7 +96,7 @@ class Settings:
     tts_voice_id: str = os.getenv("TTS_VOICE_ID", "default")
     tts_rate: int = int(os.getenv("TTS_RATE", "165"))
 
-    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "32")
+    frontend_asset_version: str = os.getenv("FRONTEND_ASSET_VERSION", "33")
 
     # Deployment metadata. These values are mostly informational for MVP checks
     # and make production/server configuration explicit.

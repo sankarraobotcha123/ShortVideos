@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 COMMIT_MESSAGE = "Add deployment packaging and production configuration guide"
-VERSION = "0.32.0"
+VERSION = "0.33.0"
 
 REQUIRED_FILES = [
     ".env.example",
@@ -267,7 +267,7 @@ def _build_guide_markdown(
             "python scripts/build_release_package.py",
             "```",
             "",
-            "The default output is `dist_release/edu-content-platform-mvp-v32.zip`. The `dist_release/` folder is local output and should not be committed.",
+            "The default output is `dist_release/edu-content-platform-mvp-v33.zip`. The `dist_release/` folder is local output and should not be committed.",
             "",
             "## 4. Deployment options",
             "",

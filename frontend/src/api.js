@@ -27,7 +27,7 @@ function authHeaders() {
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: 'same-origin',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...authHeaders(),
@@ -293,7 +293,7 @@ export function fetchVisualAssets() {
 export async function uploadVisualAsset(formData) {
   const response = await fetch(`${API_BASE_URL}/api/assets`, {
     method: 'POST',
-    credentials: 'same-origin',
+    credentials: 'include',
     headers: authHeaders(),
     body: formData
   })
@@ -465,6 +465,15 @@ export function fetchDeploymentGuide() {
 
 export function deploymentGuideDownloadUrl() {
   return `${API_BASE_URL}/deployment/guide/download`
+}
+
+
+export function fetchFinalPolishReport() {
+  return request('/api/final-polish/report')
+}
+
+export function finalPolishReportDownloadUrl() {
+  return `${API_BASE_URL}/final-polish/report/download`
 }
 
 export function fetchReleaseChecklist() {

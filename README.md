@@ -1,25 +1,21 @@
-# Edu Content Platform MVP — v32
+# Edu Content Platform MVP — v33
 
-Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, content idea backlog, series planner, multilingual planning, YouTube manual publishing preparation, and deployment packaging guidance.
+Shorts-first educational content creator with FastAPI backend, React/Vite frontend, provider fallbacks, review workflows, analytics, role-based permissions, production board, content idea backlog, series planner, multilingual planning, YouTube manual publishing preparation, deployment packaging guidance, and final MVP polish checks.
 
-## What is new in v32
+## What is new in v33
 
-- Added **Deployment Packaging and Production Configuration Guide**.
-- Added new React page: `#/deployment`.
-- Added new backend service: `app/services/deployment_config_service.py`.
+- Finished **Final MVP Bug-fix and UI Polish Pass**.
+- Fixed frontend auth/session stability for the React + FastAPI two-port setup by using `credentials: 'include'` in the shared API request helper.
+- Added new React page: `#/final-polish`.
+- Added new backend service: `app/services/final_polish_service.py`.
 - Added API endpoints:
-  - `GET /api/deployment/guide`
-  - `GET /deployment/guide/download`
-- Added `docs/DEPLOYMENT_PRODUCTION_GUIDE.md`.
-- Added clean release ZIP builder: `scripts/build_release_package.py`.
-- Added production-focused `.env.example` keys:
-  - `ENVIRONMENT`
-  - `PUBLIC_FRONTEND_URL`
-  - `PUBLIC_API_URL`
-  - `TRUST_PROXY_HEADERS`
-  - `LOG_LEVEL`
-- Updated version to `0.32.0` and frontend asset version to `32`.
-- Updated release checklist and pre-push flow for deployment packaging.
+  - `GET /api/final-polish/report`
+  - `GET /final-polish/report/download`
+- Added `docs/FINAL_MVP_POLISH.md`.
+- Added keyboard focus visibility and narrow-screen UI polish in `frontend/src/styles.css`.
+- Updated clean release ZIP builder to create `edu-content-platform-mvp-v33.zip`.
+- Updated version to `0.33.0` and frontend asset version to `33`.
+- Updated release checklist and pre-push flow for the final MVP commit.
 
 ## Default local login
 
@@ -78,14 +74,15 @@ Frontend:
 http://127.0.0.1:5173
 ```
 
-## Test the new deployment guide
+## Test the final polish page
 
 ```text
-Open http://127.0.0.1:5173/#/deployment
-→ Review production .env recommendations
-→ Check protected paths
-→ Copy packaging commands
-→ Download the deployment guide markdown
+Open http://127.0.0.1:5173/#/final-polish
+→ Review completed final polish items
+→ Check project status and local data snapshot
+→ Follow manual QA steps
+→ Copy final Git commands
+→ Download the final MVP polish report
 ```
 
 ## Build a clean release ZIP
@@ -102,7 +99,7 @@ python scripts/build_release_package.py
 Default release output:
 
 ```text
-dist_release/edu-content-platform-mvp-v32.zip
+dist_release/edu-content-platform-mvp-v33.zip
 ```
 
 The package builder excludes `.env`, local databases, generated media, OAuth secrets, virtual environments, node_modules, frontend build output, caches, and logs.
@@ -135,11 +132,11 @@ python scripts/build_release_package.py
 git status
 git add .
 git status
-git commit -m "Add deployment packaging and production configuration guide"
+git commit -m "Finalize MVP bug fixes and UI polish"
 git push
 ```
 
-## Recent roadmap history
+## Roadmap history
 
 ### v29 — Lightweight Multilingual Planning + Sidebar Active State
 
@@ -170,3 +167,15 @@ git push
 - Added clean release ZIP builder.
 - Added production `.env` guidance and v32 release checklist updates.
 - Suggested commit: `Add deployment packaging and production configuration guide`.
+
+### v33 — Final MVP Bug-fix and UI Polish
+
+- Fixed cross-port frontend auth cookie behavior.
+- Added final polish report page at `#/final-polish`.
+- Added final manual QA checklist and UI polish CSS.
+- Updated release package output to v33.
+- Suggested commit: `Finalize MVP bug fixes and UI polish`.
+
+## Current roadmap status
+
+The four major post-v29 roadmap items are complete. Future work should come from real testing and usage feedback rather than more foundation steps.

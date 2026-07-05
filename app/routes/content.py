@@ -30,6 +30,7 @@ from app.services.setup_guide_service import build_setup_guide
 from app.services.provider_setup_service import build_provider_setup_guide
 from app.services.youtube_publishing_service import build_youtube_publishing_checklist
 from app.services.deployment_config_service import build_deployment_config_guide
+from app.services.final_polish_service import build_final_polish_report
 from app.services.prompt_template_service import (
     apply_script_prompt_template,
     build_prompt_preview,
@@ -1313,6 +1314,24 @@ def download_deployment_guide(_: dict[str, Any] = Depends(require_permission("co
         media_type="text/markdown",
         headers={"Content-Disposition": "attachment; filename=deployment_production_guide.md"},
     )
+
+@router.get("/api/final-polish/report")
+def api_final_polish_report(_: dict[str, Any] = Depends(require_permission("content:view"))) -> dict[str, Any]:
+    with db_session() as conn:
+        report = build_final_polish_report(conn)
+    return {"final_polish": report}
+
+
+@router.get("/final-polish/report/download")
+def download_final_polish_report(_: dict[str, Any] = Depends(require_permission("content:view"))):
+    with db_session() as conn:
+        report = build_final_polish_report(conn)
+    return PlainTextResponse(
+        report["report_markdown"],
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=final_mvp_polish_report.md"},
+    )
+
 
 @router.get("/api/release/checklist")
 def api_release_checklist() -> dict[str, Any]:

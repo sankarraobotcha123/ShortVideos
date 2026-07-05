@@ -1,24 +1,26 @@
 # Next Steps
 
-Current version: `0.32.0`
+Current version: `0.33.0`
 
-## Completed in v32
+## Completed in v33
 
-- Added deployment packaging and production configuration guide.
-- Added deployment guide page at `#/deployment`.
-- Added backend deployment guide endpoints:
-  - `GET /api/deployment/guide`
-  - `GET /deployment/guide/download`
-- Added clean release package builder:
-  - `scripts/build_release_package.py`
-- Added `docs/DEPLOYMENT_PRODUCTION_GUIDE.md`.
-- Added production-focused `.env.example` keys for environment, public URLs, proxy trust, and log level.
-- Updated release checklist for v32 packaging and production safety.
-- Kept generated media, local databases, OAuth secrets, frontend build output, and release ZIPs protected from Git.
+- Finished the **Final MVP bug-fix and UI polish pass**.
+- Fixed frontend API credential behavior for React/FastAPI cross-port auth sessions.
+- Added final polish page at `#/final-polish`.
+- Added backend final polish endpoints:
+  - `GET /api/final-polish/report`
+  - `GET /final-polish/report/download`
+- Added final polish service:
+  - `app/services/final_polish_service.py`
+- Added final guide:
+  - `docs/FINAL_MVP_POLISH.md`
+- Added keyboard focus and mobile/narrow-screen polish in `frontend/src/styles.css`.
+- Updated clean release builder to output v33 ZIP.
+- Updated release checklist and Git flow with the final commit message.
 
 ## Recommended next step
 
-**Final MVP bug-fix and UI polish pass**
+Start using the MVP with real sample content and fix only issues found during actual testing.
 
 Suggested commit message:
 
@@ -26,8 +28,8 @@ Suggested commit message:
 git commit -m "Finalize MVP bug fixes and UI polish"
 ```
 
-## Remaining suggested major steps after v32
+## Remaining suggested major steps after v33
 
-1. Final MVP bug-fix and UI polish pass
+No major foundation steps remain from the v29 roadmap.
 
-After v32, there is **1 remaining major step** for the strong MVP roadmap.
+The strong MVP roadmap is now complete. Future work should be based on real usage feedback, such as improving generated script quality, adding real provider adapters, or preparing YouTube API upload only after the manual publishing workflow is proven.

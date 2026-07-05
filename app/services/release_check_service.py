@@ -50,7 +50,9 @@ REQUIRED_FILES = [
     "app/services/provider_setup_service.py",
     "app/services/youtube_publishing_service.py",
     "app/services/deployment_config_service.py",
+    "app/services/final_polish_service.py",
     "scripts/build_release_package.py",
+    "docs/FINAL_MVP_POLISH.md",
 ]
 
 REQUIRED_DIRS = [
@@ -133,7 +135,7 @@ GIT_COMMANDS = [
     "git status",
     "git add .",
     "git status",
-    "git commit -m \"Add deployment packaging and production configuration guide\"",
+    "git commit -m \"Finalize MVP bug fixes and UI polish\"",
     "git push",
 ]
 
@@ -226,7 +228,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         recommendations.append("Review warnings. Some may be acceptable, but confirm before release.")
     recommendations.append("Do not commit generated media, local databases, virtual environments, node_modules, or .env files.")
     recommendations.append("Run backend tests and frontend build before pushing a release commit.")
-    recommendations.append("Use the exact commit message for this step: Add deployment packaging and production configuration guide")
+    recommendations.append("Use the exact commit message for this step: Finalize MVP bug fixes and UI polish")
 
     report_markdown = build_release_report_markdown(
         pass_count=pass_count,
@@ -241,7 +243,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
     )
 
     return {
-        "version": "0.32.0",
+        "version": "0.33.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": {
             "pass_count": pass_count,
@@ -256,7 +258,7 @@ def build_release_checklist(project_root: str | Path = ".") -> dict[str, Any]:
         "manual_command_checks": command_checks,
         "protected_paths": PROTECTED_PATHS,
         "git_commands": GIT_COMMANDS,
-        "commit_message": "Add deployment packaging and production configuration guide",
+        "commit_message": "Finalize MVP bug fixes and UI polish",
         "recommendations": recommendations,
         "report_markdown": report_markdown,
         "settings_snapshot": {

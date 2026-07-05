@@ -1496,3 +1496,91 @@ th {
 .nested-card h3 {
   margin: 0;
 }
+
+/* Final MVP polish: clearer keyboard focus and narrow-screen behavior. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.package-row:focus-visible,
+.link-button:focus-visible,
+.button-link:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.45);
+  outline-offset: 3px;
+}
+
+button:disabled:hover,
+.button-link[aria-disabled="true"]:hover {
+  transform: none;
+}
+
+.card,
+.package-row,
+.performance-row,
+.info-block,
+.stat-card {
+  overflow-wrap: anywhere;
+}
+
+pre {
+  max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.field input,
+.field select,
+.field textarea {
+  min-height: 42px;
+}
+
+@media (max-width: 640px) {
+  .main-area {
+    padding: 18px;
+  }
+
+  .sidebar {
+    padding: 16px;
+  }
+
+  nav,
+  .side-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header h1 {
+    font-size: 1.7rem;
+  }
+
+  .card {
+    border-radius: 16px;
+  }
+
+  .quick-actions,
+  .button-row,
+  .card-header,
+  .provider-top,
+  .production-card-top,
+  .production-column-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  button,
+  .button-link,
+  .quick-actions a,
+  .quick-actions button,
+  .button-row button,
+  .button-row a {
+    width: 100%;
+  }
+
+  .two-column {
+    columns: 1;
+  }
+
+  .compact-stats {
+    grid-template-columns: 1fr;
+  }
+}
