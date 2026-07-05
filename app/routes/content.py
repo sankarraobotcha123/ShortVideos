@@ -14,6 +14,7 @@ from app.services.content_generator import ContentInput
 from app.services.export_service import export_package
 from app.services.generation_orchestrator import generate_content_package_with_fallbacks, provider_status
 from app.services.audio_service import audio_provider_status, generate_audio_asset
+from app.services.assembly_service import generate_assembly_plan
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -333,9 +334,10 @@ def export_content(package_id: int):
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
         audio_assets = conn.execute("SELECT * FROM audio_assets WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+        assembly_plans = conn.execute("SELECT * FROM assembly_plans WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
-    zip_path = export_package(dict(row), [dict(item) for item in audio_assets])
+    zip_path = export_package(dict(row), [dict(item) for item in audio_assets], [dict(item) for item in assembly_plans])
     return FileResponse(zip_path, filename=Path(zip_path).name, media_type="application/zip")
 
 
@@ -473,6 +475,10 @@ def api_package(package_id: int) -> dict[str, Any]:
             "SELECT * FROM audio_assets WHERE package_id = ? ORDER BY id DESC",
             (package_id,),
         ).fetchall()
+        assembly_plans = conn.execute(
+            "SELECT * FROM assembly_plans WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
     if row is None:
         raise HTTPException(status_code=404, detail="Package not found")
     return {
@@ -480,6 +486,7 @@ def api_package(package_id: int) -> dict[str, Any]:
         "analytics": [dict(item) for item in analytics],
         "calendar": dict(calendar) if calendar else None,
         "audio_assets": [dict(item) for item in audio_assets],
+        "assembly_plans": [dict(item) for item in assembly_plans],
     }
 
 
@@ -775,6 +782,66 @@ def api_delete_calendar_entry(entry_id: int) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="Calendar entry not found")
         conn.execute("DELETE FROM publishing_calendar WHERE id = ?", (entry_id,))
     return {"deleted": True, "entry_id": entry_id}
+
+
+@router.post("/api/content/{package_id}/assembly", status_code=201)
+def api_generate_assembly_plan(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Package not found")
+        audio_assets = conn.execute(
+            "SELECT * FROM audio_assets WHERE package_id = ? ORDER BY id DESC",
+            (package_id,),
+        ).fetchall()
+        payload = generate_assembly_plan(dict(row), [dict(item) for item in audio_assets])
+        cursor = conn.execute(
+            """
+            INSERT INTO assembly_plans (
+                package_id, plan_markdown, plan_json, scene_count, estimated_duration_seconds,
+                assembly_mode, provider_notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                package_id,
+                payload["plan_markdown"],
+                payload["plan_json"],
+                payload["scene_count"],
+                payload["estimated_duration_seconds"],
+                payload["assembly_mode"],
+                payload.get("provider_notes", ""),
+            ),
+        )
+        plan_id = int(cursor.lastrowid)
+        plan = conn.execute("SELECT * FROM assembly_plans WHERE id = ?", (plan_id,)).fetchone()
+    return {"assembly_plan": dict(plan)}
+
+
+@router.get("/api/content/{package_id}/assembly")
+def api_list_assembly_plans(package_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        _assert_package_exists(conn, package_id)
+        rows = conn.execute("SELECT * FROM assembly_plans WHERE package_id = ? ORDER BY id DESC", (package_id,)).fetchall()
+    return {"assembly_plans": [dict(row) for row in rows]}
+
+
+@router.get("/content/{package_id}/assembly/{plan_id}/download")
+def download_assembly_plan(package_id: int, plan_id: int):
+    from fastapi.responses import Response
+
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM assembly_plans WHERE id = ? AND package_id = ?",
+            (plan_id, package_id),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Assembly plan not found")
+    filename = f"package-{package_id}-capcut-assembly-plan.md"
+    return Response(
+        content=row["plan_markdown"],
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/api/content/{package_id}/audio", status_code=201)

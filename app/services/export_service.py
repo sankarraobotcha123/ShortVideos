@@ -15,7 +15,7 @@ def _safe_slug(value: str) -> str:
     return value.strip("-")[:80] or "content-package"
 
 
-def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None) -> Path:
+def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None, assembly_plans: Sequence[Mapping] | None = None) -> Path:
     settings.export_dir.mkdir(parents=True, exist_ok=True)
     package_id = row["id"]
     slug = _safe_slug(row["topic"])
@@ -25,6 +25,7 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None) 
     titles = json.loads(row["title_options"] or "[]")
     hashtags = json.loads(row["hashtags"] or "[]")
     audio_assets = list(audio_assets or [])
+    assembly_plans = list(assembly_plans or [])
 
     audio_summary = "No narration asset generated yet. Use the app's Generate narration button or record manually."
     if audio_assets:
@@ -34,6 +35,15 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None) 
                 f"- {asset.get('file_name')} | {asset.get('status')} | {asset.get('provider_used')} | {asset.get('duration_seconds', 0)} sec"
             )
         audio_summary = "\n".join(lines)
+
+    assembly_summary = "No CapCut/manual assembly plan generated yet. Use the app's Generate assembly plan button."
+    latest_assembly = assembly_plans[0] if assembly_plans else None
+    if latest_assembly:
+        assembly_summary = (
+            f"Latest plan: {latest_assembly.get('scene_count', 0)} scenes | "
+            f"{latest_assembly.get('estimated_duration_seconds', row.get('duration_seconds', 60))} sec | "
+            f"{latest_assembly.get('assembly_mode', 'capcut_manual_plan')}"
+        )
 
     markdown = f"""# Content Package: {row['topic']}
 
@@ -67,6 +77,10 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None) 
 ## Narration Audio
 
 {audio_summary}
+
+## CapCut / Manual Assembly
+
+{assembly_summary}
 
 ## Title Options
 
@@ -123,8 +137,15 @@ def export_package(row: Mapping, audio_assets: Sequence[Mapping] | None = None) 
 
     (package_dir / "audio_assets.json").write_text(json.dumps(audio_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    assembly_manifest = [dict(plan) for plan in assembly_plans]
+    if latest_assembly:
+        (package_dir / "capcut_assembly_plan.md").write_text(str(latest_assembly.get("plan_markdown") or ""), encoding="utf-8")
+        (package_dir / "assembly_plan.json").write_text(str(latest_assembly.get("plan_json") or "{}"), encoding="utf-8")
+    (package_dir / "assembly_plans.json").write_text(json.dumps(assembly_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
     payload = dict(row)
     payload["audio_assets"] = audio_manifest
+    payload["assembly_plans"] = assembly_manifest
     (package_dir / "package.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
     zip_path = settings.export_dir / f"package-{package_id}-{slug}.zip"

@@ -1,23 +1,25 @@
-# Next Steps After v5
+# Next Steps After v6
 
-## What changed in v5
+## What changed in v6
 
-- TTS/audio fallback system added.
-- Windows SAPI provider added for Windows machines where built-in speech works.
-- pyttsx3 provider added as optional but disabled by default.
-- Manual recording fallback added and always available.
-- Package detail page now has a **Generate narration** section.
-- Audio files/guides can be downloaded from the frontend.
-- Export ZIP now includes audio asset metadata and generated audio/recording guide files.
-- Audio fallback status page added.
-- API tests now cover audio fallback.
-- Tests passed: `6 passed`.
+- Added **CapCut/manual assembly plan** generation.
+- Added backend service `assembly_service.py`.
+- Added `assembly_plans` database table.
+- Added API endpoints:
+  - `POST /api/content/{id}/assembly`
+  - `GET /api/content/{id}/assembly`
+  - `GET /content/{id}/assembly/{plan_id}/download`
+- Added React package-detail section: **Generate assembly plan**.
+- Export ZIP now includes:
+  - `capcut_assembly_plan.md`
+  - `assembly_plan.json`
+  - `assembly_plans.json`
+- Backend tests passed: `7 passed`.
+- Frontend production build passed.
 
 ---
 
-## Immediate development plan
-
-### Step 1: Run and test
+## Immediate test workflow
 
 Backend:
 
@@ -43,38 +45,23 @@ Open:
 http://127.0.0.1:5173
 ```
 
----
+Test:
 
-### Step 2: Test narration fallback
-
-1. Create a content package.
-2. Open the package detail page.
-3. Click **Generate narration**.
-4. If Windows SAPI works, download/play the `.wav` file.
-5. If it does not work, download the manual recording guide.
-
-Recommended `.env` for your current laptop:
-
-```env
-TTS_PROVIDER_CHAIN=windows_sapi,manual_recording
-USE_WINDOWS_SAPI_TTS=true
-USE_PYTTSX3_TTS=false
-```
-
-This keeps publishing possible even if no TTS engine works.
+1. Create or open a package.
+2. Click **Generate narration**.
+3. Click **Generate assembly plan**.
+4. Download the plan or export the ZIP.
+5. Open `capcut_assembly_plan.md` and use it while editing in CapCut.
 
 ---
 
-### Step 3: Push to GitHub
+## Git push command
 
 ```bash
-git init
 git add .
 git status
-git commit -m "Add audio fallback workflow"
-git branch -M main
-git remote add origin YOUR_GITHUB_REPO_URL
-git push -u origin main
+git commit -m "Add CapCut assembly planning workflow"
+git push
 ```
 
 Make sure these are not committed:
@@ -83,6 +70,7 @@ Make sure these are not committed:
 .env
 .venv/
 frontend/node_modules/
+frontend/dist/
 storage/app.db
 storage/exports/
 storage/audio/
@@ -91,86 +79,66 @@ storage/final/
 
 ---
 
-## Next feature: CapCut/manual assembly export
+## Recommended next feature: simple vertical video draft
 
-Before building full automatic video generation, export a creator-friendly assembly package:
+Now that you have script, subtitles, audio/guide, and CapCut plan, the next feature can be a simple MP4 draft generator.
 
-```text
-script.txt
-subtitles.srt
-storyboard.md
-visual_prompts.md
-narration.wav or recording-guide.txt
-capcut_scene_plan.md
-publish_metadata.md
-```
-
-Recommended API:
+First version should be basic:
 
 ```text
-POST /api/content/{id}/assembly-plan
-GET  /content/{id}/export
+Script + scene plan + generated/manual audio + simple background cards + subtitles → 9:16 MP4 draft
 ```
 
-What the assembly plan should contain:
+Suggested implementation:
 
-```text
-Scene number
-Start time
-End time
-Script segment
-Suggested visual
-Suggested transition
-Subtitle text
-Audio instruction
-CapCut editing note
-```
+- Use MoviePy or FFmpeg.
+- Use plain background cards first, not AI images.
+- Burn subtitles or display scene text.
+- Use narration audio if a WAV exists.
+- If no WAV exists, generate a silent draft with timing cards.
+- Export to `storage/final/`.
 
-This is the best next step because it helps you publish Shorts even before full video automation is reliable.
+Do not build complex animation yet. The goal is a rough draft that can be improved in CapCut.
 
 ---
 
-## Feature after CapCut export: simple vertical video draft
+## Feature after simple MP4 draft
 
-Only after the package workflow is useful:
-
-```text
-MoviePy or FFmpeg
-background image/cards + narration + subtitles → vertical 9:16 draft video
-```
-
-Keep this simple first:
+Add a reusable visual asset library:
 
 ```text
-1. One background per scene
-2. Burn subtitles
-3. Use narration audio if available
-4. Export MP4 draft
+storage/assets/
+  science/
+  math/
+  icons/
+  backgrounds/
 ```
 
-Do not block publishing on perfect animation automation.
+Then update the assembly/video draft flow to reuse existing visuals before generating new ones.
 
 ---
 
-## AI provider plan
+## Current AI/TTS setup reminder
 
-### Current laptop
+For this laptop:
 
 ```env
 AI_PROVIDER_CHAIN=transformers,template
 USE_OLLAMA=false
 USE_TRANSFORMERS=false
+
+TTS_PROVIDER_CHAIN=windows_sapi,manual_recording
+USE_WINDOWS_SAPI_TTS=true
+USE_PYTTSX3_TTS=false
 ```
 
-### Later desktop with Ollama
+Later desktop with Ollama:
 
 ```env
 AI_PROVIDER_CHAIN=ollama,transformers,template
 USE_OLLAMA=true
 OLLAMA_MODEL=llama3.1:8b
 ```
-
-The provider system already supports this switch.
 
 ---
 
@@ -184,5 +152,3 @@ Only build features that help one of these goals:
 3. Understand what the audience likes.
 4. Save repeated manual time.
 ```
-
-Postpone everything else.

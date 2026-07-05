@@ -97,6 +97,19 @@ CREATE TABLE IF NOT EXISTS audio_assets (
     FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS assembly_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    package_id INTEGER NOT NULL,
+    plan_markdown TEXT NOT NULL,
+    plan_json TEXT NOT NULL,
+    scene_count INTEGER NOT NULL DEFAULT 0,
+    estimated_duration_seconds INTEGER NOT NULL DEFAULT 60,
+    assembly_mode TEXT NOT NULL DEFAULT 'capcut_manual_plan',
+    provider_notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS manual_analytics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_id INTEGER NOT NULL,
@@ -209,6 +222,23 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
             script_snapshot TEXT NOT NULL,
             provider_notes TEXT DEFAULT '',
             provider_attempts TEXT DEFAULT '[]',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS assembly_plans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            package_id INTEGER NOT NULL,
+            plan_markdown TEXT NOT NULL,
+            plan_json TEXT NOT NULL,
+            scene_count INTEGER NOT NULL DEFAULT 0,
+            estimated_duration_seconds INTEGER NOT NULL DEFAULT 60,
+            assembly_mode TEXT NOT NULL DEFAULT 'capcut_manual_plan',
+            provider_notes TEXT DEFAULT '',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
         )

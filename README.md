@@ -1,11 +1,11 @@
-# Edu Content Platform MVP v5
+# Edu Content Platform MVP v6
 
 Shorts-first educational content creator assistant.
 
-This version keeps the **FastAPI backend** and **npm React/Vite frontend**, keeps Jinja as a backup UI, and adds **TTS/audio fallback**. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, or stronger TTS providers without changing the business workflow.
+This version uses a **FastAPI backend** and **React/Vite npm frontend**, keeps Jinja as a backup UI, and adds **TTS/audio fallback + CapCut/manual assembly planning**. Ollama is not required. The app works through template/manual fallbacks and can later use Ollama, Transformers, or stronger TTS providers without changing the business workflow.
 
 ```text
-Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics
+Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide → CapCut Assembly Plan → Review → Batch Planner → Publishing Calendar → Export Package → Manual Analytics
 ```
 
 ---
@@ -17,21 +17,22 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 - FastAPI backend
 - SQLite database
 - REST API for React frontend
-- Legacy Jinja UI kept as a backup
-- AI provider fallback system
+- Legacy Jinja UI kept as backup
+- AI provider fallback system:
   - Template provider: always works
   - Transformers provider: optional local open-source model
   - Ollama provider: optional later on desktop
-- TTS/audio fallback system
-  - Windows SAPI provider: optional, useful on Windows
+- TTS/audio fallback system:
+  - Windows SAPI provider: optional on Windows
   - pyttsx3 provider: optional, disabled by default
   - Manual recording provider: always works
+- CapCut/manual assembly plan generator
 - Teacher Trust Score
 - Human review/edit API
 - Manual analytics API
-- ZIP export package
 - Content batch planner API
 - Publishing calendar API
+- ZIP export package
 
 ### Frontend
 
@@ -43,6 +44,7 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 - Publishing calendar screen
 - Package detail/review screen
 - Narration audio generation section
+- CapCut/manual assembly plan section
 - Manual analytics entry
 - AI fallback status page
 - Audio fallback status page
@@ -52,7 +54,7 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 ### Git
 
 - Production-safe `.gitignore`
-- Ignores `.env`, local databases, generated exports/media, virtualenvs, cache files, and `node_modules`
+- Ignores `.env`, local databases, generated exports/media, virtualenvs, cache files, `node_modules`, and `dist`
 - Keeps storage folders using `.gitkeep`
 
 ---
@@ -60,12 +62,13 @@ Concept input → Script → Storyboard → Subtitles → Narration Audio/Guide 
 ## Folder structure
 
 ```text
-edu-content-platform-mvp-v5/
+edu-content-platform-mvp-v6/
 ├── app/                    # FastAPI backend
 │   ├── core/
 │   ├── db/
 │   ├── routes/
 │   ├── services/
+│   │   ├── assembly_service.py
 │   │   ├── audio_service.py
 │   │   ├── content_generator.py
 │   │   ├── export_service.py
@@ -213,6 +216,10 @@ POST   /api/content/{id}/audio
 GET    /api/content/{id}/audio
 GET    /content/{id}/audio/{asset_id}/download
 
+POST   /api/content/{id}/assembly
+GET    /api/content/{id}/assembly
+GET    /content/{id}/assembly/{plan_id}/download
+
 GET    /api/batches
 POST   /api/batches
 GET    /api/batches/{id}
@@ -238,72 +245,91 @@ GET    /content/{id}/export
 4. Go to **Create package**.
 5. Generate a Short package and assign it to that batch.
 6. Open the package detail page.
-7. Click **Generate narration**.
-8. If audio is generated, download/play it. If not, download the manual recording guide.
-9. Review/edit the script.
-10. Go to **Calendar** and schedule the package for YouTube Shorts.
-11. Export the ZIP package.
-12. Assemble/publish manually, then enter analytics weekly.
+7. Review/edit the script.
+8. Click **Generate narration**.
+9. Click **Generate assembly plan**.
+10. Download the assembly plan or export the full ZIP.
+11. Use `capcut_assembly_plan.md` while editing in CapCut.
+12. Publish manually.
+13. Add weekly analytics in the package detail page.
 
 ---
 
-## First test input
+## Export ZIP contents
+
+The ZIP can include:
 
 ```text
-Board/Source: NCERT / Self-written
-Class/Level: Class 7
-Subject: Science
-Topic/Concept: Why are leaves green?
-Audience: School students
-Language: English
-Duration: 60
-Output Type: Short
-Tone: Curious
-Source Name: Self-written concept notes
-Source License Type: Self-written / Original
-Source Notes: Leaves contain chlorophyll. Chlorophyll absorbs sunlight and helps plants make food through photosynthesis. Chlorophyll reflects green light, so leaves look green.
-Transformation Notes: Converted source facts into a simple original explanation with analogy, visual scenes, and a student challenge.
-```
-
----
-
-## Git push steps
-
-```bash
-git init
-git add .
-git status
-git commit -m "Add Edu Content Platform MVP with React and audio fallback"
-git branch -M main
-git remote add origin YOUR_GITHUB_REPO_URL
-git push -u origin main
-```
-
-Before pushing, confirm `.env`, `.venv`, `node_modules`, `storage/app.db`, and generated media are not staged:
-
-```bash
-git status
+content_package.md
+script.txt
+storyboard.md
+visual_prompts.md
+subtitles.srt
+audio_assets.json
+recording guide or generated WAV
+capcut_assembly_plan.md
+assembly_plan.json
+assembly_plans.json
+package.json
 ```
 
 ---
 
 ## Tests
 
-Run backend tests:
+Backend tests:
 
 ```bash
-PYTHONPATH=. pytest -q
+python -m pytest -q
 ```
 
-On Windows PowerShell:
+Frontend build:
 
-```powershell
-$env:PYTHONPATH="."
-pytest -q
+```bash
+npm run frontend:build
 ```
 
-Expected result:
+Verified for this version:
 
 ```text
-6 passed
+Backend tests: 7 passed
+Frontend production build: passed
 ```
+
+---
+
+## Git push
+
+```bash
+git add .
+git status
+git commit -m "Add CapCut assembly planning workflow"
+git push
+```
+
+Before pushing, make sure these are not staged:
+
+```text
+.env
+.venv/
+frontend/node_modules/
+frontend/dist/
+storage/app.db
+storage/exports/
+storage/audio/
+storage/final/
+```
+
+---
+
+## Next recommended build
+
+Build a **simple vertical MP4 draft generator** next.
+
+Do not build complex animation yet. First generate a rough 9:16 draft with:
+
+```text
+scene cards + subtitles + narration audio if available
+```
+
+If no audio exists, export a silent timed draft that can still be improved in CapCut.

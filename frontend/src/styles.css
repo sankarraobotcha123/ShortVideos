@@ -625,3 +625,24 @@ pre {
     max-width: 100%;
   }
 }
+
+.assembly-list {
+  display: grid;
+  gap: 12px;
+}
+
+.assembly-entry {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  background: var(--panel-soft);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.assembly-entry p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}

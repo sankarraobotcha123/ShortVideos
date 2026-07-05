@@ -112,6 +112,16 @@ export function generateAudio(id) {
   })
 }
 
+export function generateAssembly(id) {
+  return request(`/api/content/${id}/assembly`, {
+    method: 'POST'
+  })
+}
+
+export function assemblyDownloadUrl(packageId, planId) {
+  return `${API_BASE_URL}/content/${packageId}/assembly/${planId}/download`
+}
+
 export function fetchAudioSettings() {
   return request('/api/settings/audio')
 }

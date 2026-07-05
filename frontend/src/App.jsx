@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   addAnalytics,
   audioDownloadUrl,
+  assemblyDownloadUrl,
   assignPackageBatch,
   createBatch,
   createCalendarEntry,
@@ -14,6 +15,7 @@ import {
   fetchCalendar,
   fetchPackage,
   fetchPackages,
+  generateAssembly,
   generateAudio,
   generateContent,
   updateBatch,
@@ -631,6 +633,7 @@ function PackageDetail({ id }) {
   const [reviewerNotes, setReviewerNotes] = useState('')
   const [selectedBatchId, setSelectedBatchId] = useState('')
   const [audioGenerating, setAudioGenerating] = useState(false)
+  const [assemblyGenerating, setAssemblyGenerating] = useState(false)
   const [analytics, setAnalytics] = useState({
     platform: 'YouTube Shorts',
     entry_date: today(),
@@ -703,6 +706,24 @@ function PackageDetail({ id }) {
       setError(err.message)
     } finally {
       setAudioGenerating(false)
+    }
+  }
+
+  async function createAssemblyPlan() {
+    setMessage('')
+    setError('')
+    setAssemblyGenerating(true)
+    try {
+      const result = await generateAssembly(id)
+      setData((current) => ({
+        ...current,
+        assembly_plans: [result.assembly_plan, ...(current.assembly_plans || [])]
+      }))
+      setMessage('CapCut/manual assembly plan generated.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setAssemblyGenerating(false)
     }
   }
 
@@ -829,6 +850,39 @@ function PackageDetail({ id }) {
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      <div className="card stack">
+        <div className="card-header">
+          <div>
+            <h2>CapCut / manual assembly plan</h2>
+            <p className="muted">Generate a scene-by-scene editing timeline for CapCut before full automatic video assembly is ready.</p>
+          </div>
+          <button onClick={createAssemblyPlan} disabled={assemblyGenerating}>
+            {assemblyGenerating ? 'Generating...' : 'Generate assembly plan'}
+          </button>
+        </div>
+        {!data.assembly_plans || data.assembly_plans.length === 0 ? (
+          <p className="muted">No assembly plan yet. Generate one after reviewing the script and narration status.</p>
+        ) : (
+          <div className="assembly-list">
+            {data.assembly_plans.map((plan, index) => (
+              <div className="assembly-entry" key={plan.id}>
+                <div>
+                  <strong>Plan #{plan.id}</strong>
+                  <p>{plan.scene_count} scenes • {plan.estimated_duration_seconds}s • {plan.assembly_mode}</p>
+                  {index === 0 && <p className="muted">Latest plan is included in the export ZIP as capcut_assembly_plan.md.</p>}
+                </div>
+                <div className="row-meta">
+                  <a className="button-link small" href={assemblyDownloadUrl(id, plan.id)}>Download plan</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {data.assembly_plans && data.assembly_plans.length > 0 && (
+          <TextCard title="Latest CapCut assembly plan" value={data.assembly_plans[0].plan_markdown} />
         )}
       </div>
 

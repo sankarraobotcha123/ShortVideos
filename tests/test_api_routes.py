@@ -147,3 +147,54 @@ def test_audio_manual_fallback_workflow(tmp_path):
     download = client.get(f"/content/{package_id}/audio/{asset['id']}/download")
     assert download.status_code == 200
     assert b"Narration Recording Guide" in download.content
+
+
+def test_assembly_plan_workflow_and_export(tmp_path):
+    settings.database_path = tmp_path / "assembly-test.db"
+    settings.export_dir = tmp_path / "exports"
+    settings.audio_dir = tmp_path / "audio"
+    settings.tts_provider_chain = ["manual_recording"]
+    settings.use_windows_sapi = False
+    settings.use_pyttsx3 = False
+    init_db()
+
+    client = TestClient(app)
+    payload = {
+        "board_source": "Self-written",
+        "class_level": "Class 7",
+        "subject": "Science",
+        "topic": "Why are leaves green?",
+        "audience": "School students",
+        "language": "English",
+        "duration_seconds": 60,
+        "output_type": "Short",
+        "tone": "Curious",
+        "source_notes": "Leaves contain chlorophyll. Chlorophyll reflects green light.",
+        "source_name": "Self notes",
+        "source_license_type": "Original",
+        "transformation_notes": "Original analogy added.",
+    }
+    created = client.post("/api/content/generate", json=payload)
+    assert created.status_code == 201
+    package_id = created.json()["package"]["id"]
+
+    audio = client.post(f"/api/content/{package_id}/audio")
+    assert audio.status_code == 201
+
+    assembly = client.post(f"/api/content/{package_id}/assembly")
+    assert assembly.status_code == 201
+    plan = assembly.json()["assembly_plan"]
+    assert plan["scene_count"] == 5
+    assert "CapCut / Manual Assembly Plan" in plan["plan_markdown"]
+
+    detail = client.get(f"/api/content/{package_id}")
+    assert detail.status_code == 200
+    assert len(detail.json()["assembly_plans"]) == 1
+
+    download = client.get(f"/content/{package_id}/assembly/{plan['id']}/download")
+    assert download.status_code == 200
+    assert b"Scene timeline" in download.content
+
+    exported = client.get(f"/content/{package_id}/export")
+    assert exported.status_code == 200
+    assert exported.headers["content-type"] == "application/zip"
