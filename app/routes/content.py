@@ -21,6 +21,13 @@ from app.services.source_safety_service import generate_source_safety_review
 from app.services.trust_score_service import build_trust_review, rebuild_trust_review_from_manual_scores
 from app.services.learning_output_service import generate_learning_output
 from app.services.asset_library_service import save_uploaded_asset, normalize_tags, rank_assets_for_scene
+from app.services.prompt_template_service import (
+    apply_script_prompt_template,
+    build_prompt_preview,
+    get_prompt_template,
+    list_prompt_templates,
+    seed_default_prompt_templates,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -142,8 +149,9 @@ def _insert_generated_package(inp: ContentInput, generated: dict[str, Any], batc
                 page_or_section_reference, copied_text_used, transformation_notes,
                 hook, script_text, storyboard_markdown, subtitle_srt, visual_prompts_markdown,
                 title_options, description, hashtags, quiz_question, trust_score,
-                provider_used, generation_mode, provider_chain, provider_notes, provider_attempts
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                provider_used, generation_mode, provider_chain, provider_notes, provider_attempts,
+                prompt_template_id, prompt_template_name, prompt_template_style, prompt_template_snapshot
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 inp.board_source,
@@ -176,6 +184,10 @@ def _insert_generated_package(inp: ContentInput, generated: dict[str, Any], batc
                 generated.get("provider_chain", "template"),
                 generated.get("provider_notes", ""),
                 generated.get("provider_attempts", "[]"),
+                generated.get("prompt_template_id"),
+                generated.get("prompt_template_name", ""),
+                generated.get("prompt_template_style", ""),
+                generated.get("prompt_template_snapshot", ""),
             ),
         )
         package_id = int(cursor.lastrowid)
@@ -398,9 +410,10 @@ class ContentGenerateRequest(BaseModel):
     copied_text_used: bool = False
     transformation_notes: str = ""
     batch_id: int | None = None
+    prompt_template_id: int | None = None
 
     def to_content_input(self) -> ContentInput:
-        data = self.model_dump(exclude={"batch_id"})
+        data = self.model_dump(exclude={"batch_id", "prompt_template_id"})
         return ContentInput(**data)
 
 
@@ -481,6 +494,130 @@ class CalendarUpdateRequest(BaseModel):
     notes: str = ""
 
 
+
+class PromptTemplateCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1)
+    task_type: str = "script"
+    style_key: str = "custom"
+    template_text: str = Field(..., min_length=10)
+    active: bool = True
+    notes: str = ""
+
+
+class PromptTemplateUpdateRequest(BaseModel):
+    name: str = Field(..., min_length=1)
+    task_type: str = "script"
+    style_key: str = "custom"
+    template_text: str = Field(..., min_length=10)
+    active: bool = True
+    notes: str = ""
+
+
+class PromptPreviewRequest(BaseModel):
+    board_source: str = "NCERT / Self-written"
+    class_level: str = "Class 7"
+    subject: str = "Science"
+    topic: str = "Why are leaves green?"
+    audience: str = "School students"
+    language: str = "English"
+    duration_seconds: int = 60
+    output_type: str = "Short"
+    tone: str = "Curious"
+    source_notes: str = "Leaves contain chlorophyll. Chlorophyll reflects green light and helps plants make food."
+    source_name: str = "Self-written concept notes"
+    source_license_type: str = "Self-written / Original"
+    page_or_section_reference: str = ""
+    copied_text_used: bool = False
+    transformation_notes: str = "Preview only."
+
+    def to_content_input(self) -> ContentInput:
+        return ContentInput(**self.model_dump())
+
+
+@router.get("/api/prompt-templates")
+def api_prompt_templates(task_type: str | None = None) -> dict[str, Any]:
+    with db_session() as conn:
+        templates = list_prompt_templates(conn, task_type)
+    return {"prompt_templates": templates}
+
+
+@router.post("/api/prompt-templates/seed", status_code=201)
+def api_seed_prompt_templates() -> dict[str, Any]:
+    with db_session() as conn:
+        created = seed_default_prompt_templates(conn)
+        templates = list_prompt_templates(conn)
+    return {"created": created, "prompt_templates": templates}
+
+
+@router.post("/api/prompt-templates", status_code=201)
+def api_create_prompt_template(payload: PromptTemplateCreateRequest) -> dict[str, Any]:
+    with db_session() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO prompt_templates (name, task_type, style_key, template_text, active, notes)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload.name.strip(),
+                payload.task_type.strip() or "script",
+                payload.style_key.strip() or "custom",
+                payload.template_text.strip(),
+                int(payload.active),
+                payload.notes.strip(),
+            ),
+        )
+        template_id = int(cursor.lastrowid)
+        template = get_prompt_template(conn, template_id)
+    return {"prompt_template": template}
+
+
+@router.patch("/api/prompt-templates/{template_id}")
+def api_update_prompt_template(template_id: int, payload: PromptTemplateUpdateRequest) -> dict[str, Any]:
+    with db_session() as conn:
+        existing = get_prompt_template(conn, template_id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Prompt template not found")
+        conn.execute(
+            """
+            UPDATE prompt_templates
+            SET name = ?, task_type = ?, style_key = ?, template_text = ?, active = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (
+                payload.name.strip(),
+                payload.task_type.strip() or "script",
+                payload.style_key.strip() or "custom",
+                payload.template_text.strip(),
+                int(payload.active),
+                payload.notes.strip(),
+                template_id,
+            ),
+        )
+        template = get_prompt_template(conn, template_id)
+    return {"prompt_template": template}
+
+
+@router.delete("/api/prompt-templates/{template_id}")
+def api_delete_prompt_template(template_id: int) -> dict[str, Any]:
+    with db_session() as conn:
+        existing = get_prompt_template(conn, template_id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Prompt template not found")
+        conn.execute("DELETE FROM prompt_templates WHERE id = ?", (template_id,))
+    return {"deleted": True, "template_id": template_id}
+
+
+@router.post("/api/prompt-templates/{template_id}/preview")
+def api_preview_prompt_template(template_id: int, payload: PromptPreviewRequest) -> dict[str, Any]:
+    inp = payload.to_content_input()
+    base_package = generate_content_package_with_fallbacks(inp)
+    with db_session() as conn:
+        template = get_prompt_template(conn, template_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail="Prompt template not found")
+    return {"preview": build_prompt_preview(inp, base_package, template)}
+
+
 @router.get("/api/packages")
 def api_packages() -> dict[str, Any]:
     with db_session() as conn:
@@ -501,6 +638,11 @@ def api_packages() -> dict[str, Any]:
 def api_generate_content(payload: ContentGenerateRequest) -> dict[str, Any]:
     inp = payload.to_content_input()
     generated = generate_content_package_with_fallbacks(inp)
+    with db_session() as conn:
+        template = get_prompt_template(conn, payload.prompt_template_id) if payload.prompt_template_id else None
+        if payload.prompt_template_id and template is None:
+            raise HTTPException(status_code=404, detail="Prompt template not found")
+    generated = apply_script_prompt_template(inp, generated, template)
     package_id = _insert_generated_package(inp, generated, payload.batch_id)
     with db_session() as conn:
         row = conn.execute("SELECT * FROM content_packages WHERE id = ?", (package_id,)).fetchone()

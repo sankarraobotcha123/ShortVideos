@@ -201,6 +201,12 @@ def export_package(
 - Provider Chain: {row.get('provider_chain', 'template')}
 - Provider Notes: {row.get('provider_notes', '')}
 
+## Prompt Template
+
+- Template ID: {row.get('prompt_template_id') or ''}
+- Template Name: {row.get('prompt_template_name') or ''}
+- Template Style: {row.get('prompt_template_style') or ''}
+
 ## Source Safety
 
 - Source Name: {row['source_name'] or ''}
@@ -215,6 +221,8 @@ def export_package(
     (package_dir / "script.txt").write_text(row["script_text"], encoding="utf-8")
     (package_dir / "storyboard.md").write_text(row["storyboard_markdown"], encoding="utf-8")
     (package_dir / "visual_prompts.md").write_text(row["visual_prompts_markdown"], encoding="utf-8")
+    if row.get("prompt_template_snapshot"):
+        (package_dir / "prompt_template_snapshot.txt").write_text(str(row.get("prompt_template_snapshot") or ""), encoding="utf-8")
 
     visual_asset_manifest = []
     asset_files_dir = package_dir / "visual_assets"

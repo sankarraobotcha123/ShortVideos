@@ -29,6 +29,12 @@ import {
   sourceSafetyDownloadUrl,
   trustReviewDownloadUrl,
   learningOutputDownloadUrl,
+  createPromptTemplate,
+  deletePromptTemplate,
+  fetchPromptTemplates,
+  previewPromptTemplate,
+  seedPromptTemplates,
+  updatePromptTemplate,
   updateBatch,
   uploadVisualAsset,
   updateCalendarEntry,
@@ -49,6 +55,7 @@ const initialForm = {
   output_type: 'Short',
   tone: 'Curious',
   batch_id: '',
+  prompt_template_id: '',
   source_name: 'Self-written concept notes',
   source_license_type: 'Self-written / Original',
   page_or_section_reference: '',
@@ -127,6 +134,7 @@ function App() {
           <a className={route.name === 'batches' || route.name === 'batch' ? 'active' : ''} href="#/batches">Batches</a>
           <a className={route.name === 'calendar' ? 'active' : ''} href="#/calendar">Calendar</a>
           <a className={route.name === 'assets' ? 'active' : ''} href="#/assets">Visual assets</a>
+          <a className={route.name === 'templates' ? 'active' : ''} href="#/templates">Prompt templates</a>
           <a className={route.name === 'settings' ? 'active' : ''} href="#/settings/ai">AI fallback status</a>
           <a className={route.name === 'audioSettings' ? 'active' : ''} href="#/settings/audio">Audio fallback status</a>
           <a href="http://127.0.0.1:8000" target="_blank" rel="noreferrer">Legacy Jinja UI</a>
@@ -145,6 +153,7 @@ function App() {
         {route.name === 'batch' && <BatchDetail id={route.id} />}
         {route.name === 'calendar' && <CalendarPage />}
         {route.name === 'assets' && <VisualAssetsPage />}
+        {route.name === 'templates' && <PromptTemplatesPage />}
         {route.name === 'settings' && <AiSettings />}
         {route.name === 'audioSettings' && <AudioSettings />}
       </main>
@@ -162,6 +171,7 @@ function parseRoute(hash) {
   if (parts[0] === 'batches') return { name: 'batches' }
   if (parts[0] === 'calendar') return { name: 'calendar' }
   if (parts[0] === 'assets') return { name: 'assets' }
+  if (parts[0] === 'templates') return { name: 'templates' }
   if (parts[0] === 'settings' && parts[1] === 'ai') return { name: 'settings' }
   if (parts[0] === 'settings' && parts[1] === 'audio') return { name: 'audioSettings' }
   return { name: 'dashboard' }
@@ -198,6 +208,7 @@ function Dashboard() {
         <button onClick={() => navigate('#/batches')}>Plan a 20-Short batch</button>
         <button className="secondary" onClick={() => navigate('#/calendar')}>Open publishing calendar</button>
         <button className="secondary" onClick={() => navigate('#/assets')}>Upload visual assets</button>
+        <button className="secondary" onClick={() => navigate('#/templates')}>Manage prompt templates</button>
         <button className="secondary" onClick={() => navigate('#/settings/ai')}>Check AI fallback</button>
       </div>
 
@@ -233,11 +244,13 @@ function Dashboard() {
 function CreatePackage() {
   const [form, setForm] = useState(initialForm)
   const [batches, setBatches] = useState([])
+  const [promptTemplates, setPromptTemplates] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     fetchBatches().then((result) => setBatches(result.batches || [])).catch(() => setBatches([]))
+    fetchPromptTemplates('script').then((result) => setPromptTemplates(result.prompt_templates || [])).catch(() => setPromptTemplates([]))
   }, [])
 
   function update(name, value) {
@@ -256,6 +269,8 @@ function CreatePackage() {
       }
       if (form.batch_id) payload.batch_id = Number(form.batch_id)
       else delete payload.batch_id
+      if (form.prompt_template_id) payload.prompt_template_id = Number(form.prompt_template_id)
+      else delete payload.prompt_template_id
       const result = await generateContent(payload)
       navigate(`#/packages/${result.package.id}`)
     } catch (err) {
@@ -300,6 +315,12 @@ function CreatePackage() {
           value={form.batch_id}
           options={[{ value: '', label: 'No batch yet' }, ...batches.map((b) => ({ value: String(b.id), label: b.name }))]}
           onChange={(v) => update('batch_id', v)}
+        />
+        <Select
+          label="Prompt template"
+          value={form.prompt_template_id}
+          options={[{ value: '', label: 'Use tone default' }, ...promptTemplates.filter((t) => t.active).map((t) => ({ value: String(t.id), label: `${t.name} (${t.style_key})` }))]}
+          onChange={(v) => update('prompt_template_id', v)}
         />
 
         <Input label="Source name" value={form.source_name} onChange={(v) => update('source_name', v)} />
@@ -780,6 +801,186 @@ function VisualAssetsPage() {
           </div>
         )}
       </div>
+    </section>
+  )
+}
+
+
+function PromptTemplatesPage() {
+  const [templates, setTemplates] = useState([])
+  const [form, setForm] = useState(initialPromptTemplate)
+  const [editingId, setEditingId] = useState(null)
+  const [preview, setPreview] = useState(null)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  function load() {
+    setLoading(true)
+    fetchPromptTemplates()
+      .then((result) => {
+        setTemplates(result.prompt_templates || [])
+        setError('')
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(load, [])
+
+  function update(name, value) {
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  function edit(template) {
+    setEditingId(template.id)
+    setPreview(null)
+    setForm({
+      name: template.name,
+      task_type: template.task_type,
+      style_key: template.style_key,
+      active: Boolean(template.active),
+      notes: template.notes || '',
+      template_text: template.template_text || ''
+    })
+  }
+
+  function reset() {
+    setEditingId(null)
+    setPreview(null)
+    setForm(initialPromptTemplate)
+  }
+
+  async function save(event) {
+    event.preventDefault()
+    setMessage('')
+    setError('')
+    try {
+      const payload = {
+        ...form,
+        active: Boolean(form.active)
+      }
+      const result = editingId
+        ? await updatePromptTemplate(editingId, payload)
+        : await createPromptTemplate(payload)
+      setTemplates((current) => {
+        if (editingId) return current.map((item) => item.id === result.prompt_template.id ? result.prompt_template : item)
+        return [result.prompt_template, ...current]
+      })
+      setMessage(editingId ? 'Prompt template updated.' : 'Prompt template created.')
+      reset()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function remove(templateId) {
+    setMessage('')
+    setError('')
+    try {
+      await deletePromptTemplate(templateId)
+      setTemplates((current) => current.filter((item) => item.id !== templateId))
+      if (editingId === templateId) reset()
+      setMessage('Prompt template deleted.')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function seedDefaults() {
+    setMessage('')
+    setError('')
+    try {
+      const result = await seedPromptTemplates()
+      setTemplates(result.prompt_templates || [])
+      setMessage(result.created ? `Seeded ${result.created} default templates.` : 'Default templates already exist.')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function previewTemplate(template) {
+    setMessage('')
+    setError('')
+    try {
+      const payload = {
+        ...initialForm,
+        duration_seconds: Number(initialForm.duration_seconds),
+        copied_text_used: Boolean(initialForm.copied_text_used)
+      }
+      delete payload.batch_id
+      delete payload.prompt_template_id
+      const result = await previewPromptTemplate(template.id, payload)
+      setPreview(result.preview)
+      setMessage(`Preview generated for ${template.name}.`)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  return (
+    <section>
+      <Header
+        title="Prompt template manager"
+        subtitle="Create reusable hook/script styles so every Short does not sound the same. Templates are selected when generating a package."
+        action={<button onClick={seedDefaults}>Seed default templates</button>}
+      />
+      {message && <div className="success-banner">{message}</div>}
+      {error && <div className="form-error">{error}</div>}
+
+      <div className="detail-grid">
+        <form className="card stack" onSubmit={save}>
+          <h2>{editingId ? 'Edit prompt template' : 'Create prompt template'}</h2>
+          <Input label="Name" value={form.name} onChange={(v) => update('name', v)} />
+          <Input label="Task type" value={form.task_type} onChange={(v) => update('task_type', v)} />
+          <Input label="Style key" value={form.style_key} onChange={(v) => update('style_key', v)} />
+          <Select label="Active" value={form.active ? 'true' : 'false'} options={[{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }]} onChange={(v) => update('active', v === 'true')} />
+          <TextArea label="Template text" value={form.template_text} onChange={(v) => update('template_text', v)} rows={12} />
+          <TextArea label="Notes" value={form.notes} onChange={(v) => update('notes', v)} rows={3} />
+          <div className="button-row">
+            <button type="submit">{editingId ? 'Save template' : 'Create template'}</button>
+            {editingId && <button type="button" className="secondary" onClick={reset}>Cancel edit</button>}
+          </div>
+        </form>
+
+        <div className="card stack">
+          <h2>Available placeholders</h2>
+          <p className="muted">Use these inside template text. Unknown placeholders stay unchanged instead of breaking generation.</p>
+          <div className="pill-list">
+            {['{hook}', '{topic}', '{topic_lower}', '{top_fact}', '{simple_meaning}', '{analogy}', '{memory_line}', '{class_level}', '{subject}', '{audience}', '{duration_seconds}', '{source_notes}', '{hashtags}'].map((item) => <span key={item}>{item}</span>)}
+          </div>
+          <p className="muted">Recommended: create 5-10 templates only. Too many templates make the workflow confusing.</p>
+        </div>
+      </div>
+
+      <div className="card stack">
+        <div className="card-header"><h2>Templates</h2><span>{templates.length} items</span></div>
+        {loading ? <Loading /> : templates.length === 0 ? (
+          <p className="muted">No templates yet. Click Seed default templates.</p>
+        ) : (
+          <div className="template-list">
+            {templates.map((template) => (
+              <div className="template-entry" key={template.id}>
+                <div>
+                  <h3>{template.name}</h3>
+                  <p>{template.task_type} • {template.style_key} • {template.active ? 'active' : 'inactive'}</p>
+                  {template.notes && <p className="muted">{template.notes}</p>}
+                </div>
+                <div className="row-meta">
+                  <StatusBadge status={template.active ? 'active' : 'inactive'} />
+                  <button className="secondary small" onClick={() => previewTemplate(template)}>Preview</button>
+                  <button className="secondary small" onClick={() => edit(template)}>Edit</button>
+                  <button className="danger small" onClick={() => remove(template.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {preview && (
+        <TextCard title={`Preview: ${preview.template_name}`} value={preview.rendered_text} />
+      )}
     </section>
   )
 }
@@ -1265,6 +1466,7 @@ function PackageDetail({ id }) {
         <div className="card stack">
           <h2>AI provider attempts</h2>
           <p className="muted">The app works without Ollama because the template provider is always available.</p>
+          {pkg.prompt_template_name && <InfoBlock title="Prompt template used" value={`${pkg.prompt_template_name} • ${pkg.prompt_template_style || 'style not set'}`} />}
           <div className="attempt-list">
             {pkg.provider_attempts_list.length === 0 ? <span className="muted">No provider attempts recorded.</span> : pkg.provider_attempts_list.map((attempt, index) => (
               <div className="attempt" key={`${attempt.provider}-${index}`}>

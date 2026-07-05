@@ -226,3 +226,41 @@ export function generateLearningOutput(id) {
 export function learningOutputDownloadUrl(packageId, outputId) {
   return `${API_BASE_URL}/content/${packageId}/learning-output/${outputId}/download`
 }
+
+export function fetchPromptTemplates(taskType = '') {
+  const suffix = taskType ? `?task_type=${encodeURIComponent(taskType)}` : ''
+  return request(`/api/prompt-templates${suffix}`)
+}
+
+export function seedPromptTemplates() {
+  return request('/api/prompt-templates/seed', {
+    method: 'POST'
+  })
+}
+
+export function createPromptTemplate(payload) {
+  return request('/api/prompt-templates', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updatePromptTemplate(id, payload) {
+  return request(`/api/prompt-templates/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function deletePromptTemplate(id) {
+  return request(`/api/prompt-templates/${id}`, {
+    method: 'DELETE'
+  })
+}
+
+export function previewPromptTemplate(id, payload) {
+  return request(`/api/prompt-templates/${id}/preview`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}

@@ -58,6 +58,10 @@ CREATE TABLE IF NOT EXISTS content_packages (
     provider_chain TEXT NOT NULL DEFAULT 'template',
     provider_notes TEXT DEFAULT '',
     provider_attempts TEXT DEFAULT '[]',
+    prompt_template_id INTEGER,
+    prompt_template_name TEXT DEFAULT '',
+    prompt_template_style TEXT DEFAULT '',
+    prompt_template_snapshot TEXT DEFAULT '',
     review_status TEXT NOT NULL DEFAULT 'draft',
     reviewer_notes TEXT DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -225,6 +229,19 @@ CREATE TABLE IF NOT EXISTS learning_outputs (
     provider_notes TEXT DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(package_id) REFERENCES content_packages(id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS prompt_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    task_type TEXT NOT NULL DEFAULT 'script',
+    style_key TEXT NOT NULL DEFAULT '',
+    template_text TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS manual_analytics (
@@ -510,6 +527,27 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
         """
     )
 
+
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS prompt_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            task_type TEXT NOT NULL DEFAULT 'script',
+            style_key TEXT NOT NULL DEFAULT '',
+            template_text TEXT NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    from app.services.prompt_template_service import seed_default_prompt_templates
+    seed_default_prompt_templates(conn)
+
     additions = {
         "batch_id": "ALTER TABLE content_packages ADD COLUMN batch_id INTEGER REFERENCES content_batches(id) ON DELETE SET NULL",
         "provider_used": "ALTER TABLE content_packages ADD COLUMN provider_used TEXT NOT NULL DEFAULT 'template'",
@@ -517,6 +555,10 @@ def _apply_lightweight_migrations(conn: sqlite3.Connection) -> None:
         "provider_chain": "ALTER TABLE content_packages ADD COLUMN provider_chain TEXT NOT NULL DEFAULT 'template'",
         "provider_notes": "ALTER TABLE content_packages ADD COLUMN provider_notes TEXT DEFAULT ''",
         "provider_attempts": "ALTER TABLE content_packages ADD COLUMN provider_attempts TEXT DEFAULT '[]'",
+        "prompt_template_id": "ALTER TABLE content_packages ADD COLUMN prompt_template_id INTEGER",
+        "prompt_template_name": "ALTER TABLE content_packages ADD COLUMN prompt_template_name TEXT DEFAULT ''",
+        "prompt_template_style": "ALTER TABLE content_packages ADD COLUMN prompt_template_style TEXT DEFAULT ''",
+        "prompt_template_snapshot": "ALTER TABLE content_packages ADD COLUMN prompt_template_snapshot TEXT DEFAULT ''",
     }
     for column, sql in additions.items():
         _add_column_if_missing(conn, "content_packages", column, sql)
